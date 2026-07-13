@@ -11,14 +11,14 @@ export const site = {
   brandIdea: "Every great brand starts with a Blanc Script. Let's build yours.",
   description:
     "Blanc Script is a strategy-led creative agency in Birmingham building cinematic content, social media and brand campaigns that earn attention and drive growth.",
-  url: "https://www.blancscript.com", // ── PLACEHOLDER domain
+  url: "https://blancscript.com",
   locale: "en_GB",
 
-  // ── Contact — PLACEHOLDERS ─────────────────────────────
+  // ── Contact ────────────────────────────────────────────
   contact: {
-    email: "hello@blancscript.com", // ── PLACEHOLDER
-    phone: "+44 (0)121 000 0000", // ── PLACEHOLDER
-    phoneHref: "tel:+441210000000", // ── PLACEHOLDER
+    email: "hello@blancscript.com", // ── PLACEHOLDER (confirm your inbox)
+    phone: "+44 7939 138551",
+    phoneHref: "tel:+447939138551",
     // Discovery call link — swap for your Calendly / SavvyCal / cal.com URL
     bookingUrl: "/contact", // ── PLACEHOLDER (e.g. https://calendly.com/blancscript)
   },
