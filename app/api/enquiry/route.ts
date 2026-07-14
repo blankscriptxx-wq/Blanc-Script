@@ -1,18 +1,25 @@
 import { NextResponse } from "next/server";
 
 /**
- * Enquiry endpoint.
+ * Enquiry endpoint → emails each submission to the studio inbox.
  *
- * Delivery priority:
- *   1. HubSpot  — if HUBSPOT_PORTAL_ID + HUBSPOT_FORM_GUID are set, the enquiry
- *      is submitted to your HubSpot form (creates/updates a CRM contact).
- *   2. Webhook  — else if ENQUIRY_WEBHOOK_URL is set, the raw payload is POSTed
- *      there (Zapier / Make / GoHighLevel / any inbound webhook).
- *   3. Log only — else it's logged server-side so nothing is silently lost.
+ * Delivery uses Web3Forms (https://web3forms.com) — free, unlimited, no signup
+ * beyond a free access key that's tied to your destination email.
  *
- * HubSpot setup (free CRM): see README → "Connecting the enquiry form to HubSpot".
- * Both HubSpot IDs are safe to expose (they're not secrets).
+ * ── SETUP ──────────────────────────────────────────────────────────────
+ * 1. Go to web3forms.com, enter hello@blancscript.com, and they email you an
+ *    "Access Key" (a UUID).
+ * 2. Put it in WEB3FORMS_ACCESS_KEY (Vercel env var and/or .env.local), OR
+ *    paste it into ACCESS_KEY below.
+ * The key isn't a secret — it only lets a form email that one fixed address.
+ *
+ * Until a key is set, submissions are logged (and the form still shows success)
+ * so nothing breaks during setup — but no email is sent, so add the key before
+ * promoting the site.
  */
+
+// Optionally hardcode the key here instead of using an env var:
+const ACCESS_KEY = process.env.WEB3FORMS_ACCESS_KEY || "";
 
 type Payload = Record<string, unknown>;
 
@@ -20,60 +27,41 @@ function str(v: unknown): string {
   return typeof v === "string" ? v.trim() : v == null ? "" : String(v);
 }
 
-/** Build a readable summary of the "extra" fields for the HubSpot message property. */
-function buildMessage(data: Payload): string {
+async function sendEmail(data: Payload): Promise<void> {
   const services = Array.isArray(data.services)
     ? (data.services as string[]).join(", ")
     : str(data.services);
 
-  const lines = [
-    str(data.details),
-    "",
-    `Industry: ${str(data.industry) || "—"}`,
-    `Services: ${services || "—"}`,
-    `Budget: ${str(data.budget) || "—"}`,
-    `Preferred start: ${str(data.startDate) || "—"}`,
-    `Social links: ${str(data.socials) || "—"}`,
-    `Heard about us via: ${str(data.referral) || "—"}`,
-  ];
-  return lines.join("\n");
-}
+  const name = str(data.name);
+  const business = str(data.business);
 
-async function sendToHubSpot(data: Payload): Promise<void> {
-  const portalId = process.env.HUBSPOT_PORTAL_ID;
-  const formGuid = process.env.HUBSPOT_FORM_GUID;
-  if (!portalId || !formGuid) throw new Error("HubSpot not configured");
+  const res = await fetch("https://api.web3forms.com/submit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({
+      access_key: ACCESS_KEY,
+      subject: `New enquiry — ${name}${business ? ` (${business})` : ""}`,
+      from_name: "Blanc Script Website",
+      replyto: str(data.email), // reply straight to the enquirer
+      // These become the body of the email:
+      Name: name,
+      Email: str(data.email),
+      Phone: str(data.phone),
+      Business: business,
+      Website: str(data.website),
+      Industry: str(data.industry),
+      "Services required": services,
+      "Estimated budget": str(data.budget),
+      "Preferred start": str(data.startDate),
+      "Social links": str(data.socials),
+      "Heard about us via": str(data.referral),
+      "Project details": str(data.details),
+    }),
+  });
 
-  const fullName = str(data.name);
-  const [firstname, ...rest] = fullName.split(" ");
-  const lastname = rest.join(" ");
-
-  // Field names must match the internal property names on your HubSpot form.
-  const fields = [
-    { name: "email", value: str(data.email) },
-    { name: "firstname", value: firstname },
-    { name: "lastname", value: lastname },
-    { name: "phone", value: str(data.phone) },
-    { name: "company", value: str(data.business) },
-    { name: "website", value: str(data.website) },
-    { name: "message", value: buildMessage(data) },
-  ].filter((f) => f.value); // HubSpot rejects empty required-less fields cleanly
-
-  const res = await fetch(
-    `https://api.hsforms.com/submissions/v3/integration/submit/${portalId}/${formGuid}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        fields,
-        context: { pageName: "Contact — Blanc Script" },
-      }),
-    }
-  );
-
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`HubSpot responded ${res.status}: ${body}`);
+  const json = (await res.json().catch(() => ({}))) as { success?: boolean; message?: string };
+  if (!res.ok || !json.success) {
+    throw new Error(`Web3Forms error ${res.status}: ${json.message ?? "unknown"}`);
   }
 }
 
@@ -96,19 +84,14 @@ export async function POST(request: Request) {
     );
   }
 
+  if (!ACCESS_KEY) {
+    // No destination configured yet — log so nothing is lost, still succeed.
+    console.info("New enquiry (WEB3FORMS_ACCESS_KEY not set):", { name, email });
+    return NextResponse.json({ ok: true });
+  }
+
   try {
-    if (process.env.HUBSPOT_PORTAL_ID && process.env.HUBSPOT_FORM_GUID) {
-      await sendToHubSpot(data);
-    } else if (process.env.ENQUIRY_WEBHOOK_URL) {
-      const res = await fetch(process.env.ENQUIRY_WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...data, submittedAt: new Date().toISOString() }),
-      });
-      if (!res.ok) throw new Error(`Webhook responded ${res.status}`);
-    } else {
-      console.info("New enquiry (no destination configured):", { name, email });
-    }
+    await sendEmail(data);
   } catch (err) {
     console.error("Enquiry delivery failed:", err);
     return NextResponse.json({ ok: false, error: "Delivery failed" }, { status: 502 });

@@ -129,36 +129,31 @@ For strict compliance, gate the analytics scripts behind the stored consent valu
 
 ---
 
-## Connecting the enquiry form to HubSpot (free CRM)
+## Enquiry form (emails to your inbox)
 
 The form (`components/forms/ContactForm.tsx`) posts to `app/api/enquiry/route.ts`,
-which sends each enquiry to HubSpot as a CRM contact once you set two env vars.
+which emails each enquiry to your inbox using **Web3Forms** — free, unlimited,
+reliable from serverless.
 
-**One-time HubSpot setup:**
+**Setup (one-time, ~1 min):**
 
-1. Create a free account at **hubspot.com** (Free CRM — no card needed).
-2. Go to **Marketing → Forms → Create form → Embedded form → Regular form.**
-3. Add these fields (all are default HubSpot contact properties):
-   **First name, Last name, Email, Phone number, Company name, Website URL, Message.**
-4. **Publish**, then open **Share → Embed code.** In that snippet you’ll see:
-   - `portalId: "XXXXXXX"`  → your **Portal ID**
-   - `formId: "xxxxxxxx-xxxx-…"`  → your **Form GUID**
-5. Add both to your environment (Vercel → Settings → Environment Variables, and/or
-   `.env.local`):
-   ```
-   HUBSPOT_PORTAL_ID=XXXXXXX
-   HUBSPOT_FORM_GUID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-   ```
-6. Redeploy. Done — new enquiries appear under **Contacts** in HubSpot, and the
-   full brief (industry, services, budget, start date, socials, referral) lands in
-   the contact’s **Message** field.
+1. Go to **web3forms.com**, enter **hello@blancscript.com**, and they email you
+   an **Access Key** (a UUID).
+2. Add it to your environment: Vercel → Settings → Environment Variables →
+   `WEB3FORMS_ACCESS_KEY = your-key`, and/or `.env.local`. (Or paste it into
+   `ACCESS_KEY` in `app/api/enquiry/route.ts`.)
+3. Redeploy. Enquiries now arrive at hello@blancscript.com, with **reply-to** set
+   to the enquirer so you can reply directly.
 
-Neither ID is a secret. The form’s extra fields are combined into the Message
-property, so you don’t need to create any custom properties in HubSpot.
+Until the key is set, submissions are logged server-side and the form still
+shows its success state — so nothing is broken during setup, but **add the key
+before promoting the site** or enquiries won’t be delivered.
 
-**Prefer something else?** Leave the HubSpot vars blank and set
-`ENQUIRY_WEBHOOK_URL` instead — the route will POST the raw JSON to any webhook
-(Zapier / Make / GoHighLevel). Server-side validation stays in place regardless.
+- **Change destination address:** it’s the email tied to your Web3Forms key
+  (manage at web3forms.com), not a code change.
+- **Prefer another provider?** Swap the `sendEmail` function in
+  `app/api/enquiry/route.ts` for Resend / SendGrid / SMTP — validation and
+  responses stay the same.
 
 ---
 
