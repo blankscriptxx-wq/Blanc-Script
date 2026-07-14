@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, Quote } from "lucide-react";
 import type { Project } from "@/data/types";
 import { MediaPlaceholder } from "@/components/ui/MediaPlaceholder";
+import { YouTubeEmbed } from "@/components/ui/YouTubeEmbed";
 import { Reveal } from "@/components/ui/Reveal";
 import { Tag } from "@/components/ui/Tag";
 import { Button } from "@/components/ui/Button";
@@ -10,8 +11,8 @@ import { cta } from "@/data/navigation";
 
 /**
  * Reusable case study template. Drives every /portfolio/[slug] page from a
- * single Project object — add a project to data/projects.ts and its case study
- * page is generated automatically.
+ * single Project object. Sections render only when their data is present, so
+ * a short clip (video only) and a full case study both look intentional.
  */
 export function CaseStudy({ project, next }: { project: Project; next: Project }) {
   const breadcrumbs = [
@@ -25,7 +26,11 @@ export function CaseStudy({ project, next }: { project: Project; next: Project }
     { label: "Industry", value: project.industry },
     { label: "Service", value: project.service },
     { label: "Year", value: project.year },
-  ];
+  ].filter((f) => f.value);
+
+  const media = project.video ?? project.cover;
+  const vertical = project.orientation === "vertical";
+  const hasNarrative = project.challenge || project.strategy || project.approach;
 
   return (
     <>
@@ -36,18 +41,22 @@ export function CaseStudy({ project, next }: { project: Project; next: Project }
         intro={project.summary}
       />
 
-      {/* Cover + sticky fact sheet */}
+      {/* Video / cover + sticky fact sheet */}
       <section className="pb-section">
         <div className="shell grid gap-10 lg:grid-cols-[1.6fr_1fr]">
           <Reveal>
-            <MediaPlaceholder
-              media={project.video ?? project.cover}
-              label={`${project.title} — cover`}
-              accent={project.accent}
-              ratio="aspect-video"
-              priority
-              sizes="(max-width: 1024px) 100vw, 65vw"
-            />
+            {media.youTubeId ? (
+              <YouTubeEmbed id={media.youTubeId} title={project.title} vertical={vertical} />
+            ) : (
+              <MediaPlaceholder
+                media={media}
+                label={`${project.title} — cover`}
+                accent={project.accent}
+                ratio={vertical ? "aspect-[9/16]" : "aspect-video"}
+                priority
+                sizes="(max-width: 1024px) 100vw, 65vw"
+              />
+            )}
           </Reveal>
 
           <aside className="lg:sticky lg:top-28 lg:self-start">
@@ -59,60 +68,65 @@ export function CaseStudy({ project, next }: { project: Project; next: Project }
                 </div>
               ))}
             </dl>
-            {project.client.startsWith("Placeholder") && (
-              <p className="mt-3 text-xs text-charcoal/40">
-                Placeholder client — replace in data/projects.ts
-              </p>
-            )}
           </aside>
         </div>
       </section>
 
       {/* Narrative */}
-      <section className="pb-section">
-        <div className="shell grid gap-x-12 gap-y-10 md:grid-cols-3">
-          {[
-            { h: "The challenge", b: project.challenge },
-            { h: "The strategy", b: project.strategy },
-            { h: "The creative approach", b: project.approach },
-          ].map((blk, i) => (
-            <Reveal as="div" key={blk.h} delay={i * 0.06}>
-              <h2 className="font-display text-xl font-semibold text-charcoal">{blk.h}</h2>
-              <p className="mt-3 leading-relaxed text-charcoal-soft">{blk.b}</p>
-            </Reveal>
-          ))}
-        </div>
-      </section>
+      {hasNarrative && (
+        <section className="pb-section">
+          <div className="shell grid gap-x-12 gap-y-10 md:grid-cols-3">
+            {[
+              { h: "The challenge", b: project.challenge },
+              { h: "The strategy", b: project.strategy },
+              { h: "The creative approach", b: project.approach },
+            ]
+              .filter((blk) => blk.b)
+              .map((blk, i) => (
+                <Reveal as="div" key={blk.h} delay={i * 0.06}>
+                  <h2 className="font-display text-xl font-semibold text-charcoal">{blk.h}</h2>
+                  <p className="mt-3 leading-relaxed text-charcoal-soft">{blk.b}</p>
+                </Reveal>
+              ))}
+          </div>
+        </section>
+      )}
 
       {/* Deliverables + results */}
-      <section className="bg-cream-deep/40 py-section">
-        <div className="shell grid gap-12 lg:grid-cols-2">
-          <div>
-            <h2 className="eyebrow mb-6 text-charcoal/40">Deliverables</h2>
-            <ul className="flex flex-wrap gap-2">
-              {project.deliverables.map((d) => (
-                <li key={d}>
-                  <Tag tone="neutral">{d}</Tag>
-                </li>
-              ))}
-            </ul>
+      {(project.deliverables?.length || project.results?.length) && (
+        <section className="bg-cream-deep/40 py-section">
+          <div className="shell grid gap-12 lg:grid-cols-2">
+            {project.deliverables?.length ? (
+              <div>
+                <h2 className="eyebrow mb-6 text-charcoal/40">Deliverables</h2>
+                <ul className="flex flex-wrap gap-2">
+                  {project.deliverables.map((d) => (
+                    <li key={d}>
+                      <Tag tone="neutral">{d}</Tag>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {project.results?.length ? (
+              <div>
+                <h2 className="eyebrow mb-6 text-charcoal/40">Results</h2>
+                <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  {project.results.map((r) => (
+                    <div key={r.label} className="min-w-0 rounded-card border border-charcoal/12 bg-white/70 p-5">
+                      <dt className="text-xs uppercase tracking-wider text-charcoal/50">{r.label}</dt>
+                      <dd className="mt-2 break-words font-display text-xl font-bold text-coral sm:text-2xl">{r.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            ) : null}
           </div>
-          <div>
-            <h2 className="eyebrow mb-6 text-charcoal/40">Results (placeholder)</h2>
-            <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              {project.results.map((r) => (
-                <div key={r.label} className="min-w-0 rounded-card border border-charcoal/12 bg-white/70 p-5">
-                  <dt className="text-xs uppercase tracking-wider text-charcoal/50">{r.label}</dt>
-                  <dd className="mt-2 break-words font-display text-xl font-bold text-coral sm:text-2xl">{r.value}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Gallery */}
-      {project.gallery.length > 0 && (
+      {project.gallery && project.gallery.length > 0 && (
         <section className="py-section">
           <div className="shell">
             <h2 className="eyebrow mb-8 text-charcoal/40">Gallery</h2>

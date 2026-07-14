@@ -22,11 +22,17 @@ export function PortfolioGrid({ projects }: { projects: Project[] }) {
     [active, projects]
   );
 
+  // Only show filters for categories that actually have projects.
+  const cats = useMemo(() => {
+    const present = new Set(projects.map((p) => p.category));
+    return projectCategories.filter((c) => c === "All" || present.has(c as ProjectCategory));
+  }, [projects]);
+
   return (
     <div>
       {/* Filters */}
       <div className="no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5 pb-2 md:mx-0 md:flex-wrap md:px-0">
-        {projectCategories.map((cat) => {
+        {cats.map((cat) => {
           const isActive = active === cat;
           return (
             <button

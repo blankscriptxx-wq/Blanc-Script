@@ -21,7 +21,7 @@ export default function PortfolioPage() {
         eyebrow="Portfolio"
         breadcrumbs={breadcrumbs}
         title={<>Selected <span className="text-teal-dark">work</span>.</>}
-        intro="A cross-section of films, campaigns and content across the industries we work with. Every project below is placeholder content — swap in your real case studies."
+        intro="Cinematic films and short-form content across automotive, hospitality, food and events — click any project to watch."
       />
 
       <section className="pb-section" aria-label="Portfolio projects">

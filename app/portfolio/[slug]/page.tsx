@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { projects, getProject, getNextProject } from "@/data/projects";
 import { buildMetadata } from "@/data/seo";
-import { site } from "@/data/site";
 import {
   JsonLd,
   breadcrumbSchema,
@@ -42,15 +41,14 @@ export default function CaseStudyPage({ params }: Params) {
   return (
     <>
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
-      {project.video && (
+      {project.video?.youTubeId && (
         <JsonLd
           data={videoSchema({
             name: `${project.title} — ${project.service}`,
             description: project.summary,
-            // ── PLACEHOLDER: point at a real thumbnail + hosted video URL
-            thumbnailUrl: `${site.url}/opengraph-image`,
+            thumbnailUrl: `https://i.ytimg.com/vi/${project.video.youTubeId}/hqdefault.jpg`,
             uploadDate: `${project.year}-01-01`,
-            contentUrl: project.video.videoSrc,
+            contentUrl: `https://www.youtube.com/watch?v=${project.video.youTubeId}`,
           })}
         />
       )}

@@ -32,7 +32,7 @@ export function Testimonials() {
           id="testimonials-heading"
           eyebrow="In their words"
           title={<>What working with us <span className="text-teal-dark">feels like</span>.</>}
-          intro="Placeholder testimonials — replace with real, attributed quotes."
+          intro="A few words from the brands we work with."
         />
 
         <div className="relative mt-14 overflow-hidden rounded-card border border-charcoal/12 bg-white/70 p-8 md:p-14">

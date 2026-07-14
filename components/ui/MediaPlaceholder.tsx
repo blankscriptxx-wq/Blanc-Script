@@ -2,6 +2,7 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Film, Camera, ImageIcon, Clapperboard } from "lucide-react";
 import type { MediaRef } from "@/data/types";
+import { YouTubeThumb } from "./YouTubeThumb";
 
 type MediaPlaceholderProps = {
   media?: MediaRef;
@@ -73,6 +74,15 @@ export function MediaPlaceholder({
         >
           <source src={media.videoSrc} type="video/mp4" />
         </video>
+      </div>
+    );
+  }
+
+  // YouTube thumbnail (for cards / galleries)
+  if (media?.youTubeId) {
+    return (
+      <div className={wrap}>
+        <YouTubeThumb id={media.youTubeId} alt={media.alt ?? label} />
       </div>
     );
   }

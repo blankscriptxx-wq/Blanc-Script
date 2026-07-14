@@ -6,7 +6,7 @@ import type { LucideIcon } from "lucide-react";
  * swapped for production content in one place, safely.
  */
 
-/** A reference to a media asset. Leave `src`/`videoSrc` empty to show a placeholder. */
+/** A reference to a media asset. Leave everything empty to show a placeholder. */
 export type MediaRef = {
   kind?: "image" | "video" | "photo" | "reel";
   /** Image path under /public or a whitelisted remote URL. */
@@ -15,6 +15,8 @@ export type MediaRef = {
   videoSrc?: string;
   /** Poster image shown before a video loads. */
   poster?: string;
+  /** YouTube video/Short ID — renders its thumbnail (cards) or player (case study). */
+  youTubeId?: string;
   /** Descriptive alt text — required for real images. */
   alt?: string;
 };
@@ -55,7 +57,7 @@ export type ProjectCategory =
 export type Project = {
   slug: string;
   title: string;
-  client: string; // placeholder client name
+  client?: string;
   industry: string;
   category: ProjectCategory;
   service: string;
@@ -66,18 +68,17 @@ export type Project = {
   orientation: "vertical" | "horizontal" | "square";
   cover: MediaRef;
   featured?: boolean;
-  // Case study fields
-  challenge: string;
-  strategy: string;
-  approach: string;
-  deliverables: string[];
-  /** Placeholder metrics — clearly marked, replace with real numbers. */
-  results: { label: string; value: string }[];
-  gallery: MediaRef[];
+  // Case study fields — all optional; sections render only when present.
+  challenge?: string;
+  strategy?: string;
+  approach?: string;
+  deliverables?: string[];
+  results?: { label: string; value: string }[];
+  gallery?: MediaRef[];
   video?: MediaRef;
   testimonial?: {
     quote: string;
-    attribution: string; // e.g. "Placeholder — Client name, Role"
+    attribution: string;
   };
   accent: "coral" | "teal" | "gold" | "charcoal";
 };

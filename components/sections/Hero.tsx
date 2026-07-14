@@ -4,7 +4,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { ArrowDown } from "lucide-react";
 import { cta } from "@/data/navigation";
 import { Button } from "@/components/ui/Button";
-import { MediaPlaceholder } from "@/components/ui/MediaPlaceholder";
+import { YouTubeEmbed } from "@/components/ui/YouTubeEmbed";
 import { EASE } from "@/lib/motion";
 
 const HEADLINE = ["We turn brands", "into stories", "people remember."];
@@ -88,23 +88,13 @@ export function Hero() {
           transition={{ duration: 1, ease: EASE, delay: 0.2 }}
           className="relative"
         >
-          <MediaPlaceholder
-            media={{ kind: "video" }}
-            label="Showreel"
-            accent="charcoal"
-            ratio="aspect-[4/5] sm:aspect-[16/11] lg:aspect-[4/5]"
-            priority
-            sizes="(max-width: 1024px) 100vw, 45vw"
-          />
-          <div className="absolute -bottom-4 left-4 right-4 flex items-center justify-between rounded-pill bg-cream/90 px-5 py-3 text-sm font-medium text-charcoal shadow-lg backdrop-blur">
-            <span className="flex items-center gap-2">
-              <span className="grid h-2.5 w-2.5 place-items-center">
-                <span className="h-2.5 w-2.5 animate-ping rounded-full bg-coral/60" />
-                <span className="absolute h-2 w-2 rounded-full bg-coral" />
-              </span>
-              Showreel 2025
+          <YouTubeEmbed id="xJ-EGWA5hjk" title="Blanc Script showreel — Awakening 25th Anniversary" />
+          <div className="absolute -bottom-4 left-4 flex items-center gap-2 rounded-pill bg-cream/90 px-5 py-3 text-sm font-medium text-charcoal shadow-lg backdrop-blur">
+            <span className="grid h-2.5 w-2.5 place-items-center">
+              <span className="h-2.5 w-2.5 animate-ping rounded-full bg-coral/60" />
+              <span className="absolute h-2 w-2 rounded-full bg-coral" />
             </span>
-            <span className="text-charcoal-soft">Replace with your reel</span>
+            Showreel
           </div>
         </motion.div>
       </div>
