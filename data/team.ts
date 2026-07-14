@@ -1,35 +1,22 @@
 import type { TeamMember } from "./types";
 
 /**
- * ── PLACEHOLDER TEAM ──────────────────────────────────────────────────
- * Replace names, roles, bios and portraits with the real team. Add or
- * remove members freely.
- * ──────────────────────────────────────────────────────────────────────
+ * The Blanc Script team.
+ * TO ADD PORTRAITS: set media.src to an image in /public (e.g. "/media/ibrahim.jpg")
+ * and update media.alt. Until then, an on-brand placeholder is shown.
  */
 export const team: TeamMember[] = [
   {
-    name: "Placeholder Name",
-    role: "Founder & Creative Director",
-    bio: "Leads strategy and creative direction across every project.",
-    media: { kind: "photo", alt: "Placeholder — team portrait" },
+    name: "Ibrahim Ali",
+    role: "Co-Founder & Brand Strategy Director",
+    bio: "Shapes brand positioning, marketing strategy and commercial growth, ensuring every creative decision serves a clear business objective.",
+    media: { kind: "photo", alt: "Ibrahim Ali — Co-Founder & Brand Strategy Director" },
   },
   {
-    name: "Placeholder Name",
-    role: "Head of Production",
-    bio: "Runs shoots end to end, from planning to final edit.",
-    media: { kind: "photo", alt: "Placeholder — team portrait" },
-  },
-  {
-    name: "Placeholder Name",
-    role: "Social & Strategy Lead",
-    bio: "Owns platform strategy, calendars and performance.",
-    media: { kind: "photo", alt: "Placeholder — team portrait" },
-  },
-  {
-    name: "Placeholder Name",
-    role: "Photographer & Editor",
-    bio: "Shapes the look across stills and short-form.",
-    media: { kind: "photo", alt: "Placeholder — team portrait" },
+    name: "Noman Ahmed",
+    role: "Co-Founder & Creative Director",
+    bio: "Transforms strategy into compelling visual storytelling through cinematic production, creative direction and meticulous execution.",
+    media: { kind: "photo", alt: "Noman Ahmed — Co-Founder & Creative Director" },
   },
 ];
 

@@ -106,14 +106,14 @@ export default function AboutPage() {
       {/* Team */}
       <section className="bg-cream-deep/40 py-section">
         <div className="shell">
-          <SectionHeading eyebrow="The team" title="The people behind the work." intro="Placeholder team — replace names, roles and portraits in data/team.ts." />
-          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <SectionHeading eyebrow="The team" title="The founders behind the work." intro="Two disciplines, one standard — strategy and craft, held together from the first brief to the final cut." />
+          <div className="mt-12 grid max-w-4xl gap-8 sm:grid-cols-2">
             {team.map((m, i) => (
-              <Reveal as="div" key={i} delay={(i % 4) * 0.06}>
-                <MediaPlaceholder media={m.media} label={m.role} accent={i % 2 ? "teal" : "gold"} ratio="aspect-[4/5]" sizes="(max-width:640px) 50vw, 25vw" />
-                <h3 className="mt-4 font-display text-lg font-semibold text-charcoal">{m.name}</h3>
-                <p className="text-sm text-coral">{m.role}</p>
-                <p className="mt-1 text-sm text-charcoal-soft">{m.bio}</p>
+              <Reveal as="div" key={i} delay={i * 0.08}>
+                <MediaPlaceholder media={m.media} label={m.role} accent={i % 2 ? "teal" : "gold"} ratio="aspect-[4/5]" sizes="(max-width:640px) 100vw, 40vw" />
+                <h3 className="mt-5 font-display text-xl font-semibold text-charcoal">{m.name}</h3>
+                <p className="text-sm font-medium text-coral">{m.role}</p>
+                <p className="mt-2 text-sm leading-relaxed text-charcoal-soft">{m.bio}</p>
               </Reveal>
             ))}
           </div>
