@@ -11,6 +11,7 @@ import { StickyMobileCTA } from "@/components/layout/StickyMobileCTA";
 import { PageTransition } from "@/components/layout/PageTransition";
 import { Analytics } from "@/components/analytics/Analytics";
 import { CookieConsent } from "@/components/analytics/CookieConsent";
+import { Analytics as VercelAnalytics } from "@vercel/analytics/next";
 import {
   JsonLd,
   organizationSchema,
@@ -117,6 +118,7 @@ export default function RootLayout({
         <StickyMobileCTA />
         <CookieConsent />
         <Analytics />
+        <VercelAnalytics />
       </body>
     </html>
   );
