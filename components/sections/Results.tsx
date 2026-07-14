@@ -54,7 +54,6 @@ export function Results() {
           title={<>Made to move the <span className="text-coral">numbers</span>.</>}
           intro={
             <>
-              Figures below are placeholders — swap in your verified results.{" "}
               <span className="text-charcoal/50">We never publish numbers we can&apos;t stand behind.</span>
             </>
           }
