@@ -19,7 +19,7 @@ export const testimonials: Testimonial[] = [
   {
     quote:
       "The quality lifted how people saw the whole brand. It looks like a company twice our size.",
-    name: "Mohammed Rahman",
+    name: "Mohammed",
     role: "Founder",
     company: "Blue Orchid",
     industry: "Restaurants",
