@@ -129,19 +129,36 @@ For strict compliance, gate the analytics scripts behind the stored consent valu
 
 ---
 
-## Connecting the enquiry form to a CRM
+## Connecting the enquiry form to HubSpot (free CRM)
 
 The form (`components/forms/ContactForm.tsx`) posts to `app/api/enquiry/route.ts`,
-which currently **validates and returns success without storing anything.** Wire it up:
+which sends each enquiry to HubSpot as a CRM contact once you set two env vars.
 
-- **Webhook (easiest — HubSpot / GoHighLevel / Zapier / Make):**
-  set `ENQUIRY_WEBHOOK_URL` in `.env.local`. The route forwards the JSON payload.
-- **Email (Resend / SendGrid / Postmark):** add the SDK and send in the route.
-- **Supabase / database:** insert the payload in the route.
-- **Wix / external endpoint:** point the form’s `fetch()` at your endpoint, or
-  forward from the route.
+**One-time HubSpot setup:**
 
-Server-side validation is already in place — keep it when you add a destination.
+1. Create a free account at **hubspot.com** (Free CRM — no card needed).
+2. Go to **Marketing → Forms → Create form → Embedded form → Regular form.**
+3. Add these fields (all are default HubSpot contact properties):
+   **First name, Last name, Email, Phone number, Company name, Website URL, Message.**
+4. **Publish**, then open **Share → Embed code.** In that snippet you’ll see:
+   - `portalId: "XXXXXXX"`  → your **Portal ID**
+   - `formId: "xxxxxxxx-xxxx-…"`  → your **Form GUID**
+5. Add both to your environment (Vercel → Settings → Environment Variables, and/or
+   `.env.local`):
+   ```
+   HUBSPOT_PORTAL_ID=XXXXXXX
+   HUBSPOT_FORM_GUID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+   ```
+6. Redeploy. Done — new enquiries appear under **Contacts** in HubSpot, and the
+   full brief (industry, services, budget, start date, socials, referral) lands in
+   the contact’s **Message** field.
+
+Neither ID is a secret. The form’s extra fields are combined into the Message
+property, so you don’t need to create any custom properties in HubSpot.
+
+**Prefer something else?** Leave the HubSpot vars blank and set
+`ENQUIRY_WEBHOOK_URL` instead — the route will POST the raw JSON to any webhook
+(Zapier / Make / GoHighLevel). Server-side validation stays in place regardless.
 
 ---
 
