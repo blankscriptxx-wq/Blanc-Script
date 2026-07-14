@@ -10,13 +10,13 @@ export const team: TeamMember[] = [
     name: "Ibrahim Ali",
     role: "Co-Founder & Brand Strategy Director",
     bio: "Shapes brand positioning, marketing strategy and commercial growth, ensuring every creative decision serves a clear business objective.",
-    media: { kind: "photo", alt: "Ibrahim Ali — Co-Founder & Brand Strategy Director" },
+    media: { kind: "photo", src: "/media/Ibrahim.jpg", alt: "Ibrahim Ali — Co-Founder & Brand Strategy Director" },
   },
   {
     name: "Noman Ahmed",
     role: "Co-Founder & Creative Director",
     bio: "Transforms strategy into compelling visual storytelling through cinematic production, creative direction and meticulous execution.",
-    media: { kind: "photo", alt: "Noman Ahmed — Co-Founder & Creative Director" },
+    media: { kind: "photo", src: "/media/Noman.jpg", alt: "Noman Ahmed — Co-Founder & Creative Director" },
   },
 ];
 
