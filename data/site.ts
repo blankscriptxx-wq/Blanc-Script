@@ -37,7 +37,7 @@ export const site = {
   // ── Social — instagram is real; others are PLACEHOLDERS ──
   social: {
     instagram: "https://www.instagram.com/blanc.script",
-    tiktok: "https://www.tiktok.com/@blanc.script", // ── PLACEHOLDER
+    tiktok: "https://www.tiktok.com/@blancscript", // ── PLACEHOLDER
     linkedin: "https://www.linkedin.com/company/blanc-script", // ── PLACEHOLDER
     youtube: "https://www.youtube.com/@blanc.script", // ── PLACEHOLDER
   },
