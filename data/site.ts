@@ -20,7 +20,7 @@ export const site = {
     phone: "+44 7939 138551",
     phoneHref: "tel:+447939138551",
     // Discovery call link — swap for your Calendly / SavvyCal / cal.com URL
-    bookingUrl: "/contact", // ── PLACEHOLDER (e.g. https://calendly.com/blancscript)
+    bookingUrl: "https://calendly.com/hello-blancscript/30min?back=1&month=2026-07", // ── PLACEHOLDER (e.g. https://calendly.com/blancscript)
   },
 
   location: {
