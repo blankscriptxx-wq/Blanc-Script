@@ -51,7 +51,7 @@ export function Results() {
         <SectionHeading
           id="results-heading"
           eyebrow="Results & impact"
-          title={<>Made to move the <span className="text-coral">numbers</span>.</>}
+          title={<>Results that <span className="text-coral">speak for themselves</span>.</>}
           intro="Real outcomes from strategy-led content — across social, commercial and brand campaigns."
         />
 
