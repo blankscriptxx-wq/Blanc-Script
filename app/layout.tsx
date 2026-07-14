@@ -16,6 +16,7 @@ import {
   organizationSchema,
   websiteSchema,
 } from "@/components/seo/JsonLd";
+import { Analytics as VercelAnalytics } from "@vercel/analytics/next";
 
 // Bold contemporary sans for headlines
 const sora = Sora({
@@ -117,6 +118,7 @@ export default function RootLayout({
         <StickyMobileCTA />
         <CookieConsent />
         <Analytics />
+        <VercelAnalytics />
       </body>
     </html>
   );
