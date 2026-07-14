@@ -9,33 +9,33 @@ import type { Stat } from "./types";
 export const stats: Stat[] = [
   {
     label: "Engagement growth",
-    value: 0,
-    suffix: "%",
-    note: "PLACEHOLDER — average uplift across managed accounts",
+    value: 250,
+    suffix: "%+",
+    note: "AVERAGE INCREASE ACROSS SELECTED SOCIAL MEDIA CAMPAIGNS THROUGH STRATEGIC CONTENT, OPTIMISATION AND CREATIVE EXECUTION.",
   },
   {
     label: "Video views generated",
-    value: 0,
+    value: 500,
     suffix: "M+",
-    note: "PLACEHOLDER — total across produced content",
+    note: "CUMULATIVE VIEWS GENERATED ACROSS MUSIC, COMMERCIAL, SOCIAL MEDIA AND BRAND CAMPAIGNS.",
   },
   {
     label: "Reach generated",
-    value: 0,
-    suffix: "M+",
-    note: "PLACEHOLDER — combined organic + paid reach",
+    value: 1,
+    suffix: "B+",
+    note: "COMBINED ORGANIC AND PAID REACH ACROSS MULTIPLE PLATFORMS, CAMPAIGNS AND GLOBAL AUDIENCES.",
   },
   {
-    label: "Content pieces produced",
-    value: 0,
+    label: "Creative assets delivered",
+    value: 2k,
     suffix: "+",
-    note: "PLACEHOLDER — films, reels and photos delivered",
+    note: "FILMS, REELS, SHORTS, PHOTOGRAPHY, SOCIAL CONTENT AND CAMPAIGN CREATIVES PRODUCED",
   },
 ];
 
 /** Secondary impact points shown alongside the counters. */
 export const impactPoints: string[] = [
-  "Leads & enquiries — PLACEHOLDER",
-  "Campaign performance — PLACEHOLDER",
-  "Follower growth — PLACEHOLDER",
+  "150+ Campaigns Delivered — Across brands, artists and commercial clients.",
+  "25+ Brands & Artists — Trusted by global artists, businesses and organisations.",
+  "100+ Countries Reached — Content viewed and shared by audiences worldwide.",
 ];
