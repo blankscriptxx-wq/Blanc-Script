@@ -27,8 +27,8 @@ export const stats: Stat[] = [
   },
   {
     label: "Creative assets delivered",
-    value: 2k,
-    suffix: "+",
+    value: 2,
+    suffix: "k+",
     note: "FILMS, REELS, SHORTS, PHOTOGRAPHY, SOCIAL CONTENT AND CAMPAIGN CREATIVES PRODUCED",
   },
 ];

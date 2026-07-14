@@ -52,11 +52,7 @@ export function Results() {
           id="results-heading"
           eyebrow="Results & impact"
           title={<>Made to move the <span className="text-coral">numbers</span>.</>}
-          intro={
-            <>
-              <span className="text-charcoal/50">We never publish numbers we can&apos;t stand behind.</span>
-            </>
-          }
+          intro="Real outcomes from strategy-led content — across social, commercial and brand campaigns."
         />
 
         <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
