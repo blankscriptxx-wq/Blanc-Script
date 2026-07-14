@@ -23,7 +23,6 @@ export const projectCategories: ("All" | ProjectCategory)[] = [
 ];
 
 const bn = (bunnyId: string, alt: string, kind: "video" | "reel") => ({ kind, bunnyId, alt });
-const yt = (youTubeId: string, alt: string, kind: "video" | "reel") => ({ kind, youTubeId, alt });
 
 export const projects: Project[] = [
   // ── Films ─────────────────────────────────────────────────────
@@ -260,8 +259,8 @@ export const projects: Project[] = [
     year: "2025",
     summary: "Plates worth posting — food at Argeela, up close.",
     orientation: "vertical",
-    cover: yt("BTwEr5hXSLI", "Argeela food reel", "reel"),
-    video: yt("BTwEr5hXSLI", "Argeela food reel", "reel"),
+    cover: bn("0fb66764-7344-4caf-9164-5447034c903e", "Argeela food reel", "reel"),
+    video: bn("0fb66764-7344-4caf-9164-5447034c903e", "Argeela food reel", "reel"),
     accent: "teal",
   },
   {
@@ -274,8 +273,8 @@ export const projects: Project[] = [
     year: "2025",
     summary: "Every corner considered — a look inside Argeela.",
     orientation: "vertical",
-    cover: yt("kS6xERrYB1k", "Argeela decor reel", "reel"),
-    video: yt("kS6xERrYB1k", "Argeela decor reel", "reel"),
+    cover: bn("aea94a6f-802c-475c-8e47-87212cd97bd0", "Argeela decor reel", "reel"),
+    video: bn("aea94a6f-802c-475c-8e47-87212cd97bd0", "Argeela decor reel", "reel"),
     accent: "teal",
   },
 
