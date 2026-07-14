@@ -3,6 +3,7 @@ import { ArrowRight, Quote } from "lucide-react";
 import type { Project } from "@/data/types";
 import { MediaPlaceholder } from "@/components/ui/MediaPlaceholder";
 import { YouTubeEmbed } from "@/components/ui/YouTubeEmbed";
+import { BunnyEmbed } from "@/components/ui/BunnyEmbed";
 import { VideoPlayer } from "@/components/ui/VideoPlayer";
 import { Reveal } from "@/components/ui/Reveal";
 import { Tag } from "@/components/ui/Tag";
@@ -46,7 +47,9 @@ export function CaseStudy({ project, next }: { project: Project; next: Project }
       <section className="pb-section">
         <div className="shell grid gap-10 lg:grid-cols-[1.6fr_1fr]">
           <Reveal>
-            {media.videoSrc ? (
+            {media.bunnyId ? (
+              <BunnyEmbed guid={media.bunnyId} title={project.title} vertical={vertical} />
+            ) : media.videoSrc ? (
               <VideoPlayer src={media.videoSrc} poster={media.poster} title={project.title} vertical={vertical} />
             ) : media.youTubeId ? (
               <YouTubeEmbed id={media.youTubeId} title={project.title} vertical={vertical} />

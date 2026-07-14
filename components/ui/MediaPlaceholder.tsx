@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { Film, Camera, ImageIcon, Clapperboard } from "lucide-react";
 import type { MediaRef } from "@/data/types";
 import { YouTubeThumb } from "./YouTubeThumb";
+import { BunnyThumb } from "./BunnyThumb";
 
 type MediaPlaceholderProps = {
   media?: MediaRef;
@@ -74,6 +75,15 @@ export function MediaPlaceholder({
         >
           <source src={media.videoSrc} type="video/mp4" />
         </video>
+      </div>
+    );
+  }
+
+  // Bunny Stream thumbnail (for cards / galleries)
+  if (media?.bunnyId) {
+    return (
+      <div className={wrap}>
+        <BunnyThumb guid={media.bunnyId} alt={media.alt ?? label} />
       </div>
     );
   }

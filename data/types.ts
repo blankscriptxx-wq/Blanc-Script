@@ -17,6 +17,8 @@ export type MediaRef = {
   poster?: string;
   /** YouTube video/Short ID — renders its thumbnail (cards) or player (case study). */
   youTubeId?: string;
+  /** Bunny Stream video GUID — renders its thumbnail (cards) or player (case study). */
+  bunnyId?: string;
   /** Descriptive alt text — required for real images. */
   alt?: string;
 };
