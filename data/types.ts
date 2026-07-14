@@ -52,6 +52,7 @@ export type ProjectCategory =
   | "Hospitality"
   | "Food"
   | "Events"
+  | "Retail"
   | "Luxury"
   | "Social Media"
   | "Campaigns";

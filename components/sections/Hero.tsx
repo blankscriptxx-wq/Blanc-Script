@@ -4,7 +4,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { ArrowDown } from "lucide-react";
 import { cta } from "@/data/navigation";
 import { Button } from "@/components/ui/Button";
-import { YouTubeEmbed } from "@/components/ui/YouTubeEmbed";
+import { BunnyEmbed } from "@/components/ui/BunnyEmbed";
 import { EASE } from "@/lib/motion";
 
 const HEADLINE = ["We turn brands", "into stories", "people remember."];
@@ -88,7 +88,7 @@ export function Hero() {
           transition={{ duration: 1, ease: EASE, delay: 0.2 }}
           className="relative"
         >
-          <YouTubeEmbed id="xJ-EGWA5hjk" title="Blanc Script showreel — Awakening 25th Anniversary" />
+          <BunnyEmbed guid="4674bf22-ead8-4f86-9005-7742a727cd25" title="Blanc Script showreel — Awakening 25th Anniversary" />
           <div className="absolute -bottom-4 left-4 flex items-center gap-2 rounded-pill bg-cream/90 px-5 py-3 text-sm font-medium text-charcoal shadow-lg backdrop-blur">
             <span className="grid h-2.5 w-2.5 place-items-center">
               <span className="h-2.5 w-2.5 animate-ping rounded-full bg-coral/60" />
