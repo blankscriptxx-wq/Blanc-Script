@@ -131,29 +131,21 @@ For strict compliance, gate the analytics scripts behind the stored consent valu
 
 ## Enquiry form (emails to your inbox)
 
-The form (`components/forms/ContactForm.tsx`) posts to `app/api/enquiry/route.ts`,
-which emails each enquiry to your inbox using **Web3Forms** — free, unlimited,
-reliable from serverless.
+The form (`components/forms/ContactForm.tsx`) submits **directly to Web3Forms
+from the browser** (free form-to-email services only accept client-side
+requests on their free tier). Each enquiry is emailed to the address tied to the
+Web3Forms access key — currently **hello@blancscript.com** — with **reply-to**
+set to the enquirer so you can reply straight from the email.
 
-**Setup (one-time, ~1 min):**
-
-1. Go to **web3forms.com**, enter **hello@blancscript.com**, and they email you
-   an **Access Key** (a UUID).
-2. Add it to your environment: Vercel → Settings → Environment Variables →
-   `WEB3FORMS_ACCESS_KEY = your-key`, and/or `.env.local`. (Or paste it into
-   `ACCESS_KEY` in `app/api/enquiry/route.ts`.)
-3. Redeploy. Enquiries now arrive at hello@blancscript.com, with **reply-to** set
-   to the enquirer so you can reply directly.
-
-Until the key is set, submissions are logged server-side and the form still
-shows its success state — so nothing is broken during setup, but **add the key
-before promoting the site** or enquiries won’t be delivered.
-
-- **Change destination address:** it’s the email tied to your Web3Forms key
-  (manage at web3forms.com), not a code change.
-- **Prefer another provider?** Swap the `sendEmail` function in
-  `app/api/enquiry/route.ts` for Resend / SendGrid / SMTP — validation and
-  responses stay the same.
+- **The access key** lives in `components/forms/ContactForm.tsx` (`WEB3FORMS_KEY`).
+  It's public by design — it only ever emails the one address it's tied to, and
+  Web3Forms handles spam filtering. Override it without touching code by setting
+  `NEXT_PUBLIC_WEB3FORMS_KEY`.
+- **Change destination address / rotate the key:** manage it at **web3forms.com**
+  (it's tied to your email there), then update the key here.
+- **Prefer another provider?** Point the form's `fetch()` at Resend / SendGrid /
+  your own endpoint — the validation, loading, success and error states stay the
+  same.
 
 ---
 

@@ -9,6 +9,11 @@ import { cn } from "@/lib/utils";
 type Status = "idle" | "submitting" | "success" | "error";
 type Errors = Record<string, string>;
 
+// Web3Forms access key — public by design (only emails hello@blancscript.com).
+// Override via NEXT_PUBLIC_WEB3FORMS_KEY if you'd rather keep it out of code.
+const WEB3FORMS_KEY =
+  process.env.NEXT_PUBLIC_WEB3FORMS_KEY || "881d6ebc-c505-4c4b-b937-56ae43d9e070";
+
 const budgets = [
   "Not sure yet",
   "Under £2,000",
@@ -84,12 +89,40 @@ export function ContactForm({ defaultService }: { defaultService?: string }) {
     setErrors({});
     setStatus("submitting");
     try {
-      const res = await fetch("/api/enquiry", {
+      const name = String(data.name ?? "").trim();
+      const business = String(data.business ?? "").trim();
+
+      // Web3Forms is submitted client-side (its free tier only accepts
+      // browser requests). The access key is public by design — it only ever
+      // emails the address it's tied to (hello@blancscript.com).
+      const payload = {
+        access_key: WEB3FORMS_KEY,
+        subject: `New enquiry — ${name}${business ? ` (${business})` : ""}`,
+        from_name: "Blanc Script Website",
+        replyto: String(data.email ?? ""),
+        botcheck: "", // honeypot
+        Name: name,
+        Email: String(data.email ?? ""),
+        Phone: String(data.phone ?? ""),
+        Business: business,
+        Website: String(data.website ?? ""),
+        Industry: String(data.industry ?? ""),
+        "Services required": selectedServices.join(", "),
+        "Estimated budget": String(data.budget ?? ""),
+        "Preferred start": String(data.startDate ?? ""),
+        "Social links": String(data.socials ?? ""),
+        "Heard about us via": String(data.referral ?? ""),
+        "Project details": String(data.details ?? ""),
+      };
+
+      const res = await fetch("https://api.web3forms.com/submit", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...data, services: selectedServices }),
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Request failed");
+      const json = (await res.json().catch(() => ({}))) as { success?: boolean };
+      if (!res.ok || !json.success) throw new Error("Request failed");
+
       setStatus("success");
       form.reset();
       setSelectedServices([]);
