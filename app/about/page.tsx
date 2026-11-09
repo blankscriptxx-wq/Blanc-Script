@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { buildMetadata, pageSeo } from "@/data/seo";
-import { team, values } from "@/data/team";
+import { showTeam, team, values } from "@/data/team";
 import { industries } from "@/data/industries";
 import { site } from "@/data/site";
 import { JsonLd, breadcrumbSchema } from "@/components/seo/JsonLd";
@@ -103,7 +103,8 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* Team */}
+      {/* Team — hidden for now; flip `showTeam` in data/team.ts to bring it back */}
+      {showTeam && (
       <section className="bg-cream-deep/40 py-section">
         <div className="shell">
           <SectionHeading eyebrow="The team" title="The founders behind the work." intro="Two disciplines, one standard — strategy and craft, held together from the first brief to the final cut." />
@@ -119,6 +120,7 @@ export default function AboutPage() {
           </div>
         </div>
       </section>
+      )}
 
       {/* Behind the scenes */}
       <section className="py-section">

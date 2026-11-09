@@ -5,6 +5,12 @@ import type { TeamMember } from "./types";
  * TO ADD PORTRAITS: set media.src to an image in /public (e.g. "/media/ibrahim.jpg")
  * and update media.alt. Until then, an on-brand placeholder is shown.
  */
+/**
+ * Show or hide the "founders behind the work" section on the About page.
+ * Set to `true` to bring it back — the founders' details below stay intact.
+ */
+export const showTeam = false;
+
 export const team: TeamMember[] = [
   {
     name: "Ibrahim Ali",

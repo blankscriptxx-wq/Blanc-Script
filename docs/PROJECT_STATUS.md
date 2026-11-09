@@ -19,7 +19,7 @@ Update this file when something changes, so the next session starts from the rig
 | Content | Everything lives in `data/` (projects, stats, industries, testimonials, team, site) |
 | Stats | Real numbers; title "Results that speak for themselves." `value` must be a plain number, letters go in `suffix` (e.g. `value: 2, suffix: "k+"`) |
 | Industries | Record Labels added; Luxury and Personal Brands removed |
-| Team | Ibrahim Ali (Co-Founder & Brand Strategy Director), Noman Ahmed (Co-Founder & Creative Director). Photos are `public/media/Ibrahim.jpg` and `Noman.jpg`; file names are case-sensitive |
+| Team | HIDDEN on About page (`showTeam = false` in `data/team.ts`; set `true` to restore). Ibrahim Ali (Co-Founder & Brand Strategy Director), Noman Ahmed (Co-Founder & Creative Director). Photos are `public/media/Ibrahim.jpg` and `Noman.jpg`; file names are case-sensitive |
 | Booking | Calendly link set in `data/site.ts` |
 | Enquiry form | Sent from the visitor's browser to Web3Forms, which emails hello@blancscript.com. Tested and working on the live site. Server-side sending is blocked on Web3Forms' free plan; HubSpot and FormSubmit were tried and dropped |
 | Video | Every video plays in the Bunny Stream player with no Bunny branding (library `704454`, CDN `vz-da9d131d-3ff.b-cdn.net`); no YouTube left. 26 projects |
@@ -36,6 +36,7 @@ Update this file when something changes, so the next session starts from the rig
 
 ## Open / waiting on Ibrahim
 
+1. **Video hosting:** decided to stay on Bunny (Nov 2026).
 1. **Agent pricing (BS_KS_4):** give indicative price ranges, or keep "quote to scope".
 2. **Agent policies (BS_KS_9):** deposit %, cancellation/reschedule notice, revision rounds, usage rights.
 3. **Knowledge base in the repo:** whether to add the 9 docs under `docs/knowledge-base/`.
