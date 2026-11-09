@@ -2,8 +2,8 @@ import type { Project, ProjectCategory } from "./types";
 
 /**
  * Portfolio — real Blanc Script work.
- * Videos are moving from Bunny Stream to YouTube: `yt()` = YouTube, `bn()` = Bunny
- * (Bunny entries still need YouTube links). Card covers use each video's thumbnail;
+ * Videos are hosted on Bunny Stream (brandless player); Argeela Food/Decor
+ * remain on YouTube until re-uploaded. Card covers use each video's thumbnail;
  * case-study pages embed the player.
  *
  * `featured: true` drives the homepage "Work that stands out" section (shows 3).
@@ -23,7 +23,6 @@ export const projectCategories: ("All" | ProjectCategory)[] = [
 ];
 
 const bn = (bunnyId: string, alt: string, kind: "video" | "reel") => ({ kind, bunnyId, alt });
-const yt = (youTubeId: string, alt: string, kind: "video" | "reel") => ({ kind, youTubeId, alt });
 
 export const projects: Project[] = [
   // ── Films ─────────────────────────────────────────────────────
@@ -37,8 +36,8 @@ export const projects: Project[] = [
     year: "2025",
     summary: "Twenty-five years in one night — a milestone told at cinema scale.",
     orientation: "horizontal",
-    cover: yt("xJ-EGWA5hjk", "Awakening 25th Anniversary film", "video"),
-    video: yt("xJ-EGWA5hjk", "Awakening 25th Anniversary film", "video"),
+    cover: bn("4674bf22-ead8-4f86-9005-7742a727cd25", "Awakening 25th Anniversary film", "video"),
+    video: bn("4674bf22-ead8-4f86-9005-7742a727cd25", "Awakening 25th Anniversary film", "video"),
     accent: "coral",
   },
   {
@@ -50,8 +49,8 @@ export const projects: Project[] = [
     year: "2025",
     summary: "City lights, a V10, and zero compromise — the R8 as the lead role.",
     orientation: "horizontal",
-    cover: yt("-8a-m3qoKVE", "Audi R8 cinematic film", "video"),
-    video: yt("-8a-m3qoKVE", "Audi R8 cinematic film", "video"),
+    cover: bn("bb38cae3-aa77-4125-ad25-b4597981a2da", "Audi R8 cinematic film", "video"),
+    video: bn("bb38cae3-aa77-4125-ad25-b4597981a2da", "Audi R8 cinematic film", "video"),
     accent: "charcoal",
   },
   {
@@ -173,8 +172,8 @@ export const projects: Project[] = [
     year: "2025",
     summary: "The energy of the room, condensed into a scroll-stopper.",
     orientation: "vertical",
-    cover: yt("F2gThw0bbcE", "BNC Conference reel", "reel"),
-    video: yt("F2gThw0bbcE", "BNC Conference reel", "reel"),
+    cover: bn("542f1f66-7f30-4a10-b4e0-b01cfdf21639", "BNC Conference reel", "reel"),
+    video: bn("542f1f66-7f30-4a10-b4e0-b01cfdf21639", "BNC Conference reel", "reel"),
     accent: "coral",
   },
 
@@ -189,8 +188,8 @@ export const projects: Project[] = [
     year: "2025",
     summary: "Shisha, low light and slow evenings — the Argeela mood, bottled.",
     orientation: "vertical",
-    cover: yt("dApzcSUC6pk", "Argeela lounge atmosphere reel", "reel"),
-    video: yt("dApzcSUC6pk", "Argeela lounge atmosphere reel", "reel"),
+    cover: bn("34105695-b37a-4f08-b616-6851904649f2", "Argeela lounge atmosphere reel", "reel"),
+    video: bn("34105695-b37a-4f08-b616-6851904649f2", "Argeela lounge atmosphere reel", "reel"),
     featured: true,
     accent: "teal",
   },
@@ -260,8 +259,8 @@ export const projects: Project[] = [
     year: "2025",
     summary: "Plates worth posting — food at Argeela, up close.",
     orientation: "vertical",
-    cover: yt("BTwEr5hXSLI", "Argeela food reel", "reel"),
-    video: yt("BTwEr5hXSLI", "Argeela food reel", "reel"),
+    cover: bn("0fb66764-7344-4caf-9164-5447034c903e", "Argeela food reel", "reel"),
+    video: bn("0fb66764-7344-4caf-9164-5447034c903e", "Argeela food reel", "reel"),
     accent: "teal",
   },
   {
@@ -274,8 +273,8 @@ export const projects: Project[] = [
     year: "2025",
     summary: "Every corner considered — a look inside Argeela.",
     orientation: "vertical",
-    cover: yt("kS6xERrYB1k", "Argeela decor reel", "reel"),
-    video: yt("kS6xERrYB1k", "Argeela decor reel", "reel"),
+    cover: bn("aea94a6f-802c-475c-8e47-87212cd97bd0", "Argeela decor reel", "reel"),
+    video: bn("aea94a6f-802c-475c-8e47-87212cd97bd0", "Argeela decor reel", "reel"),
     accent: "teal",
   },
 
@@ -305,8 +304,8 @@ export const projects: Project[] = [
     year: "2025",
     summary: "The cheese pull you feel in your chest. You're welcome.",
     orientation: "vertical",
-    cover: yt("vG2q7RXGSlo", "Cheesy Naan food reel", "reel"),
-    video: yt("vG2q7RXGSlo", "Cheesy Naan food reel", "reel"),
+    cover: bn("a51e7d1a-fc6a-453c-be09-d32446273c34", "Cheesy Naan food reel", "reel"),
+    video: bn("a51e7d1a-fc6a-453c-be09-d32446273c34", "Cheesy Naan food reel", "reel"),
     accent: "gold",
   },
   {
@@ -318,8 +317,8 @@ export const projects: Project[] = [
     year: "2025",
     summary: "Sizzle on cue — jalfrezi shot to make you order it now.",
     orientation: "vertical",
-    cover: yt("iMPBRZNL8CM", "Chicken Jalfrezi food reel", "reel"),
-    video: yt("iMPBRZNL8CM", "Chicken Jalfrezi food reel", "reel"),
+    cover: bn("950c0a1c-cb6c-4c51-bbbd-d0d8a28b00af", "Chicken Jalfrezi food reel", "reel"),
+    video: bn("950c0a1c-cb6c-4c51-bbbd-d0d8a28b00af", "Chicken Jalfrezi food reel", "reel"),
     accent: "gold",
   },
   {
@@ -331,8 +330,8 @@ export const projects: Project[] = [
     year: "2025",
     summary: "One spoon in and you're hooked — biryani in glorious detail.",
     orientation: "vertical",
-    cover: yt("Eadxb9YTQyo", "Biryani Bite food reel", "reel"),
-    video: yt("Eadxb9YTQyo", "Biryani Bite food reel", "reel"),
+    cover: bn("7e60c5b9-2635-4cd7-9047-275982d19654", "Biryani Bite food reel", "reel"),
+    video: bn("7e60c5b9-2635-4cd7-9047-275982d19654", "Biryani Bite food reel", "reel"),
     accent: "gold",
   },
   {
@@ -344,8 +343,8 @@ export const projects: Project[] = [
     year: "2025",
     summary: "Steam, spice, and the sauce moment. Peak comfort.",
     orientation: "vertical",
-    cover: yt("AffcFt__IQY", "Biryani and sauce food reel", "reel"),
-    video: yt("AffcFt__IQY", "Biryani and sauce food reel", "reel"),
+    cover: bn("dbe4ff7e-95f8-463a-bb76-fdad0150e2d6", "Biryani and sauce food reel", "reel"),
+    video: bn("dbe4ff7e-95f8-463a-bb76-fdad0150e2d6", "Biryani and sauce food reel", "reel"),
     accent: "gold",
   },
   {
@@ -357,8 +356,8 @@ export const projects: Project[] = [
     year: "2025",
     summary: "Comfort food, cinematic — aloo keema that hits different.",
     orientation: "vertical",
-    cover: yt("i8n5HvG6_EE", "Aloo Keema food reel", "reel"),
-    video: yt("i8n5HvG6_EE", "Aloo Keema food reel", "reel"),
+    cover: bn("e7a92df6-daf4-4212-9052-f54cd8262cd6", "Aloo Keema food reel", "reel"),
+    video: bn("e7a92df6-daf4-4212-9052-f54cd8262cd6", "Aloo Keema food reel", "reel"),
     accent: "gold",
   },
   {
