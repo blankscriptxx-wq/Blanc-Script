@@ -44,7 +44,7 @@ Next.js (App Router) + TypeScript + Tailwind + shadcn/ui · Neon Postgres + Driz
 5. **Stored client logins**: **in v1** — only with KMS vault + dual-control reveal + audit + MFA step-up; capability off by default.
 
 ### Still pending from owner
-- **Retainer/service tiers** — real names · £/month · inclusions, to seed the retainers module (M2). Build proceeds without them until supplied.
+- ✅ **Retainer/service tiers** — RECEIVED (pricing deck). Captured in `service-packages.md`: STILLS £200 · ON AIR £460 · PRIME TIME £900 · HEADLINE £1,720 · OFF-SCRIPT bespoke, + add-ons. All plans customisable per client (`client_services` overrides). Seeds the M2 retainers module.
 - **Aniro reminders**: finish/confirm the Aniro Meta app review (→ direct social publishing); scope the Aniro WhatsApp-inbox capability (brief written).
 
 ## External accounts to provision (for live M1+)
