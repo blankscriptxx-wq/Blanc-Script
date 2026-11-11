@@ -149,6 +149,50 @@ Roles seen: **Owner, Admin, Account Manager, Editor, SuperAdmin**, plus client a
 
 ---
 
+## 6a. Deeper findings from the shipped code **[Verified]**
+
+Further reading of the bundles pins down specifics that were only inferred above.
+
+### Roles (exactly five staff roles)
+The role‑specific AI prompt sets name them directly: **`owner`**, **`ops`** (operations/admin), **`staff`** (account managers), **`editor`**, and **`mf`** — the on‑shoot **filmer/videographer** (their prompts are *"Where am I filming next?"*, *"Who else is on my next shoot?"*, *"Add a task to charge the batteries"*). Clients and talent are separate user types in the portals.
+
+### Data model: one `records` table, ~130 "kinds"
+**[Verified]** The single `records` table carries a `kind` field; roughly 130 distinct values appear, which is how one table represents every object and every dashboard card. Notable kinds:
+`shoot`, `newshoot`, `shootedit`, `shootwrap`, `project`, `task`, `tasktime`, `deadline`, `person`, `actor`, `actorpay`, `casting`, `openday`, `video`, `upload`, `review`, `audio`, `image`, `brief`, `meeting`, `meetnote`, `weekly`, `weeklysetup`, `invoice`, `odentry` (hand‑entered ledger line), `payslip`, `payprofile`, `editorbalance`, `editorweek`, `post`, `posting`, `clientposts`, `trackpick`, `ttpick` (TikTok sound pick), `lead`/`leadedit`, `churn`, `lost`, `complaint`, `onboarding`, `onboardsteps`, `portalinvite`, `portallogin`, `portalask`, `clientaccess`, `login`, `password`, `access`/`accessedit`, `contractterms`, `group`, `inbox`, `wanotes`/`waforward`/`watask` (WhatsApp), `tutorial`/`tutorials`, `notifications`, `setting`. **[Inferred]** the `*new`/`*edit` suffixes are the create/edit card states, and the "Today" feed is assembled from these typed cards.
+
+### The AI assistant is agentic — a real tool catalogue
+**[Verified]** Claude isn't just a chat box; it's wired with structured **tool use** (Anthropic `input_schema`, `stop_reason: "tool_use"`). Each tool declares three things: an **execution `mode`**, a **permission guard** (`may:`), and a typed input schema. Modes:
+- **`popup`** — opens the matching form pre‑filled for the user to confirm (e.g. `book_shoot`).
+- **`direct`** — saves immediately (e.g. `add_task`, `update_client`, `add_lead`, `move_lead`, `assign_video`).
+- **`ask`** — requires explicit confirmation (e.g. `send_whatsapp` — *"Only when they asked you to send it"*; `mark_invoice_paid`, guarded by `canInvoice`).
+
+Read tools: `search_clients`, `find_shoots`, `find_videos`, `find_tasks`, `calendar`, `find_leads`, `inbox`, `read_conversation`, `find_invoices`, `find_pay`, `find_posts`, `get_client_context`.
+Write/action tools: `add_task`, `update_task`, `add_lead`, `update_lead`, `move_lead`, `add_client_update`, `update_client`, `add_project`, `book_shoot`, `move_shoot`, `cancel_shoot`, `assign_video`, `mark_posted`, `mark_invoice_paid`, `send_whatsapp`, `send_dm`.
+The Claude button only appears for the **owner** or when an **Anthropic API key** is connected — **[Verified]** the AI layer is opt‑in and bring‑your‑own‑key.
+
+### Permissions: capability flags on top of roles
+**[Verified]** Beyond the five roles, access is gated by fine‑grained **capability booleans** checked throughout the UI. The ones in the code: `canManage` (by far the most used), `canPayTeam`, `canApprovePay`, `canSeeActorPay`, `canInvoice`, `canSeeMoney`, `canFees`/`canEditFees`, `canSettings`, `canManageUsers`, `canLogins`, `canContract`, `canArchive`, `canEdit`, `canName`, `canAct`, plus `isOwner`/`isOps`. **[Inferred]** roles map to a default set of these, which is what lets, say, an account manager do client work but not see money or run payroll.
+
+### Payroll & bank payments (actors and staff)
+**[Verified]** `pay` chunk shows a real payroll engine: hourly rates (*"£X an hour"*, *"No rate set"*, *"Free · staff member"*), **travel pay** added on top, per‑shoot counts, and live **bank payment states**: *waiting to be approved → going out now → bank is on it → part of it went / the bank would not take it / no answer from the bank*, with a **test account vs the real account** toggle. **[Inferred]** this is the Revolut pay‑run executing real transfers with a sandbox mode.
+
+### On‑shoot specifics
+**[Verified]** `shoot` chunk tracks **cast turn‑up** ("turned up" / "did not"), an **age flag** ("over 16"), "nobody cast yet", and references filming "on Kepler" (**[Unknown]** — "Kepler" is an internal codename, purpose not established; Centauri/Kepler suggests a space‑themed set of internal systems).
+
+### Service packages & monthly playbooks
+**[Verified]** `social-stats` reveals **productised services**, each with a **recurring monthly checklist** the system generates:
+- **Social management** — *"Check every post went out, every week"*, *"Agree this month's design list"*, *"Build this month's report"*, *"Counting from the posts again"*.
+- **Local SEO / listings** — *"Check all three listings each month"*, *"Claim and verify every location"*, **Google Business**, **Google Analytics**.
+- **Photography** (incl. restaurant/menu) — *"Book the photography day"*, *"Collect the brand files and fonts"*, *"Deliver the retouched set to the folder"*, *"Deliver print‑ready and social sizes"*; delivery‑platform work for **Deliveroo**/**Just Eat** (*"menu photography live"*).
+- **Advertising / out‑of‑home** — *"Billboards, buses, influencers"*, *"Get quotes and negotiate the rate"*, *"Book, brief and track the run"*.
+
+**[Verified]** Named **retainer plans** exist — e.g. **Growth**, **Growth (legacy)**, and **Growth Lite (£X a month)** — so clients sit on priced monthly tiers that drive which playbooks run. **[Inferred]** picking a client's services/plan seeds their recurring tasks automatically. (The `marks`/`brandmarks` chunks are just inline **SVG logos/wordmarks** for the platforms and brands.)
+
+### Automatic post‑to‑edit matching
+**[Verified]** `videolink` chunk matches a **published social post back to the internal edit it came from**, using signals like the video **title/name in the caption**, the **same file**, and **about the same length** ("made from this edit"). **[Inferred]** this auto‑reconciles the post tracker against what actually went out, so analytics attach to the right project without manual linking.
+
+---
+
 ## 7. What could NOT be established **[Unknown]**
 
 - The actual database schema (table columns, the `records` "kind" values, relationships).
