@@ -7,8 +7,11 @@ import { dbConfigured } from "@/lib/db/client";
 
 export const metadata = { title: "Today" };
 
+export const dynamic = "force-dynamic";
+
 export default async function TodayPage() {
   const user = await getCurrentUser();
+  if (!user) return null;
   const live = dbConfigured();
   const today = new Intl.DateTimeFormat("en-GB", {
     weekday: "long",

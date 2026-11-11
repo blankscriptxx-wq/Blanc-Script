@@ -1,27 +1,33 @@
+import { drizzle } from "drizzle-orm/neon-http";
+import { neon } from "@neondatabase/serverless";
 import { schema } from "./schema";
 
 /**
- * Database client factory.
+ * Database client — Neon Postgres over HTTPS (@neondatabase/serverless), Drizzle.
+ * HTTP driver suits Vercel serverless and works behind the agent proxy.
+ * Connection from DATABASE_URL (Vercel–Neon integration / .env.local).
  *
- * PLACEHOLDER MODE: no connection is made until `DATABASE_URL` is set (which the
- * Vercel–Neon integration injects automatically once provisioned). The Neon
- * driver is added and wired in the data-layer milestone; until then `getDb()`
- * fails loudly rather than silently returning fake data.
- *
- * When wired, this returns a Drizzle client bound to a per-request, RLS-authed
- * Neon connection (Clerk JWT → Neon Authorize), per docs/SYSTEM_ARCHITECTURE.md.
+ * RLS: once policies land, per-request identity is passed to Neon Authorize via
+ * the Neon Auth JWT; see docs/SECURITY_AND_PRIVACY.md.
  */
 
 export function dbConfigured(): boolean {
   return Boolean(process.env.DATABASE_URL);
 }
 
-export { schema };
+let _db: ReturnType<typeof drizzle<typeof schema>> | undefined;
 
-export function getDb(): never {
-  throw new Error(
-    dbConfigured()
-      ? "DATABASE_URL is set but the Neon/Drizzle driver is not wired yet (data-layer milestone)."
-      : "No DATABASE_URL. Provision Neon via the Vercel–Neon integration, then wire the driver.",
-  );
+export function getDb() {
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error(
+      "No DATABASE_URL. Provision Neon (Vercel–Neon integration) or set .env.local.",
+    );
+  }
+  if (!_db) {
+    _db = drizzle(neon(url), { schema });
+  }
+  return _db;
 }
+
+export { schema };

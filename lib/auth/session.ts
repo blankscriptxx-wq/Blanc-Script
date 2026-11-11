@@ -1,61 +1,83 @@
-import {
-  resolveCapabilities,
-  type Capability,
-  type CapabilityOverrides,
-  type Role,
-} from "./roles";
+import { eq } from "drizzle-orm";
+import { auth } from "./server";
+import { getDb } from "@/lib/db/client";
+import { memberships, organisations } from "@/lib/db/schema";
+import { resolveCapabilities, type Capability, type Role } from "./roles";
 
 /**
- * Current-user resolution.
- *
- * PLACEHOLDER MODE (no auth provider wired yet): returns a local development
- * identity so the shell renders. When Clerk is wired (see docs/INTEGRATIONS_ROADMAP
- * and SYSTEM_ARCHITECTURE), `getCurrentUser()` reads the Clerk session + the
- * user's membership (org, role, capability overrides) and the DB enforces RLS.
- *
- * It never invents business data — only an identity — so no real records are faked.
+ * Current-user resolution via Neon Auth (Managed Better Auth).
+ * The session gives identity; the org/role/capabilities come from our
+ * `memberships` table. A signed-in user with no membership has no access yet
+ * (awaiting an invite/grant) — we never fabricate a role or capabilities.
  */
 
 export type CurrentUser = {
   id: string;
   name: string;
   email: string;
-  orgId: string;
-  orgName: string;
-  role: Role;
+  orgId: string | null;
+  orgName: string | null;
+  role: Role | null;
   capabilities: Set<Capability>;
-  /** True until a real auth provider is connected. */
-  placeholder: boolean;
+  /** True only when the user has an active membership in an org. */
+  hasAccess: boolean;
 };
 
-export function authConfigured(): boolean {
-  return Boolean(process.env.CLERK_SECRET_KEY);
-}
+export async function getCurrentUser(): Promise<CurrentUser | null> {
+  const { data: session } = await auth.getSession();
+  const u = session?.user;
+  if (!u) return null;
 
-const DEV_OVERRIDES: CapabilityOverrides = {};
+  let row:
+    | {
+        orgId: string;
+        orgName: string | null;
+        role: string;
+        capabilities: Record<string, boolean> | null;
+      }
+    | undefined;
+  try {
+    const db = getDb();
+    const rows = await db
+      .select({
+        orgId: memberships.orgId,
+        orgName: organisations.name,
+        role: memberships.role,
+        capabilities: memberships.capabilities,
+      })
+      .from(memberships)
+      .leftJoin(organisations, eq(memberships.orgId, organisations.id))
+      .where(eq(memberships.userId, u.id))
+      .limit(1);
+    row = rows[0];
+  } catch {
+    row = undefined;
+  }
 
-/**
- * Returns the signed-in user, or a placeholder dev identity when no auth
- * provider is configured. Async so the Clerk-backed implementation is a drop-in.
- */
-export async function getCurrentUser(): Promise<CurrentUser> {
-  if (!authConfigured()) {
-    const role: Role = "owner";
+  if (!row) {
     return {
-      id: "dev-user",
-      name: "Dev User",
-      email: "dev@blancscript.local",
-      orgId: "dev-org",
-      orgName: "Blanc Script (dev)",
-      role,
-      capabilities: resolveCapabilities(role, DEV_OVERRIDES),
-      placeholder: true,
+      id: u.id,
+      name: u.name ?? u.email,
+      email: u.email,
+      orgId: null,
+      orgName: null,
+      role: null,
+      capabilities: new Set(),
+      hasAccess: false,
     };
   }
-  // TODO(wire-clerk): read Clerk auth() + membership, map to CurrentUser.
-  throw new Error(
-    "Auth is configured but the Clerk adapter is not wired yet. See docs/INTEGRATIONS_ROADMAP.md.",
-  );
+
+  const role = row.role as Role;
+  return {
+    id: u.id,
+    name: u.name ?? u.email,
+    email: u.email,
+    orgId: row.orgId,
+    orgName: row.orgName,
+    role,
+    capabilities: resolveCapabilities(role, row.capabilities ?? {}),
+    hasAccess: true,
+  };
 }
 
 export function can(user: CurrentUser, capability: Capability): boolean {

@@ -1,13 +1,14 @@
 /**
- * Drizzle schema — Milestone 1 core slice.
+ * Drizzle schema — Milestone 1 core slice (public schema).
  *
- * This is the authoritative-model's foundation (full model: docs/DATABASE_SCHEMA.md).
- * M1 ships the tenancy spine + a few core business tables so the app has real
- * types to build against; later milestones add the remaining entities via
- * forward-only migrations. Every business table is org-scoped and soft-deletable;
- * RLS policies (added with the migrations) enforce tenancy + capabilities in Neon.
+ * Auth tables (user/session/account/organization/member/invitation/jwks/verification)
+ * are owned by **Neon Auth (Managed Better Auth)** in the `neon_auth` schema — we do
+ * NOT define them here. Our tables reference the Neon Auth user id as a plain uuid
+ * (`user_id`, `account_manager_id`, …); integrity is enforced in the app + RLS, not a
+ * cross-schema FK. Full model: docs/DATABASE_SCHEMA.md.
  *
  * Conventions: snake_case columns, uuid PKs, timestamptz, money as integer pence.
+ * RLS policies are added in the security step (Neon Authorize reads the Neon Auth JWT).
  */
 import {
   boolean,
@@ -60,8 +61,16 @@ export const shootStatusEnum = pgEnum("shoot_status", [
   "wrapped",
   "cancelled",
 ]);
+export const planBillingEnum = pgEnum("plan_billing", ["monthly", "bespoke"]);
+export const addonCadenceEnum = pgEnum("addon_cadence", [
+  "monthly",
+  "one_off",
+  "hourly",
+  "per_job",
+  "bespoke",
+]);
 
-// ── Tenancy spine ───────────────────────────────────────────────────────────
+// ── Tenancy ─────────────────────────────────────────────────────────────────
 export const organisations = pgTable("organisations", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
@@ -71,31 +80,17 @@ export const organisations = pgTable("organisations", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-/** Mirrors the Clerk user; one row per human regardless of org. */
-export const users = pgTable("users", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  clerkId: text("clerk_id").unique(),
-  name: text("name").notNull(),
-  email: text("email").notNull(),
-  avatarUrl: text("avatar_url"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
-
-/** A user's place in an org: their role, capability overrides, and portal scope. */
+/** A Neon Auth user's place in an org: role, capability overrides, portal scope. */
 export const memberships = pgTable("memberships", {
   id: uuid("id").primaryKey().defaultRandom(),
   orgId: uuid("org_id")
     .notNull()
     .references(() => organisations.id),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id),
+  /** Neon Auth (neon_auth.user) id — no cross-schema FK; enforced in app + RLS. */
+  userId: uuid("user_id").notNull(),
   role: roleEnum("role").notNull(),
   status: membershipStatusEnum("status").notNull().default("invited"),
-  /** Effective capability overrides, keyed by capability name → boolean. */
   capabilities: jsonb("capabilities").$type<Record<string, boolean>>().default({}),
-  /** Portal isolation anchors (null for internal staff). */
   clientId: uuid("client_id"),
   talentId: uuid("talent_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -110,9 +105,10 @@ export const clients = pgTable("clients", {
     .references(() => organisations.id),
   name: text("name").notNull(),
   status: clientStatusEnum("status").notNull().default("lead"),
-  accountManagerId: uuid("account_manager_id").references(() => users.id),
-  /** Monthly retainer value in pence. */
-  retainerPence: integer("retainer_pence"),
+  accountManagerId: uuid("account_manager_id"),
+  servicePlanId: uuid("service_plan_id").references(() => servicePlans.id),
+  /** Per-client monthly override in pence (null = use the plan's price). */
+  retainerOverridePence: integer("retainer_override_pence"),
   currency: text("currency").notNull().default("GBP"),
   archivedAt: timestamp("archived_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -141,7 +137,7 @@ export const tasks = pgTable("tasks", {
   clientId: uuid("client_id"),
   title: text("title").notNull(),
   status: taskStatusEnum("status").notNull().default("todo"),
-  assigneeId: uuid("assignee_id").references(() => users.id),
+  assigneeId: uuid("assignee_id"),
   dueAt: timestamp("due_at", { withTimezone: true }),
   archivedAt: timestamp("archived_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -163,7 +159,41 @@ export const shoots = pgTable("shoots", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-/** Append-only audit trail (includes AI + impersonation actions in later milestones). */
+// ── Service plans & add-ons (seeded from docs/service-packages.md) ──────────
+export const servicePlans = pgTable("service_plans", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organisations.id),
+  code: text("code").notNull(), // STILLS, ON_AIR, PRIME_TIME, HEADLINE, OFF_SCRIPT
+  name: text("name").notNull(),
+  pricePence: integer("price_pence"), // null for bespoke
+  billing: planBillingEnum("billing").notNull().default("monthly"),
+  mostPopular: boolean("most_popular").notNull().default(false),
+  bespoke: boolean("bespoke").notNull().default(false),
+  /** Volumes & inclusions (videos_per_week, total_posts_per_month, ai_inbox, …). */
+  features: jsonb("features").$type<Record<string, unknown>>().default({}),
+  sortOrder: integer("sort_order").notNull().default(0),
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const addOns = pgTable("add_ons", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organisations.id),
+  name: text("name").notNull(),
+  pricePence: integer("price_pence"), // null = competitive/bespoke
+  cadence: addonCadenceEnum("cadence").notNull().default("monthly"),
+  freeWithPlanCode: text("free_with_plan_code"), // e.g. AI Inbox free with HEADLINE
+  notes: text("notes"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Append-only audit trail. */
 export const activityLog = pgTable("activity_log", {
   id: uuid("id").primaryKey().defaultRandom(),
   orgId: uuid("org_id").notNull(),
@@ -177,11 +207,12 @@ export const activityLog = pgTable("activity_log", {
 
 export const schema = {
   organisations,
-  users,
   memberships,
   clients,
   projects,
   tasks,
   shoots,
+  servicePlans,
+  addOns,
   activityLog,
 };
