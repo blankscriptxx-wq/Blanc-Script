@@ -1,0 +1,169 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Blanc Script OS — semantic token layer.
+ * Components never use raw hex; they consume --bs-* via the Tailwind `bs` namespace.
+ * Light is :root; dark is [data-theme="dark"], plus system default unless forced light.
+ */
+
+:root {
+  /* Fonts (loaded via <link> in layout; graceful system fallbacks) */
+  --font-display: "Sora", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-serif: "Fraunces", ui-serif, Georgia, serif;
+  --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* Surfaces */
+  --bs-canvas: #faf7f3;
+  --bs-surface: #ffffff;
+  --bs-surface-2: #f3eee8;
+  --bs-overlay: #ffffff;
+  --bs-cream: #f1e7de;
+
+  /* Text */
+  --bs-text: #1b201f;
+  --bs-text-muted: #515956;
+  --bs-text-subtle: #7c847f;
+  --bs-text-on-accent: #ffffff;
+
+  /* Lines */
+  --bs-border: #e4dcd2;
+  --bs-border-strong: #c9bfb2;
+  --bs-ring: #e8375b;
+
+  /* Brand accents */
+  --bs-primary: #e8375b;
+  --bs-primary-hover: #c82848;
+  --bs-primary-soft: #fbe2e8;
+  --bs-accent: #2e8e92;
+  --bs-accent-soft: #dcf0f0;
+
+  /* Semantic / status */
+  --bs-success: #2f8f62;
+  --bs-success-soft: #def1e7;
+  --bs-warning: #b9801f;
+  --bs-warning-soft: #fbefd7;
+  --bs-danger: #c82848;
+  --bs-danger-soft: #fbe2e8;
+  --bs-info: #2e8e92;
+  --bs-info-soft: #dcf0f0;
+  --bs-neutral: #515956;
+  --bs-neutral-soft: #ece7e0;
+
+  /* Data-viz */
+  --bs-viz-1: #2e8e92;
+  --bs-viz-2: #e8375b;
+  --bs-viz-3: #efa93a;
+  --bs-viz-4: #5b6ee1;
+  --bs-viz-5: #8a6fb0;
+  --bs-viz-6: #4a5450;
+
+  --bs-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Dark: explicit opt-in */
+:root[data-theme="dark"] {
+  --bs-canvas: #151a19;
+  --bs-surface: #1e2423;
+  --bs-surface-2: #272e2c;
+  --bs-overlay: #272e2c;
+  --bs-cream: #2a2622;
+
+  --bs-text: #f2eee8;
+  --bs-text-muted: #aeb5b1;
+  --bs-text-subtle: #7e867f;
+  --bs-text-on-accent: #ffffff;
+
+  --bs-border: #313836;
+  --bs-border-strong: #434b48;
+  --bs-ring: #ff5e7d;
+
+  --bs-primary: #ff5e7d;
+  --bs-primary-hover: #ff7a93;
+  --bs-primary-soft: #3a2429;
+  --bs-accent: #51c8cc;
+  --bs-accent-soft: #16302f;
+
+  --bs-success: #49b883;
+  --bs-success-soft: #15271f;
+  --bs-warning: #f0b65a;
+  --bs-warning-soft: #2c2416;
+  --bs-danger: #ff6b82;
+  --bs-danger-soft: #30191d;
+  --bs-info: #51c8cc;
+  --bs-info-soft: #16302f;
+  --bs-neutral: #aeb5b1;
+  --bs-neutral-soft: #262c2a;
+
+  --bs-viz-1: #51c8cc;
+  --bs-viz-2: #ff5e7d;
+  --bs-viz-3: #f0b65a;
+  --bs-viz-4: #8094f0;
+  --bs-viz-5: #b199d4;
+  --bs-viz-6: #9aa39e;
+}
+
+/* System dark, unless the user has forced light */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bs-canvas: #151a19;
+    --bs-surface: #1e2423;
+    --bs-surface-2: #272e2c;
+    --bs-overlay: #272e2c;
+    --bs-cream: #2a2622;
+    --bs-text: #f2eee8;
+    --bs-text-muted: #aeb5b1;
+    --bs-text-subtle: #7e867f;
+    --bs-border: #313836;
+    --bs-border-strong: #434b48;
+    --bs-ring: #ff5e7d;
+    --bs-primary: #ff5e7d;
+    --bs-primary-hover: #ff7a93;
+    --bs-primary-soft: #3a2429;
+    --bs-accent: #51c8cc;
+    --bs-accent-soft: #16302f;
+    --bs-success: #49b883;
+    --bs-success-soft: #15271f;
+    --bs-warning: #f0b65a;
+    --bs-warning-soft: #2c2416;
+    --bs-danger: #ff6b82;
+    --bs-danger-soft: #30191d;
+    --bs-info: #51c8cc;
+    --bs-info-soft: #16302f;
+    --bs-neutral: #aeb5b1;
+    --bs-neutral-soft: #262c2a;
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--bs-border);
+  }
+  html {
+    font-size: 14px; /* density dial */
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background: var(--bs-canvas);
+    color: var(--bs-text);
+    font-family: var(--font-sans);
+    font-feature-settings: "tnum" 1, "cv01" 1;
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 3px var(--bs-ring);
+    border-radius: 4px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+}

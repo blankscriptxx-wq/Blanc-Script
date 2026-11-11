@@ -1,0 +1,17 @@
+{
+  "id": "/",
+  "name": "Blanc Script OS",
+  "short_name": "Blanc Script",
+  "description": "The Blanc Script agency operating system.",
+  "lang": "en-GB",
+  "start_url": "/today",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#151a19",
+  "theme_color": "#151a19",
+  "categories": ["business", "productivity"],
+  "shortcuts": [
+    { "name": "Today", "url": "/today" },
+    { "name": "Shoots", "url": "/shoots" }
+  ]
+}
