@@ -15,7 +15,7 @@ These resolve the conflicts/open points raised by the specialist agents. Deferre
 | D3 | **Rate limit / KV** | Add Upstash Redis (or Vercel KV) when public/webhook endpoints appear (M4+). Not in M1. | Arch ADR-014 |
 | D4 | **Portal identity** | Single Clerk app; external users carry a `portal_scope` claim; isolation via `memberships.client_id/talent_id` + RLS. | Security #1, Arch #4 |
 | D5 | **Capabilities source of truth** | `memberships.capabilities` (effective booleans); RLS reads via helper join; JWT carries identity/org/role (+ optional caps array for convenience only). | DB/Arch cap question |
-| D6 | **Stored client logins** | **Not in v1.** Off by default; ship only after KMS envelope encryption + dual-control + reveal-audit + MFA step-up (post-v1). | Security #2 |
+| D6 | **Stored client logins** | **In v1 scope** (owner's call, 11 Nov) — but shipped **only with** the full scaffold: KMS envelope encryption (never plain DB), dual-control reveal, append-only audit, MFA step-up on reveal, `can_manage_client_logins` off by default. No raw-credential storage without these. Prefer OAuth where the platform offers it. | Security #2 |
 | D7 | **Google scope** | Least-privilege `drive.file`. | Integrations #6 |
 | D8 | **Email** | Single app-level Resend key for v1; per-org white-label later. | Integrations #5 |
 | D9 | **can_see_money vs can_see_margin** | Split: `can_see_money` (revenue/invoices) separate from `can_see_margin` (cost/profit). Ops gets money, not margin, by default. | Security #5 |
@@ -25,12 +25,18 @@ These resolve the conflicts/open points raised by the specialist agents. Deferre
 | D13 | **Money/pay masking** | DB defines sensitive-column set; Security's capability matrix governs who sees each; one reconciled masking matrix enforced in the DAL, rows via RLS. | DB #1 |
 | D14 | **Design defaults** | Mono = Geist Mono; WCAG 2.2 AA (stronger on auth/finance); default density **comfortable** + compact toggle; charts = **Recharts**; AI panel = side-panel desktop / sheet on tablet+mobile; warm near-white canvas, cream as restricted accent. | Design §13 |
 
-### Deferred to their milestone — **need your call then** (recommendation in brackets)
-- **Video review/delivery** (M4): `VideoReviewPort` — *default Cloudflare Stream (your stack) for playback/delivery; Frame.io as optional review adapter.*
-- **Social publishing** (M5): `SocialPort` — *Metricool primary; direct Graph APIs optional later.*
-- **Payout rail** (M6): `PayoutPort` — *Revolut Business if you have it, else Stripe; sandbox-first, approval-gated, never an AI action.*
-- **WhatsApp** (M6): `MessagingPort` — *Periskope-first (groups) + Cloud API for 1:1.*
-- **Retainer/service-plan list** (needed to seed real data from M2): **your business data** — names, prices, and the monthly playbook each tier runs. Stubbed until supplied.
+### Provider decisions — RESOLVED (owner, 11 Nov 2026)
+- **Video review/delivery** (M4): **Frame.io** via `VideoReviewPort`. Frame-accurate client review + versioning; needs a Frame.io/Adobe account.
+- **Social publishing** (M5): **Metricool** via `SocialPort` for v1. **Later: direct Meta publishing through Aniro AI's existing (app-reviewed) Meta app** — integrate straight in once the Aniro-side review is finished. See "Cross-business" below.
+- **Payouts** (M6): **Monzo Business** — Monzo has **no payouts API**, so the OS prepares the pay-run (calculate → approve → audit) and **exports a bank-ready payment file** for manual upload in Monzo. Money only moves with a human in the bank. `PayoutPort` kept abstract so an automated rail (Revolut/Wise/Stripe) can be added later.
+- **WhatsApp** (M6): **Periskope** via `MessagingPort` for v1 (supports groups). **Later: build on Aniro AI's existing WhatsApp inbox integration** — see the Aniro brief (`docs/aniro-whatsapp-integration-brief.md`).
+- **Stored client logins**: in v1 scope with the full security scaffold (see D6).
+- **Retainer/service tiers** (seed from M2): owner is supplying the **real tiers** (names · £/month · inclusions). Build uses them once provided; until then the retainers module is scaffolded without seeded tiers. **PENDING owner input.**
+
+### Cross-business (Aniro AI)
+Aniro AI is the owner's other business and already holds assets Blanc Script OS can reuse:
+- **Meta app (app review complete)** → the path to direct social publishing (reminder: finish/confirm the Aniro Meta review, then integrate directly, superseding Metricool for Meta).
+- **WhatsApp inbox integration** → basis for a shared messaging capability; spec in `docs/aniro-whatsapp-integration-brief.md`.
 
 ---
 

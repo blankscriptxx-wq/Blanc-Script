@@ -36,13 +36,16 @@ Next.js (App Router) + TypeScript + Tailwind + shadcn/ui · Neon Postgres + Driz
 - Every integration behind a port/adapter with a NullAdapter; app degrades gracefully.
 - AI acts only *as* the user, through the same DAL + RLS + capability guards; pay release is never an AI action.
 
-## Open decisions — need your input (none block Milestone 1)
-1. **Retainer/service-plan tiers** — names, prices, and each tier's monthly playbook (your business data; needed to seed real data from M2).
-2. **Video provider** (M4): Cloudflare Stream [rec] vs Frame.io.
-3. **Social approach** (M5): Metricool [rec] vs direct platform APIs.
-4. **Payout rail** (M6): Revolut [rec if you have Business] vs Stripe.
-5. **WhatsApp** (M6): Periskope [rec] vs Cloud API only.
-6. Confirm **deferring stored-client-logins** out of v1 [rec: yes].
+## Provider decisions — RESOLVED (11 Nov 2026)
+1. **Video** (M4): **Frame.io**.
+2. **Social** (M5): **Metricool** now; later direct Meta publishing via **Aniro AI's** reviewed Meta app.
+3. **Payouts** (M6): **Monzo Business** — OS prepares pay-run + exports a bank-ready file (no payouts API); automated rail optional later.
+4. **WhatsApp** (M6): **Periskope** now; later build on **Aniro AI's** WhatsApp inbox (see `aniro-whatsapp-integration-brief.md`).
+5. **Stored client logins**: **in v1** — only with KMS vault + dual-control reveal + audit + MFA step-up; capability off by default.
+
+### Still pending from owner
+- **Retainer/service tiers** — real names · £/month · inclusions, to seed the retainers module (M2). Build proceeds without them until supplied.
+- **Aniro reminders**: finish/confirm the Aniro Meta app review (→ direct social publishing); scope the Aniro WhatsApp-inbox capability (brief written).
 
 ## External accounts to provision (for live M1+)
 Neon · Clerk · Cloudflare R2 · Trigger.dev · Resend · Anthropic API key. I'll give exact setup steps when we wire them.
