@@ -10,7 +10,7 @@ These resolve the conflicts/open points raised by the specialist agents. Deferre
 
 | # | Decision | Ruling | Source conflict |
 |---|---|---|---|
-| D1 | **Realtime** | SSE + short-poll behind a `RealtimePort` for M1–M4. Defer managed pub/sub (Ably/Pusher) to M5+ only if live chat/collab needs it. No new paid dep early. | Arch ADR-009 |
+| D1 | **Realtime** | Use **Neon Realtime** (enabled on the project via Vercel Storage) behind a `RealtimePort`, with SSE/short-poll as fallback. No separate pub/sub provider (Ably/Pusher) needed — superseded by Neon Realtime (owner confirmed 11 Nov). | Arch ADR-009 |
 | D2 | **Observability** | Vercel logs + structured logging + `activity_log` for M1–M2; add Sentry at M2/M3. | Arch ADR-018 |
 | D3 | **Rate limit / KV** | Add Upstash Redis (or Vercel KV) when public/webhook endpoints appear (M4+). Not in M1. | Arch ADR-014 |
 | D4 | **Portal identity** | Single Clerk app; external users carry a `portal_scope` claim; isolation via `memberships.client_id/talent_id` + RLS. | Security #1, Arch #4 |
