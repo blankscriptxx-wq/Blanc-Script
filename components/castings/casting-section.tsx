@@ -11,6 +11,7 @@ import {
   removeCastingAction,
   setRatingAction,
   type CastingActionState,
+  checkShootClashAction,
 } from "@/app/(os)/(app)/castings/actions";
 import { bookingCostPence } from "@/lib/casting-cost";
 import type {
@@ -266,8 +267,12 @@ function AssignForm({
     {},
   );
   const formRef = React.useRef<HTMLFormElement>(null);
+  const [clash, setClash] = React.useState<{ unavailable: boolean; dayClash: boolean } | null>(null);
   React.useEffect(() => {
-    if (state?.ok) formRef.current?.reset();
+    if (state?.ok) {
+      formRef.current?.reset();
+      setClash(null);
+    }
   }, [state]);
 
   const parentField =
@@ -286,7 +291,18 @@ function AssignForm({
         </p>
       ) : (
         <>
-          <select name="talentId" required defaultValue="" className={cn(inputCls, "pr-8")}>
+          <select
+            name="talentId"
+            required
+            defaultValue=""
+            className={cn(inputCls, "pr-8")}
+            onChange={(e) => {
+              const talentId = e.currentTarget.value;
+              setClash(null);
+              if (kind !== "shoot" || !talentId) return;
+              checkShootClashAction(parentId, talentId).then(setClash, () => {});
+            }}
+          >
             <option value="" disabled>
               Choose talent…
             </option>
@@ -299,6 +315,14 @@ function AssignForm({
               </option>
             ))}
           </select>
+          {clash && (clash.unavailable || clash.dayClash) ? (
+            <p role="alert" className="rounded-sm bg-bs-warning-soft px-2.5 py-1.5 text-xs text-bs-warning">
+              {clash.unavailable
+                ? "Heads up: this person is marked unavailable on the shoot date."
+                : "Heads up: this person is already booked on another shoot that day."}{" "}
+              You can still assign them.
+            </p>
+          ) : null}
           <input name="roleName" placeholder="Role / character (optional)" className={inputCls} />
 
           {kind === "shoot" ? (

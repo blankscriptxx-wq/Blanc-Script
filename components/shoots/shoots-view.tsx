@@ -111,6 +111,7 @@ export function ShootsView({
               <tr>
                 <th className="px-4 py-2.5 font-medium">Shoot</th>
                 <th className="px-4 py-2.5 font-medium">Client</th>
+                <th className="px-4 py-2.5 font-medium">Project</th>
                 <th className="px-4 py-2.5 font-medium">Status</th>
                 <th className="px-4 py-2.5 font-medium">Date</th>
                 <th className="px-4 py-2.5 font-medium">Location</th>
@@ -125,6 +126,7 @@ export function ShootsView({
                 >
                   <td className="px-4 py-3 font-medium text-bs-text">{r.title}</td>
                   <td className="px-4 py-3 text-bs-muted">{r.clientName ?? "—"}</td>
+                  <td className="px-4 py-3 text-bs-muted">{r.projectName ?? "—"}</td>
                   <td className="px-4 py-3">
                     <ShootStatus status={r.status} />
                   </td>

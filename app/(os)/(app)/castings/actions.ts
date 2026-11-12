@@ -144,3 +144,15 @@ export async function removeCastingAction(formData: FormData): Promise<void> {
   revalidatePath("/content");
   revalidatePath("/talent");
 }
+
+/** Warn before casting: is this person unavailable, or already booked, that day? */
+export async function checkShootClashAction(
+  shootId: string,
+  talentId: string,
+): Promise<{ unavailable: boolean; dayClash: boolean }> {
+  try {
+    return await checkShootClash(shootId, talentId);
+  } catch {
+    return { unavailable: false, dayClash: false };
+  }
+}

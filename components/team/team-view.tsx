@@ -6,11 +6,13 @@ import { StatusPill } from "@/components/ds/status-pill";
 import { Sheet } from "@/components/ds/sheet";
 import { cn } from "@/lib/cn";
 import type { MemberRow, MemberStatus } from "@/lib/data/team";
-import type { MemberDetail } from "@/lib/data/team-admin";
+import type { AwaitingUser, MemberDetail } from "@/lib/data/team-admin";
 import { INTERNAL_ROLES, CAPABILITIES } from "@/lib/auth/roles";
 import type { Role, Capability } from "@/lib/auth/roles";
 import {
   changeRoleAction,
+  grantAccessAction,
+  setMemberStatusAction,
   toggleCapabilityAction,
   type TeamActionState,
 } from "@/app/(os)/(app)/team/actions";
@@ -64,10 +66,12 @@ export function TeamView({
   rows,
   canManage = false,
   details = [],
+  awaiting = [],
 }: {
   rows: MemberRow[];
   canManage?: boolean;
   details?: MemberDetail[];
+  awaiting?: AwaitingUser[];
 }) {
   const [selected, setSelected] = React.useState<MemberRow | null>(null);
 
@@ -116,6 +120,8 @@ export function TeamView({
         </table>
       </div>
 
+      {canManage ? <AwaitingAccess people={awaiting} /> : null}
+
       <Sheet
         open={selected !== null}
         onClose={() => setSelected(null)}
@@ -139,6 +145,9 @@ export function TeamView({
                 {prettify(selected.status)}
               </StatusPill>
             </Row>
+            {canManage && detail ? (
+              <AccessToggle membershipId={detail.membershipId} status={detail.status} />
+            ) : null}
             <Row label="Email">{selected.email ?? "—"}</Row>
 
             {canManage && detail ? (
@@ -300,5 +309,103 @@ function Segment({
     >
       {label}
     </button>
+  );
+}
+
+const ROLE_HINT: Record<string, string> = {
+  owner: "Everything, including money, pay and settings",
+  ops: "Runs the studio: money, invoicing, people",
+  account_manager: "Clients, projects and delivery",
+  editor: "Edits and review",
+  filmer: "Shoots and uploads",
+};
+
+/** People who have signed up and are waiting to be let into the workspace. */
+function AwaitingAccess({ people }: { people: AwaitingUser[] }) {
+  return (
+    <section className="mt-8">
+      <h2 className="font-display text-h3 text-bs-text">Awaiting access</h2>
+      <p className="mb-3 mt-1 text-sm text-bs-muted">
+        To add someone, ask them to create an account at{" "}
+        <span className="font-medium text-bs-text">studio.blancscript.com/auth/sign-up</span>.
+        They&rsquo;ll appear here for you to give a role.
+      </p>
+      {people.length === 0 ? (
+        <p className="rounded-md border border-dashed border-bs-border bg-bs-surface px-4 py-5 text-sm text-bs-subtle">
+          Nobody is waiting.
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {people.map((p) => (
+            <AwaitingRow key={p.userId} person={p} />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function AwaitingRow({ person }: { person: AwaitingUser }) {
+  const [state, action, pending] = useActionState<TeamActionState, FormData>(grantAccessAction, {});
+  return (
+    <li className="rounded-md border border-bs-border bg-bs-surface px-4 py-3">
+      <form action={action} className="flex flex-wrap items-center gap-2">
+        <input type="hidden" name="userId" value={person.userId} />
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-medium text-bs-text">{person.name ?? "—"}</span>
+          <span className="block text-xs text-bs-subtle">{person.email ?? "—"}</span>
+        </span>
+        <select
+          name="role"
+          defaultValue="editor"
+          aria-label={`Role for ${person.name ?? person.email ?? "this person"}`}
+          className="h-9 rounded-sm border border-bs-border-strong bg-bs-surface px-2 pr-7 text-sm text-bs-text outline-none"
+        >
+          {INTERNAL_ROLES.map((r) => (
+            <option key={r} value={r} title={ROLE_HINT[r]}>
+              {prettify(r)}
+            </option>
+          ))}
+        </select>
+        <button
+          type="submit"
+          disabled={pending}
+          className="inline-flex h-9 items-center rounded-sm bg-bs-primary px-3 text-sm font-medium text-bs-on-accent transition-colors hover:bg-bs-primary-hover disabled:opacity-50"
+        >
+          {pending ? "Adding…" : "Give access"}
+        </button>
+      </form>
+      {state?.error ? <p className="mt-2 text-xs text-bs-danger">{state.error}</p> : null}
+    </li>
+  );
+}
+
+/** Suspend (remove access) or reactivate a member, from their drawer. */
+function AccessToggle({ membershipId, status }: { membershipId: string; status: MemberStatus }) {
+  const [state, action, pending] = useActionState<TeamActionState, FormData>(setMemberStatusAction, {});
+  const suspended = status === "suspended";
+  return (
+    <form action={action} className="space-y-1.5">
+      <input type="hidden" name="membershipId" value={membershipId} />
+      <input type="hidden" name="status" value={suspended ? "active" : "suspended"} />
+      <button
+        type="submit"
+        disabled={pending}
+        className={cn(
+          "inline-flex h-8 items-center rounded-sm border px-3 text-xs font-medium transition-colors disabled:opacity-50",
+          suspended
+            ? "border-bs-border-strong text-bs-text hover:bg-bs-surface-2"
+            : "border-bs-border-strong text-bs-danger hover:bg-bs-danger-soft",
+        )}
+      >
+        {pending ? "Saving…" : suspended ? "Restore access" : "Suspend access"}
+      </button>
+      <p className="text-xs text-bs-subtle">
+        {suspended
+          ? "This person can't open the workspace until access is restored."
+          : "Suspending signs them out of the workspace straight away. Nothing is deleted."}
+      </p>
+      {state?.error ? <p className="text-xs text-bs-danger">{state.error}</p> : null}
+    </form>
   );
 }

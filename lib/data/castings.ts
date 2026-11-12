@@ -120,7 +120,10 @@ export async function listShootCastings(): Promise<ShootCasting[]> {
           and ta.org_id = ${shootTalent.orgId}
           and ta.kind = 'unavailable'
           and ${shoots.scheduledAt} is not null
-          and ${shoots.scheduledAt} between ta.start_date and ta.end_date
+          -- Compare calendar days (UK time): a one-day window covers the whole day.
+          and (${shoots.scheduledAt} at time zone 'Europe/London')::date
+              between (ta.start_date at time zone 'Europe/London')::date
+                  and (ta.end_date at time zone 'Europe/London')::date
       )`,
       dayClash: sql<boolean>`exists (
         select 1 from ${shootTalent} st2
@@ -266,7 +269,9 @@ export async function checkShootClash(
         join ${shoots} s on s.id = ${shootId}
         where ta.talent_id = ${talentId} and ta.org_id = ${user.orgId}
           and ta.kind = 'unavailable' and s.scheduled_at is not null
-          and s.scheduled_at between ta.start_date and ta.end_date
+          and (s.scheduled_at at time zone 'Europe/London')::date
+              between (ta.start_date at time zone 'Europe/London')::date
+                  and (ta.end_date at time zone 'Europe/London')::date
       )`,
       dayClash: sql<boolean>`exists (
         select 1 from ${shootTalent} st
@@ -275,7 +280,7 @@ export async function checkShootClash(
         where st.talent_id = ${talentId} and st.org_id = ${user.orgId}
           and st.shoot_id <> ${shootId}
           and s.scheduled_at is not null and s2.scheduled_at is not null
-          and date(s2.scheduled_at) = date(s.scheduled_at)
+          and (s2.scheduled_at at time zone 'Europe/London')::date = (s.scheduled_at at time zone 'Europe/London')::date
       )`,
     })
     .from(shoots)

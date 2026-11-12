@@ -237,3 +237,88 @@ export async function setMemberCapabilityOverride(
     meta: { userId: member.userId, capability: cap, value },
   });
 }
+
+// ── Granting and removing access ──────────────────────────────────────────
+
+export type AwaitingUser = { userId: string; name: string | null; email: string | null; createdAt: Date };
+
+/** People who have signed up but hold no membership in any workspace yet. */
+export async function listAwaitingUsers(): Promise<AwaitingUser[]> {
+  const user = await requireUser();
+  if (!user.capabilities.has(CAN_MANAGE)) return [];
+  const { rows } = await getDb().execute(sql`
+    select u.id as "userId", u.name, u.email, u."createdAt" as "createdAt"
+    from neon_auth."user" u
+    where not exists (select 1 from memberships m where m.user_id = u.id)
+    order by u."createdAt" desc
+    limit 50
+  `);
+  return (rows as unknown as AwaitingUser[]).map((r) => ({ ...r, createdAt: new Date(r.createdAt) }));
+}
+
+/** Add a signed-up person to the workspace with a role. Privileged. */
+export async function grantAccess(userId: string, role: InternalRole): Promise<void> {
+  const user = await requireUser();
+  if (!user.capabilities.has(CAN_MANAGE)) {
+    throw new Error("You do not have permission to manage users.");
+  }
+  const id = z.string().uuid("Invalid user.").parse(userId);
+  const nextRole = roleSchema.parse(role);
+  if (nextRole === "owner" && user.role !== "owner") {
+    throw new Error("Only an owner can add another owner.");
+  }
+  const { rows } = await getDb().execute(sql`
+    select
+      (select count(*)::int from neon_auth."user" u where u.id = ${id}) as "exists",
+      (select count(*)::int from memberships m where m.user_id = ${id}) as "memberships"
+  `);
+  const check = rows[0] as { exists: number; memberships: number } | undefined;
+  if (!check?.exists) throw new Error("That account was not found.");
+  if (check.memberships > 0) throw new Error("That person already belongs to a workspace.");
+
+  const [row] = await getDb()
+    .insert(memberships)
+    .values({ orgId: user.orgId, userId: id, role: nextRole, status: "active" })
+    .returning({ id: memberships.id });
+
+  await getDb().insert(activityLog).values({
+    orgId: user.orgId,
+    actorUserId: user.id,
+    action: "member.added",
+    entityType: "membership",
+    entityId: row.id,
+    meta: { userId: id, role: nextRole },
+  });
+}
+
+/** Suspend (remove access) or reactivate a member. Privileged. */
+export async function setMemberStatus(
+  membershipId: string,
+  status: "active" | "suspended",
+): Promise<void> {
+  const user = await requireUser();
+  if (!user.capabilities.has(CAN_MANAGE)) {
+    throw new Error("You do not have permission to manage users.");
+  }
+  const id = membershipIdSchema.parse(membershipId);
+  const next = z.enum(["active", "suspended"]).parse(status);
+  const member = await loadOwnOrgMembership(user.orgId, id);
+  if (member.userId === user.id && next === "suspended") {
+    throw new Error("You can't suspend your own access.");
+  }
+  if (member.role === "owner" && user.role !== "owner") {
+    throw new Error("Only an owner can change an owner's access.");
+  }
+  await getDb()
+    .update(memberships)
+    .set({ status: next, updatedAt: new Date() })
+    .where(and(eq(memberships.id, id), eq(memberships.orgId, user.orgId)));
+  await getDb().insert(activityLog).values({
+    orgId: user.orgId,
+    actorUserId: user.id,
+    action: next === "suspended" ? "member.suspended" : "member.reactivated",
+    entityType: "membership",
+    entityId: id,
+    meta: { userId: member.userId },
+  });
+}

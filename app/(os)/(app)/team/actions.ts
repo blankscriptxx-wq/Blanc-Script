@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import {
   updateMemberRole,
   setMemberCapabilityOverride,
+  grantAccess,
+  setMemberStatus,
 } from "@/lib/data/team-admin";
 import { INTERNAL_ROLES, CAPABILITIES } from "@/lib/auth/roles";
 import type { InternalRole, Capability } from "@/lib/auth/roles";
@@ -45,4 +47,40 @@ export async function toggleCapabilityAction(
   const override = value === "on" ? true : value === "off" ? false : null;
   await setMemberCapabilityOverride(membershipId, capability as Capability, override);
   revalidatePath("/team");
+}
+
+/** Add a signed-up person to the workspace with the chosen role. */
+export async function grantAccessAction(
+  _prev: TeamActionState,
+  formData: FormData,
+): Promise<TeamActionState> {
+  const userId = String(formData.get("userId") ?? "");
+  const role = String(formData.get("role") ?? "");
+  if (!(INTERNAL_ROLES as readonly string[]).includes(role)) {
+    return { error: "Choose a role." };
+  }
+  try {
+    await grantAccess(userId, role as InternalRole);
+    revalidatePath("/team");
+    return { ok: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Could not add this person." };
+  }
+}
+
+/** Suspend or reactivate a member's access. */
+export async function setMemberStatusAction(
+  _prev: TeamActionState,
+  formData: FormData,
+): Promise<TeamActionState> {
+  const membershipId = String(formData.get("membershipId") ?? "");
+  const status = String(formData.get("status") ?? "");
+  if (status !== "active" && status !== "suspended") return { error: "Unknown status." };
+  try {
+    await setMemberStatus(membershipId, status);
+    revalidatePath("/team");
+    return { ok: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Could not change access." };
+  }
 }

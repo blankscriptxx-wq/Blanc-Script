@@ -7,6 +7,7 @@ import {
   Camera,
   Clapperboard,
   FolderKanban,
+  MessageCircle,
   Plus,
   Receipt,
   Sparkles,
@@ -25,6 +26,7 @@ const ITEMS: Item[] = [
   { label: "Content item", href: "/content?new=1", icon: CalendarRange },
   { label: "Invoice", href: "/finance?new=1", icon: Receipt, money: true },
   { label: "Talent", href: "/talent?new=1", icon: Sparkles },
+  { label: "WhatsApp conversation", href: "/inbox?new=1", icon: MessageCircle },
 ];
 
 /** "+ New" on Today: a small menu that jumps straight into each create form. */
@@ -58,7 +60,7 @@ export function NewMenu({ canSeeMoney }: { canSeeMoney: boolean }) {
       {open ? (
         <div
           role="menu"
-          className="absolute right-0 z-30 mt-2 w-48 overflow-hidden rounded-md border border-bs-border bg-bs-overlay p-1 shadow-elev-3"
+          className="absolute right-0 z-30 mt-2 w-56 overflow-hidden rounded-md border border-bs-border bg-bs-overlay p-1 shadow-elev-3"
         >
           {items.map((i) => (
             <Link

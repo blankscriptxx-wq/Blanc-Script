@@ -169,6 +169,10 @@ export async function getNeedsYou(): Promise<NeedsYouResult> {
       .orderBy(desc(deliverables.updatedAt)),
   ]);
 
+  // Money is capability-gated: without it, invoices never appear in the feed.
+  if (!user.capabilities.has("can_see_money")) invoiceRows.length = 0;
+
+
   const items: NeedsYouItem[] = [];
 
   for (const inv of invoiceRows) {

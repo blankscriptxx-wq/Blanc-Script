@@ -27,6 +27,7 @@ import { motion } from "framer-motion";
 import { NAV, SETTINGS_ITEM, type NavItem } from "@/lib/nav";
 import { ThemeSwitcher } from "@/components/ds/theme-switcher";
 import { AIPanel } from "@/components/shell/ai-panel";
+import { NotificationsBell } from "@/components/shell/notifications-bell";
 import { cn } from "@/lib/cn";
 
 export type ShellUser = {
@@ -264,12 +265,7 @@ function Topbar({
       </button>
       <div className="ml-auto flex items-center gap-2">
         <ThemeSwitcher size="sm" />
-        <button
-          aria-label="Notifications"
-          className="grid h-9 w-9 place-items-center rounded-sm text-bs-muted hover:bg-bs-surface-2"
-        >
-          <Bell className="h-[18px] w-[18px]" />
-        </button>
+        <NotificationsBell />
         <button
           onClick={onOpenAI}
           aria-label="Blanc Script AI"

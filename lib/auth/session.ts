@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getAuth } from "./server";
 import { getDb } from "@/lib/db/client";
 import { memberships, organisations } from "@/lib/db/schema";
@@ -47,7 +47,8 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
       })
       .from(memberships)
       .leftJoin(organisations, eq(memberships.orgId, organisations.id))
-      .where(eq(memberships.userId, u.id))
+      // Invited or suspended memberships do not open the workspace.
+      .where(and(eq(memberships.userId, u.id), eq(memberships.status, "active")))
       .limit(1);
     row = rows[0];
   } catch {

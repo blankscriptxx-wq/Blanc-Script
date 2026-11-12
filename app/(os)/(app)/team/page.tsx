@@ -2,7 +2,7 @@ import { PageHeader } from "@/components/ds/page-header";
 import { EmptyState } from "@/components/ds/empty-state";
 import { TeamView } from "@/components/team/team-view";
 import { listMembers } from "@/lib/data/team";
-import { getMemberDetails } from "@/lib/data/team-admin";
+import { getMemberDetails, listAwaitingUsers } from "@/lib/data/team-admin";
 import { getCurrentUser } from "@/lib/auth/session";
 
 export const metadata = { title: "Team" };
@@ -14,6 +14,7 @@ export default async function TeamPage() {
   const canManage = user?.capabilities.has("can_manage_users") ?? false;
   // Only load the editable detail (membership ids, overrides) for managers.
   const details = canManage ? await getMemberDetails() : [];
+  const awaiting = canManage ? await listAwaitingUsers().catch(() => []) : [];
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -24,7 +25,7 @@ export default async function TeamPage() {
           description="Workspace members appear here once they've been invited and granted a role."
         />
       ) : (
-        <TeamView rows={rows} canManage={canManage} details={details} />
+        <TeamView rows={rows} canManage={canManage} details={details} awaiting={awaiting} />
       )}
     </div>
   );
