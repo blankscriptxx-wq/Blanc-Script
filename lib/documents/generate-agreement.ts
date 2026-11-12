@@ -165,5 +165,74 @@ export function generateAgreement(d: AgreementData): string {
     .join("\n");
   pages[16] = pages[16].replace(/@summary[\s\S]*?@endsummary/, summary);
 
-  return pages.join("\n@page\n");
+  return tailorTerms(pages.join("\n@page\n"), d, fee);
+}
+
+/**
+ * Fit the standard terms to this engagement: leave out the clauses that only
+ * apply to the other kind of work, state the actual fee, start date, minimum
+ * term and how it is paid, then renumber the clauses (and any "clause N"
+ * references) so the numbering stays unbroken. Section numbers never change,
+ * so references to Sections stay correct.
+ */
+function tailorTerms(text: string, d: AgreementData, fee: string): string {
+  const retainer = d.engagement === "retainer";
+  const drop = new Set(retainer ? ["Project fees", "Cancellation of a Project"] : ["Retainer fees", "Termination of a Retainer"]);
+  const start = longDate(d.startDate);
+  const paid =
+    d.paymentMethod === "cash"
+      ? "It is paid by cash or bank transfer, and the Studio issues a paid invoice on receipt."
+      : "It is paid by card through the Client’s portal, and the Studio issues an invoice for every payment.";
+  const monthlyExtras = d.addOns.some((a) => a.cadence === "monthly" && a.name.trim());
+
+  // heading → text placed first in the clause; `replace` swaps the clause's own wording for it.
+  const lead: Record<string, { text: string[]; replace?: boolean }> = {
+    "Retainer fees": {
+      text: [`The Retainer fee is ${fee}, exclusive of VAT${monthlyExtras ? ", plus the additional services listed in Section 3" : ""}. ${paid}`],
+    },
+    "Project fees": { text: [`The Project fee is ${fee}, exclusive of VAT. ${paid}`] },
+    Term: {
+      replace: true,
+      text: [
+        !retainer
+          ? `This Agreement begins on ${start} and continues until the Project has been delivered and all Fees have been paid, unless terminated earlier in accordance with this Section.`
+          : d.minimumTermMonths
+            ? `This Agreement begins on ${start} and continues for a minimum term of ${d.minimumTermMonths} months. After the minimum term it continues on a rolling monthly basis until terminated in accordance with this Section.`
+            : `This Agreement begins on ${start} and continues on a rolling monthly basis until terminated in accordance with this Section.`,
+      ],
+    },
+  };
+  if (retainer && !d.minimumTermMonths) {
+    lead["Termination of a Retainer"] = {
+      replace: true,
+      text: [
+        "Either party may terminate a Retainer by giving thirty (30) days’ written notice, expiring at the end of a calendar month. Fees remain payable for the whole of the notice period, and the Studio will continue to deliver the Services during it.",
+      ],
+    };
+  }
+
+  const out: string[] = [];
+  const renumber = new Map<string, string>();
+  let skipping = false;
+  let next = 1;
+  for (const line of text.split("\n")) {
+    const m = /^@clause\s+(\d+)\s*\|\s*(.+)$/.exec(line);
+    if (m) {
+      const heading = m[2].trim();
+      skipping = drop.has(heading);
+      if (skipping) continue;
+      renumber.set(m[1], String(next));
+      out.push(`@clause ${next} | ${heading}`);
+      next += 1;
+      const extra = lead[heading];
+      if (extra) {
+        out.push(...extra.text.flatMap((t) => [t, ""]));
+        skipping = Boolean(extra.replace);
+      }
+      continue;
+    }
+    if (line.startsWith("@")) skipping = false;
+    if (!skipping) out.push(line);
+  }
+  return out.join("\n").replace(/\bclause (\d+)\b/g, (whole, n: string) => (renumber.has(n) ? `clause ${renumber.get(n)}` : whole));
 }

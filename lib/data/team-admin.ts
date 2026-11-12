@@ -2,7 +2,7 @@ import "server-only";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db/client";
-import { memberships, activityLog } from "@/lib/db/schema";
+import { memberships, activityLog, organisations } from "@/lib/db/schema";
 import { requireUser } from "@/lib/data/clients";
 import {
   INTERNAL_ROLES,
@@ -155,6 +155,19 @@ async function loadOwnOrgMembership(orgId: string, membershipId: string) {
   return row;
 }
 
+/** The master owner's account can never be demoted, suspended or restricted. */
+async function assertNotMaster(orgId: string, memberUserId: string) {
+  const [org] = await getDb()
+    .select({ settings: organisations.settings })
+    .from(organisations)
+    .where(eq(organisations.id, orgId))
+    .limit(1);
+  const master = (org?.settings as { masterUserId?: string } | null)?.masterUserId;
+  if (master && master === memberUserId) {
+    throw new Error("This is the master owner account. It can't be changed or removed.");
+  }
+}
+
 /** Change a member's internal role. Privileged. */
 export async function updateMemberRole(
   membershipId: string,
@@ -169,6 +182,7 @@ export async function updateMemberRole(
 
   const member = await loadOwnOrgMembership(user.orgId, id);
   if (member.role === nextRole) return;
+  await assertNotMaster(user.orgId, member.userId);
 
   // Self-demotion guard: never let the sole owner demote themselves.
   if (member.userId === user.id && member.role === "owner" && nextRole !== "owner") {
@@ -215,6 +229,7 @@ export async function setMemberCapabilityOverride(
   const cap = capabilitySchema.parse(capability);
 
   const member = await loadOwnOrgMembership(user.orgId, id);
+  await assertNotMaster(user.orgId, member.userId);
 
   const next: Record<string, boolean> = { ...(member.capabilities ?? {}) };
   if (value === null) {
@@ -305,6 +320,7 @@ export async function setMemberStatus(
   const id = membershipIdSchema.parse(membershipId);
   const next = z.enum(["active", "suspended"]).parse(status);
   const member = await loadOwnOrgMembership(user.orgId, id);
+  if (next === "suspended") await assertNotMaster(user.orgId, member.userId);
   if (member.userId === user.id && next === "suspended") {
     throw new Error("You can't suspend your own access.");
   }

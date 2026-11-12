@@ -1,5 +1,5 @@
 import { isExternalRole } from "@/lib/auth/roles";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { getAuth } from "./server";
 import { getDb } from "@/lib/db/client";
 import { memberships, organisations } from "@/lib/db/schema";
@@ -56,6 +56,12 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     row = undefined;
   }
 
+  // An email the workspace has reserved as an owner gets its access the first
+  // time that person signs in (they choose their own password at sign-up).
+  if (!row && (await claimReservedOwner(u.id, u.email).catch(() => false))) {
+    return getCurrentUser();
+  }
+
   if (!row) {
     return {
       id: u.id,
@@ -81,6 +87,39 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     // The staff workspace is for internal roles only.
     hasAccess: !isExternalRole(role),
   };
+}
+
+type OwnerSettings = { ownerEmails?: string[]; masterEmail?: string; masterUserId?: string };
+
+/**
+ * Give a newly signed-up person the owner access reserved for their email.
+ * Only for an account with no membership anywhere; each reservation is used
+ * once. The master owner's account id is recorded so it can never be removed.
+ */
+async function claimReservedOwner(userId: string, email: string): Promise<boolean> {
+  const mail = email.trim().toLowerCase();
+  if (!mail) return false;
+  const db = getDb();
+  const [existing] = await db.select({ id: memberships.id }).from(memberships).where(eq(memberships.userId, userId)).limit(1);
+  if (existing) return false;
+  const [org] = await db
+    .select({ id: organisations.id, settings: organisations.settings })
+    .from(organisations)
+    .where(sql`${organisations.settings} -> 'ownerEmails' ? ${mail}`)
+    .limit(1);
+  if (!org) return false;
+  const settings = { ...((org.settings ?? {}) as Record<string, unknown>) } as Record<string, unknown> & OwnerSettings;
+  settings.ownerEmails = (settings.ownerEmails ?? []).filter((e) => e !== mail);
+  if (settings.masterEmail === mail) settings.masterUserId = userId;
+  // Take the reservation first, so two sign-ins can't both claim it.
+  const taken = await db
+    .update(organisations)
+    .set({ settings })
+    .where(and(eq(organisations.id, org.id), sql`${organisations.settings} -> 'ownerEmails' ? ${mail}`))
+    .returning({ id: organisations.id });
+  if (!taken.length) return false;
+  await db.insert(memberships).values({ orgId: org.id, userId, role: "owner", status: "active" });
+  return true;
 }
 
 export function can(user: CurrentUser, capability: Capability): boolean {
