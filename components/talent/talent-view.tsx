@@ -1,5 +1,6 @@
 "use client";
 
+import { useOpenOnNewParam } from "@/lib/use-new-param";
 import * as React from "react";
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
@@ -55,6 +56,7 @@ export function TalentView({
 }) {
   const router = useRouter();
   const [addOpen, setAddOpen] = React.useState(false);
+  useOpenOnNewParam(setAddOpen);
   const [selected, setSelected] = React.useState<TalentRow | null>(null);
 
   return (

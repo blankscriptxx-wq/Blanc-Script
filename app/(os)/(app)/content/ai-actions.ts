@@ -3,6 +3,7 @@
 import { getContentItem } from "@/lib/data/content";
 import { runAssist } from "@/lib/ai/claude";
 import type { ContentChannel } from "@/lib/data/content";
+import { getClientProfile } from "@/lib/data/client-brain";
 
 type AiActionResult = { ok: true; text: string } | { ok: false; error: string };
 
@@ -28,6 +29,19 @@ function itemContext(item: {
   return lines.join("\n");
 }
 
+/** The client's brand profile, if one exists, so suggestions fit their niche. */
+async function brandContext(clientId: string | null): Promise<string> {
+  if (!clientId) return "";
+  const profile = await getClientProfile(clientId).catch(() => null);
+  if (!profile) return "";
+  const lines = [
+    profile.brandSummary ? `Brand: ${profile.brandSummary}` : "",
+    profile.audience ? `Audience: ${profile.audience}` : "",
+    profile.pillars?.length ? `Content pillars: ${profile.pillars.join(", ")}` : "",
+  ].filter(Boolean);
+  return lines.length ? `\n\n${lines.join("\n")}` : "";
+}
+
 /**
  * Draft an on-brand caption for a content item. Org-scoped via getContentItem.
  * Degrades gracefully: any failure (e.g. a missing ANTHROPIC_API_KEY) returns
@@ -40,7 +54,7 @@ export async function draftCaptionAction(itemId: string): Promise<AiActionResult
     const text = await runAssist({
       system:
         "You write punchy, on-brand social captions for a creative agency. British English. Return just the caption, no hashtags, no preamble.",
-      prompt: `Write a caption for this piece of content:\n\n${itemContext(item)}`,
+      prompt: `Write a caption for this piece of content:\n\n${itemContext(item)}${await brandContext(item.clientId)}`,
       maxTokens: 400,
     });
     return { ok: true, text };
@@ -62,8 +76,8 @@ export async function suggestHashtagsAction(itemId: string): Promise<AiActionRes
     if (!item) throw new Error("Content item not found.");
     const text = await runAssist({
       system:
-        "Suggest 8-12 relevant, lowercase hashtags as a single space-separated line.",
-      prompt: `Suggest hashtags for this piece of content:\n\n${itemContext(item)}`,
+        "Suggest 8-12 lowercase hashtags as a single space-separated line, and nothing else. Make them specific to this post's topic, the client's niche and its audience: mostly niche and mid-sized tags someone interested in the subject would actually follow, plus one or two for the location or brand where relevant. Do not use generic reach-bait tags such as #fyp, #foryou, #foryoupage, #viral, #trending, #explore, #newpost or tags that only name the platform.",
+      prompt: `Suggest hashtags for this piece of content:\n\n${itemContext(item)}${await brandContext(item.clientId)}`,
       maxTokens: 400,
     });
     return { ok: true, text };

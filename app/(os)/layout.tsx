@@ -32,6 +32,22 @@ export const metadata: Metadata = {
     template: "%s · Blanc Script OS",
   },
   description: "The Blanc Script agency operating system.",
+  metadataBase: new URL("https://studio.blancscript.com"),
+  // The OS is private (noindex below), but links shared in messages still get
+  // a branded preview card from app/(os)/opengraph-image.tsx.
+  openGraph: {
+    type: "website",
+    siteName: "Blanc Script Studio",
+    title: "Blanc Script Studio",
+    description: "Sign in to the Blanc Script studio workspace.",
+    url: "https://studio.blancscript.com",
+    locale: "en_GB",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Blanc Script Studio",
+    description: "Sign in to the Blanc Script studio workspace.",
+  },
   manifest: "/os.webmanifest",
   applicationName: "Blanc Script OS",
   appleWebApp: { capable: true, title: "Blanc Script", statusBarStyle: "default" },

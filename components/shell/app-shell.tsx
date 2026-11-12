@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { signOutAction } from "@/app/(os)/auth/sign-out/actions";
+import { searchWorkspaceAction, type SearchHit } from "@/app/(os)/(app)/search-actions";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Bell,
@@ -16,6 +17,11 @@ import {
   CornerDownLeft,
   type LucideIcon,
   LogOut,
+  Users,
+  FolderKanban,
+  Clapperboard,
+  CalendarRange,
+  UserRound,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { NAV, SETTINGS_ITEM, type NavItem } from "@/lib/nav";
@@ -276,10 +282,31 @@ function Topbar({
   );
 }
 
+const HIT_LABEL: Record<SearchHit["kind"], string> = {
+  client: "Client",
+  project: "Project",
+  shoot: "Shoot",
+  deliverable: "Edit",
+  content: "Content",
+  invoice: "Invoice",
+  talent: "Talent",
+};
+
+const HIT_ICON: Record<SearchHit["kind"], LucideIcon> = {
+  client: Users,
+  project: FolderKanban,
+  shoot: Camera,
+  deliverable: Clapperboard,
+  content: CalendarRange,
+  invoice: Receipt,
+  talent: UserRound,
+};
+
 type Command = {
   id: string;
   label: string;
-  group: "Navigate" | "Actions" | "Assistant";
+  group: "Results" | "Navigate" | "Actions" | "Assistant";
+  hint?: string;
   icon: LucideIcon;
   run: () => void;
 };
@@ -310,8 +337,8 @@ function CommandPalette({
         icon: i.icon,
         run: () => go(i.href),
       })),
-      { id: "act:shoot", label: "Book a shoot", group: "Actions", icon: Camera, run: () => go("/shoots") },
-      { id: "act:client", label: "Add a client", group: "Actions", icon: UserPlus, run: () => go("/clients") },
+      { id: "act:shoot", label: "Book a shoot", group: "Actions", icon: Camera, run: () => go("/shoots?new=1") },
+      { id: "act:client", label: "Add a client", group: "Actions", icon: UserPlus, run: () => go("/clients?new=1") },
       { id: "act:task", label: "Add a task", group: "Actions", icon: SquarePen, run: () => go("/projects") },
       { id: "act:chase", label: "Draft a chase for overdue invoices", group: "Actions", icon: Receipt, run: () => go("/finance") },
       { id: "ai", label: "Ask Blanc Script AI", group: "Assistant", icon: Sparkles, run: () => onOpenAI() },
@@ -320,12 +347,50 @@ function CommandPalette({
     [items],
   );
 
-  const filtered = commands.filter((c) =>
-    c.label.toLowerCase().includes(q.toLowerCase()),
-  );
-  React.useEffect(() => setActive(0), [q]);
+  // Record search (clients, projects, invoices…), debounced as you type.
+  const [hits, setHits] = React.useState<SearchHit[]>([]);
+  const [searching, setSearching] = React.useState(false);
+  React.useEffect(() => {
+    const term = q.trim();
+    if (term.length < 2) {
+      setHits([]);
+      setSearching(false);
+      return;
+    }
+    let cancelled = false;
+    setSearching(true);
+    const t = setTimeout(() => {
+      searchWorkspaceAction(term)
+        .then((r) => {
+          if (!cancelled) setHits(r);
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (!cancelled) setSearching(false);
+        });
+    }, 220);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [q]);
 
-  const groups = ["Navigate", "Actions", "Assistant"] as const;
+  const results: Command[] = hits.map((h) => ({
+    id: `hit:${h.kind}:${h.id}`,
+    label: h.label,
+    hint: HIT_LABEL[h.kind],
+    group: "Results" as const,
+    icon: HIT_ICON[h.kind],
+    run: () => go(h.href),
+  }));
+
+  const filtered = [
+    ...results,
+    ...commands.filter((c) => c.label.toLowerCase().includes(q.toLowerCase())),
+  ];
+  React.useEffect(() => setActive(0), [q, hits.length]);
+
+  const groups = ["Results", "Navigate", "Actions", "Assistant"] as const;
 
   return (
     <div
@@ -371,7 +436,7 @@ function CommandPalette({
         <div className="max-h-80 overflow-y-auto p-2">
           {filtered.length === 0 ? (
             <div className="px-3 py-6 text-center text-sm text-bs-subtle">
-              Nothing matches “{q}”.
+              {searching ? "Searching…" : `Nothing matches “${q}”.`}
             </div>
           ) : (
             groups.map((g) => {
@@ -396,7 +461,10 @@ function CommandPalette({
                             )}
                           >
                             <Icon className={cn("h-[18px] w-[18px]", c.group === "Assistant" && "text-bs-primary")} />
-                            <span>{c.label}</span>
+                            <span className="min-w-0 flex-1 truncate">{c.label}</span>
+                            {c.hint ? (
+                              <span className="shrink-0 text-xs text-bs-subtle">{c.hint}</span>
+                            ) : null}
                           </button>
                         </li>
                       );

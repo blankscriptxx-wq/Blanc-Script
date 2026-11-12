@@ -2,7 +2,7 @@ import Link from "next/link";
 import { asc, eq } from "drizzle-orm";
 import { EmptyState } from "@/components/ds/empty-state";
 import { PageHeader } from "@/components/ds/page-header";
-import { Button } from "@/components/ds/button";
+import { NewMenu } from "@/components/today/new-menu";
 import { StatusPill } from "@/components/ds/status-pill";
 import { Spotlight, CountUp, PulseDot, Reveal } from "@/components/ds/motion";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -61,7 +61,7 @@ export default async function TodayPage() {
       <PageHeader
         eyebrow={today}
         title={`Welcome back, ${user.name.split(" ")[0]}`}
-        actions={<Button>+ New</Button>}
+        actions={<NewMenu canSeeMoney={user.capabilities.has("can_see_money")} />}
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

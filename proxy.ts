@@ -53,6 +53,9 @@ export default function proxy(req: NextRequest, ...rest: unknown[]) {
   const host = (req.headers.get("host") ?? "").split(":")[0].toLowerCase();
   const sitePath = isSitePath(pathname);
 
+  // Share-preview images (one per surface) are public on every host.
+  if (pathname.startsWith("/opengraph-image")) return NextResponse.next();
+
   if (host === STUDIO_HOST && sitePath) {
     // The studio domain is the OS only.
     return NextResponse.redirect(new URL("/today", req.url));

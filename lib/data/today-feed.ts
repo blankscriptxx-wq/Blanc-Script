@@ -261,6 +261,10 @@ export type ActivityItem = {
 
 /** Friendly verbs for the known action keys; unknown keys fall back below. */
 const ACTION_LABELS: Record<string, string> = {
+  "script.pushed_to_content": "Pushed a script to Content",
+  "invoice.line_item.added": "Added an invoice line",
+  "invoice.line_item.removed": "Removed an invoice line",
+  "invoice.status_changed": "Changed an invoice's status",
   "client.created": "Added a client",
   "client.updated": "Updated a client",
   "client.archived": "Archived a client",
@@ -293,9 +297,14 @@ const VERB_LABELS: Record<string, string> = {
 function friendlyAction(action: string, entityType: string | null): string {
   const known = ACTION_LABELS[action];
   if (known) return known;
-  const [, verb] = action.split(".");
-  const noun = entityType ?? action.split(".")[0] ?? "record";
-  const v = verb ? VERB_LABELS[verb] ?? verb : "Updated";
+  // Fallback for actions without a hand-written label, e.g.
+  // "content.status_changed" → "Status changed a content item".
+  const words = (v: string) => v.replace(/[_-]+/g, " ").trim();
+  const parts = action.split(".");
+  const verb = parts.length > 1 ? parts[parts.length - 1] : "";
+  const noun = words(entityType ?? parts[0] ?? "record") || "record";
+  const label = verb ? VERB_LABELS[verb] ?? words(verb) : "Updated";
+  const v = label.charAt(0).toUpperCase() + label.slice(1);
   const article = /^[aeiou]/i.test(noun) ? "an" : "a";
   return `${v} ${article} ${noun}`;
 }

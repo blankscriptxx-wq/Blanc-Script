@@ -4,7 +4,7 @@ import * as React from "react";
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, ExternalLink, Pencil, Plus, X } from "lucide-react";
+import { ArrowLeft, ExternalLink, Loader2, Lock, Pencil, Plus, Sparkles, X } from "lucide-react";
 import { StatusPill } from "@/components/ds/status-pill";
 import { Button } from "@/components/ds/button";
 import { Dialog } from "@/components/ds/dialog";
@@ -19,7 +19,12 @@ import {
   type LineItemActionState,
   type UpdateInvoiceActionState,
 } from "@/app/(os)/(app)/finance/[id]/actions";
-import { draftLineItemsAction, draftTermsAction } from "@/app/(os)/(app)/finance/[id]/ai-actions";
+import {
+  addProposedLineItemsAction,
+  draftTermsAction,
+  proposeLineItemsAction,
+  type ProposedLineItem,
+} from "@/app/(os)/(app)/finance/[id]/ai-actions";
 import type { InvoiceDetail } from "@/lib/data/invoice-detail";
 import type { InvoiceStatus } from "@/lib/data/finance";
 
@@ -71,6 +76,7 @@ export function InvoiceDetailView({
 }) {
   const router = useRouter();
   const { invoice, lineItems, lineTotalPence, taxPence, grandTotalPence } = detail;
+  const locked = invoice.status === "paid";
   const payee = invoice.talentName ?? invoice.clientName;
   const [editOpen, setEditOpen] = React.useState(false);
 
@@ -192,17 +198,19 @@ export function InvoiceDetailView({
                       {money(li.lineTotalPence)}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <form action={removeLineItemAction}>
-                        <input type="hidden" name="id" value={li.id} />
-                        <input type="hidden" name="invoiceId" value={invoice.id} />
-                        <button
-                          type="submit"
-                          aria-label={`Remove ${li.description}`}
-                          className="rounded-sm p-1 text-bs-subtle transition-colors hover:bg-bs-surface-2 hover:text-bs-danger"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </form>
+                      {locked ? null : (
+                        <form action={removeLineItemAction}>
+                          <input type="hidden" name="id" value={li.id} />
+                          <input type="hidden" name="invoiceId" value={invoice.id} />
+                          <button
+                            type="submit"
+                            aria-label={`Remove ${li.description}`}
+                            className="rounded-sm p-1 text-bs-subtle transition-colors hover:bg-bs-surface-2 hover:text-bs-danger"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </form>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -240,8 +248,17 @@ export function InvoiceDetailView({
           </table>
         </div>
 
-        <AddLineItemForm invoiceId={invoice.id} />
-        <AiDraftLineItems invoiceId={invoice.id} onDrafted={() => router.refresh()} />
+        {locked ? (
+          <p className="mt-3 flex items-center gap-2 rounded-md border border-dashed border-bs-border bg-bs-surface p-3 text-sm text-bs-muted">
+            <Lock className="h-4 w-4 shrink-0" />
+            This invoice is paid, so its line items are locked. Change the status above to edit it.
+          </p>
+        ) : (
+          <>
+            <AddLineItemForm invoiceId={invoice.id} />
+            <AiDraftLineItems invoiceId={invoice.id} onDrafted={() => router.refresh()} />
+          </>
+        )}
       </section>
 
       {/* Payment terms */}
@@ -457,7 +474,64 @@ function AiDraftLineItems({
   invoiceId: string;
   onDrafted: () => void;
 }) {
+  // AI proposes, you approve: drafted lines are listed for review and only the
+  // ticked ones are added to the invoice.
   const [brief, setBrief] = React.useState("");
+  const [pending, setPending] = React.useState(false);
+  const [error, setError] = React.useState("");
+  const [items, setItems] = React.useState<ProposedLineItem[] | null>(null);
+  const [picked, setPicked] = React.useState<Set<number>>(new Set());
+
+  async function propose() {
+    setPending(true);
+    setError("");
+    try {
+      const res = await proposeLineItemsAction(invoiceId, brief);
+      if (res.ok) {
+        setItems(res.items);
+        setPicked(new Set(res.items.map((_, i) => i)));
+      } else setError(res.error);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function add() {
+    if (!items) return;
+    setPending(true);
+    setError("");
+    try {
+      const res = await addProposedLineItemsAction(
+        invoiceId,
+        items.filter((_, i) => picked.has(i)),
+      );
+      if (res.ok) {
+        setItems(null);
+        setBrief("");
+        onDrafted();
+      } else setError(res.error);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  function toggle(i: number) {
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
+  }
+
+  const pickedTotal = (items ?? []).reduce(
+    (sum, it, i) => (picked.has(i) ? sum + it.quantity * it.unitPence : sum),
+    0,
+  );
 
   return (
     <div className="mt-3 space-y-2 rounded-md border border-dashed border-bs-border bg-bs-surface p-3">
@@ -471,14 +545,65 @@ function AiDraftLineItems({
           aria-label="Brief for AI line items"
         />
       </label>
-      <AiGenerate
-        action={() => draftLineItemsAction(invoiceId, brief)}
-        label="Draft line items"
-        onResult={() => {
-          setBrief("");
-          onDrafted();
-        }}
-      />
+      {!items ? (
+        <button
+          type="button"
+          onClick={propose}
+          disabled={pending}
+          className="inline-flex items-center gap-1.5 rounded-sm border border-bs-border-strong bg-bs-surface px-2.5 py-1.5 text-xs font-medium text-bs-text transition-colors hover:bg-bs-surface-2 disabled:opacity-60"
+        >
+          {pending ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Sparkles className="h-3.5 w-3.5 text-bs-primary" />
+          )}
+          {pending ? "Drafting…" : "Draft line items"}
+        </button>
+      ) : (
+        <div className="space-y-2 rounded-sm border border-bs-border bg-bs-surface-2 p-3">
+          <p className="text-xs font-medium text-bs-text">
+            Suggested lines — untick any you don&rsquo;t want
+          </p>
+          <ul className="space-y-1.5">
+            {items.map((it, i) => (
+              <li key={i}>
+                <label className="flex cursor-pointer items-start gap-2 text-sm text-bs-text">
+                  <input
+                    type="checkbox"
+                    checked={picked.has(i)}
+                    onChange={() => toggle(i)}
+                    className="mt-0.5"
+                  />
+                  <span className="flex-1">{it.description}</span>
+                  <span className="shrink-0 tabular-nums text-bs-muted">
+                    {it.quantity} × {money(it.unitPence)}
+                  </span>
+                </label>
+              </li>
+            ))}
+          </ul>
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={add}
+              disabled={pending || picked.size === 0}
+              className="inline-flex h-8 items-center gap-1.5 rounded-sm bg-bs-primary px-3 text-xs font-medium text-bs-on-accent transition-colors hover:bg-bs-primary-hover disabled:opacity-50"
+            >
+              {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+              Add {picked.size} line{picked.size === 1 ? "" : "s"} · {money(pickedTotal)}
+            </button>
+            <button
+              type="button"
+              onClick={() => setItems(null)}
+              disabled={pending}
+              className="text-xs text-bs-subtle transition-colors hover:text-bs-text"
+            >
+              Discard
+            </button>
+          </div>
+        </div>
+      )}
+      {error ? <p className="text-xs text-bs-danger">{error}</p> : null}
     </div>
   );
 }

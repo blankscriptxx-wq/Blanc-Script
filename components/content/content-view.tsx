@@ -1,5 +1,6 @@
 "use client";
 
+import { useOpenOnNewParam } from "@/lib/use-new-param";
 import * as React from "react";
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
@@ -123,6 +124,7 @@ export function ContentView({
 }) {
   const router = useRouter();
   const [addOpen, setAddOpen] = React.useState(false);
+  useOpenOnNewParam(setAddOpen);
   const [selected, setSelected] = React.useState<ContentRow | null>(null);
   const [editing, setEditing] = React.useState<ContentRow | null>(null);
   const [mode, setMode] = React.useState<ContentViewMode>("board");

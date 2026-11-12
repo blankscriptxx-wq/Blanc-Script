@@ -27,14 +27,39 @@ const TERMS_SYSTEM =
 
 type DraftedItem = { description: string; quantity: number; unitPounds: number };
 
+export type ProposedLineItem = { description: string; quantity: number; unitPence: number };
+export type ProposeLineItemsResult =
+  | { ok: true; items: ProposedLineItem[] }
+  | { ok: false; error: string };
+
+function cleanItems(raw: unknown[]): ProposedLineItem[] {
+  return raw
+    .map((r) => {
+      const it = (r ?? {}) as Partial<ProposedLineItem>;
+      return {
+        description: String(it.description ?? "").trim().slice(0, 500),
+        quantity: Math.round(Number(it.quantity)),
+        unitPence: Math.round(Number(it.unitPence)),
+      };
+    })
+    .filter(
+      (it) =>
+        it.description.length > 0 &&
+        Number.isInteger(it.quantity) &&
+        it.quantity >= 1 &&
+        Number.isInteger(it.unitPence) &&
+        it.unitPence >= 0,
+    );
+}
+
 /**
- * Draft 1–6 line items from a short brief and append them to the invoice, then
- * sync the invoice total to its lines. Returns a short confirmation.
+ * Draft 1–6 line items from a short brief. Read-only: the items are returned
+ * for the user to review; nothing is added until addProposedLineItemsAction.
  */
-export async function draftLineItemsAction(
+export async function proposeLineItemsAction(
   invoiceId: string,
   brief: string,
-): Promise<AiActionResult> {
+): Promise<ProposeLineItemsResult> {
   try {
     const user = await requireUser();
     if (!user.capabilities.has("can_see_money")) {
@@ -47,9 +72,7 @@ export async function draftLineItemsAction(
           "The AI assistant isn't connected yet. Add an Anthropic API key in Settings → Integrations.",
       };
     }
-
-    const id = invoiceId.trim();
-    if (!id) return { ok: false, error: "Missing invoice." };
+    if (!invoiceId.trim()) return { ok: false, error: "Missing invoice." };
     const cleanBrief = brief.trim().slice(0, 2000);
     if (!cleanBrief) return { ok: false, error: "Describe the work first." };
 
@@ -57,26 +80,37 @@ export async function draftLineItemsAction(
       system: LINE_ITEMS_SYSTEM,
       prompt: `Brief: ${cleanBrief}`,
     });
-
     const raw = Array.isArray(drafted?.items) ? drafted.items.slice(0, 6) : [];
-    const items = raw
-      .map((it) => ({
-        description: String(it?.description ?? "").trim().slice(0, 500),
-        quantity: Math.round(Number(it?.quantity)),
-        unitPence: Math.round(Number(it?.unitPounds) * 100),
-      }))
-      .filter(
-        (it) =>
-          it.description.length > 0 &&
-          Number.isInteger(it.quantity) &&
-          it.quantity >= 1 &&
-          Number.isInteger(it.unitPence) &&
-          it.unitPence >= 0,
-      );
-
+    const items = cleanItems(
+      raw.map((it) => ({
+        description: it?.description,
+        quantity: it?.quantity,
+        unitPence: Number(it?.unitPounds) * 100,
+      })),
+    );
     if (items.length === 0) {
       return { ok: false, error: "The assistant didn't return any usable line items. Try a clearer brief." };
     }
+    return { ok: true, items };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not draft line items." };
+  }
+}
+
+/** Add the line items the user approved, then sync the invoice total. */
+export async function addProposedLineItemsAction(
+  invoiceId: string,
+  approved: ProposedLineItem[],
+): Promise<AiActionResult> {
+  try {
+    const user = await requireUser();
+    if (!user.capabilities.has("can_see_money")) {
+      return { ok: false, error: "You do not have permission to change finance records." };
+    }
+    const id = invoiceId.trim();
+    if (!id) return { ok: false, error: "Missing invoice." };
+    const items = cleanItems(Array.isArray(approved) ? approved.slice(0, 6) : []);
+    if (items.length === 0) return { ok: false, error: "Choose at least one line item." };
 
     for (const it of items) {
       await addLineItem({
@@ -94,7 +128,7 @@ export async function draftLineItemsAction(
     const n = items.length;
     return { ok: true, text: `Added ${n} line item${n === 1 ? "" : "s"}.` };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Could not draft line items." };
+    return { ok: false, error: e instanceof Error ? e.message : "Could not add the line items." };
   }
 }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useOpenOnNewParam } from "@/lib/use-new-param";
 import * as React from "react";
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
@@ -50,6 +51,7 @@ export function ProjectsView({
 }) {
   const router = useRouter();
   const [addOpen, setAddOpen] = React.useState(false);
+  useOpenOnNewParam(setAddOpen);
   const [selected, setSelected] = React.useState<ProjectRow | null>(null);
 
   return (

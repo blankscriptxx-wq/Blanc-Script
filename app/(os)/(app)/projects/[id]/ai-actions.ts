@@ -54,13 +54,16 @@ export async function draftBriefAction(
   }
 }
 
+export type ProposeTasksResult =
+  | { ok: true; tasks: string[] }
+  | { ok: false; error: string };
+
 /**
  * Turn the project's brief (or its name, if the brief is empty) into a set of
- * production tasks and add each one to the project. Revalidates the project page.
+ * suggested production tasks. Read-only: nothing is added to the project until
+ * the user approves them via addProposedTasksAction.
  */
-export async function breakIntoTasksAction(
-  projectId: string,
-): Promise<ProjectAiResult> {
+export async function proposeTasksAction(projectId: string): Promise<ProposeTasksResult> {
   try {
     if (!aiConfigured()) {
       return {
@@ -79,30 +82,41 @@ export async function breakIntoTasksAction(
       prompt: brief,
     });
 
-    const titles = (result?.tasks ?? [])
-      .map((t) => (typeof t?.title === "string" ? t.title.trim() : ""))
+    const tasks = (result?.tasks ?? [])
+      .map((t) => (typeof t?.title === "string" ? t.title.trim().slice(0, 200) : ""))
       .filter((t): t is string => t.length > 0)
       .slice(0, 10);
 
-    if (titles.length === 0) {
-      return {
-        ok: false,
-        error: "The assistant didn't return any tasks. Try again.",
-      };
+    if (tasks.length === 0) {
+      return { ok: false, error: "The assistant didn't return any tasks. Try again." };
     }
-
-    let n = 0;
-    for (const title of titles) {
-      await createTask({ projectId, title });
-      n += 1;
-    }
-
-    revalidatePath(`/projects/${projectId}`);
-    return { ok: true, text: `Added ${n} tasks.` };
+    return { ok: true, tasks };
   } catch (e) {
     return {
       ok: false,
       error: e instanceof Error ? e.message : "Could not break the brief into tasks.",
     };
+  }
+}
+
+/** Add the tasks the user approved to the project. */
+export async function addProposedTasksAction(
+  projectId: string,
+  titles: string[],
+): Promise<ProjectAiResult> {
+  try {
+    const clean = (Array.isArray(titles) ? titles : [])
+      .map((t) => (typeof t === "string" ? t.trim().slice(0, 200) : ""))
+      .filter((t) => t.length > 0)
+      .slice(0, 10);
+    if (clean.length === 0) return { ok: false, error: "Choose at least one task." };
+
+    for (const title of clean) await createTask({ projectId, title });
+
+    revalidatePath(`/projects/${projectId}`);
+    const n = clean.length;
+    return { ok: true, text: `Added ${n} task${n === 1 ? "" : "s"}.` };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not add the tasks." };
   }
 }

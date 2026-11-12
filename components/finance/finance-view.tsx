@@ -1,5 +1,6 @@
 "use client";
 
+import { useOpenOnNewParam } from "@/lib/use-new-param";
 import * as React from "react";
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
@@ -60,6 +61,7 @@ export function FinanceView({
 }) {
   const router = useRouter();
   const [addOpen, setAddOpen] = React.useState(false);
+  useOpenOnNewParam(setAddOpen);
   const [selected, setSelected] = React.useState<InvoiceRow | null>(null);
   const [statusFilter, setStatusFilter] = React.useState<"all" | InvoiceStatus>("all");
   const [partyFilter, setPartyFilter] = React.useState<string>("all");

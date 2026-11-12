@@ -163,6 +163,22 @@ async function requireInvoiceInOrg(invoiceId: string, orgId: string): Promise<st
   return row.id;
 }
 
+/**
+ * Paid invoices are a financial record: their line items are locked until the
+ * invoice is reopened (status moved off "paid").
+ */
+async function requireInvoiceUnlocked(invoiceId: string, orgId: string): Promise<void> {
+  const [row] = await getDb()
+    .select({ status: invoices.status })
+    .from(invoices)
+    .where(and(eq(invoices.id, invoiceId), eq(invoices.orgId, orgId)))
+    .limit(1);
+  if (!row) throw new Error("That invoice was not found in your workspace.");
+  if (row.status === "paid") {
+    throw new Error("This invoice is paid, so its line items are locked. Change its status to edit it.");
+  }
+}
+
 export const addLineItemInput = z.object({
   invoiceId: z.string().uuid(),
   description: z.string().trim().min(1, "Enter a description.").max(500),
@@ -175,7 +191,7 @@ export async function addLineItem(input: AddLineItemInput) {
   const user = await requireUser();
   requireMoney(user);
   const data = addLineItemInput.parse(input);
-  await requireInvoiceInOrg(data.invoiceId, user.orgId);
+  await requireInvoiceUnlocked(data.invoiceId, user.orgId);
 
   const [agg] = await getDb()
     .select({ maxSort: sql<number>`coalesce(max(${invoiceLineItems.sortOrder}), -1)` })
@@ -219,6 +235,14 @@ export async function addLineItem(input: AddLineItemInput) {
 export async function removeLineItem(id: string) {
   const user = await requireUser();
   requireMoney(user);
+
+  const [existing] = await getDb()
+    .select({ invoiceId: invoiceLineItems.invoiceId })
+    .from(invoiceLineItems)
+    .where(and(eq(invoiceLineItems.id, id), eq(invoiceLineItems.orgId, user.orgId)))
+    .limit(1);
+  if (!existing) return;
+  await requireInvoiceUnlocked(existing.invoiceId, user.orgId);
 
   const [deleted] = await getDb()
     .delete(invoiceLineItems)
