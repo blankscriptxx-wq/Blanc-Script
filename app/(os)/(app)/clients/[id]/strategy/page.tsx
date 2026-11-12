@@ -10,6 +10,9 @@ import { listAllScriptMedia, storageConfigured } from "@/lib/data/media";
 import { aiConfigured } from "@/lib/ai/claude";
 
 export const dynamic = "force-dynamic";
+// Research (web search), script generation and month planning are long AI
+// calls; this also raises the limit for the Server Actions used on this page.
+export const maxDuration = 300;
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
