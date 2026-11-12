@@ -50,6 +50,70 @@ export async function runAssist({ system, prompt, maxTokens = 1500 }: AssistArgs
   return text;
 }
 
+export type ChatMessage = { role: "user" | "assistant"; content: string };
+
+/** Multi-turn chat. `messages` is the full history (user/assistant). */
+export async function runChat({
+  system,
+  messages,
+  maxTokens = 1500,
+}: {
+  system: string;
+  messages: ChatMessage[];
+  maxTokens?: number;
+}): Promise<string> {
+  const msg = await client().messages.create({
+    model: MODEL,
+    max_tokens: maxTokens,
+    system,
+    messages: messages.map((m) => ({ role: m.role, content: m.content })),
+  });
+  if (msg.stop_reason === "refusal") throw new Error("The assistant declined this request.");
+  return msg.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("\n")
+    .trim();
+}
+
+/**
+ * Generation grounded in live web research (Claude's server-side web search).
+ * Loops over pause_turn rounds while the model searches, then returns the text.
+ */
+export async function runResearch({
+  system,
+  prompt,
+  maxTokens = 2500,
+  maxUses = 5,
+}: AssistArgs & { maxUses?: number }): Promise<string> {
+  const c = client();
+  const tools = [{ type: "web_search_20260209", name: "web_search", max_uses: maxUses }];
+  const messages: Anthropic.MessageParam[] = [{ role: "user", content: prompt }];
+  let text = "";
+  for (let round = 0; round < 5; round++) {
+    const res = await c.messages.create({
+      model: MODEL,
+      max_tokens: maxTokens,
+      system,
+      // The installed SDK may not type the latest server tool; pass through.
+      tools: tools as unknown as Anthropic.Tool[],
+      messages,
+    });
+    if (res.stop_reason === "refusal") throw new Error("The assistant declined this request.");
+    text = res.content
+      .filter((b): b is Anthropic.TextBlock => b.type === "text")
+      .map((b) => b.text)
+      .join("\n")
+      .trim();
+    if (res.stop_reason === "pause_turn") {
+      messages.push({ role: "assistant", content: res.content });
+      continue;
+    }
+    break;
+  }
+  return text;
+}
+
 /**
  * Generation that returns a JSON value. The model is asked to reply with JSON
  * only; the first JSON object/array in the reply is parsed. Throws on failure.

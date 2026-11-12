@@ -129,6 +129,36 @@ export const mediaStatusEnum = pgEnum("media_status", [
   "ready", // processed / usable
   "failed",
 ]);
+// ── Per-client AI strategist ──────────────────────────────────────────────
+export const knowledgeKindEnum = pgEnum("knowledge_kind", [
+  "brand",
+  "audience",
+  "competitor",
+  "guideline",
+  "insight",
+  "performance",
+]);
+export const knowledgeStatusEnum = pgEnum("knowledge_status", [
+  "proposed", // AI suggested — awaiting a human nod
+  "approved", // part of the brain
+  "dismissed",
+]);
+export const chatRoleEnum = pgEnum("chat_role", ["user", "assistant"]);
+export const scriptFormatEnum = pgEnum("script_format", [
+  "reel",
+  "tiktok",
+  "youtube_short",
+  "youtube_long",
+  "ad",
+  "other",
+]);
+export const scriptStatusEnum = pgEnum("script_status", [
+  "idea",
+  "draft",
+  "review",
+  "approved",
+  "produced",
+]);
 
 // ── Tenancy ─────────────────────────────────────────────────────────────────
 export const organisations = pgTable("organisations", {
@@ -542,11 +572,105 @@ export const mediaAssets = pgTable("media_assets", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/** The client's "brain" — core brand profile (1 per client). */
+export const clientProfiles = pgTable("client_profiles", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organisations.id),
+  clientId: uuid("client_id")
+    .notNull()
+    .references(() => clients.id),
+  brandSummary: text("brand_summary"),
+  audience: text("audience"),
+  tone: text("tone"),
+  pillars: jsonb("pillars").$type<string[]>().default([]),
+  dosAndDonts: text("dos_and_donts"),
+  notes: text("notes"),
+  researchedAt: timestamp("researched_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Append-only knowledge that accumulates (competitors, insights, guidelines). */
+export const clientKnowledge = pgTable("client_knowledge", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organisations.id),
+  clientId: uuid("client_id")
+    .notNull()
+    .references(() => clients.id),
+  kind: knowledgeKindEnum("kind").notNull().default("insight"),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  source: text("source"), // url, "chat", "research", "manual"
+  status: knowledgeStatusEnum("status").notNull().default("proposed"),
+  createdByUserId: uuid("created_by_user_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Per-client chat threads + messages. */
+export const clientThreads = pgTable("client_threads", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organisations.id),
+  clientId: uuid("client_id")
+    .notNull()
+    .references(() => clients.id),
+  title: text("title").notNull().default("New conversation"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const clientMessages = pgTable("client_messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organisations.id),
+  threadId: uuid("thread_id")
+    .notNull()
+    .references(() => clientThreads.id),
+  role: chatRoleEnum("role").notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Scripts the studio produces — visual hook + script hook + body. */
+export const scripts = pgTable("scripts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organisations.id),
+  clientId: uuid("client_id")
+    .notNull()
+    .references(() => clients.id),
+  title: text("title").notNull(),
+  format: scriptFormatEnum("format").notNull().default("reel"),
+  status: scriptStatusEnum("status").notNull().default("idea"),
+  hookVisual: text("hook_visual"),
+  hookScript: text("hook_script"),
+  body: text("body"),
+  notes: text("notes"),
+  // Workflow links once pushed out.
+  contentItemId: uuid("content_item_id").references(() => contentItems.id),
+  deliverableId: uuid("deliverable_id").references(() => deliverables.id),
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const schema = {
   organisations,
   memberships,
   clients,
   clientContacts,
+  clientProfiles,
+  clientKnowledge,
+  clientThreads,
+  clientMessages,
+  scripts,
   projects,
   tasks,
   shoots,

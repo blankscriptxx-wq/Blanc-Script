@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
+  Sparkles,
   Plus,
   Users,
   FolderKanban,
@@ -125,6 +126,12 @@ export function ClientProfileView({ profile }: { profile: ClientProfile }) {
           <StatusPill tone={CLIENT_STATUS[c.status].tone}>
             {CLIENT_STATUS[c.status].label}
           </StatusPill>
+          <Link
+            href={`/clients/${c.id}/strategy`}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-sm bg-bs-primary px-3 py-1.5 text-sm font-medium text-bs-on-accent transition-opacity hover:opacity-90"
+          >
+            <Sparkles className="h-4 w-4" /> AI Strategist
+          </Link>
         </div>
         <div className="mt-3 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
           <Detail label="Plan" value={summary.planName ?? "—"} />
