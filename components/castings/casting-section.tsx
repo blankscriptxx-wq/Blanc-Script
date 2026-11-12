@@ -11,6 +11,7 @@ import {
   removeCastingAction,
   type CastingActionState,
 } from "@/app/(app)/castings/actions";
+import { bookingCostPence } from "@/lib/casting-cost";
 import type {
   CastingStatus,
   ContentCasting,
@@ -69,20 +70,26 @@ export function CastingSection(props: Props) {
       ) : (
         <ul className="space-y-2">
           {props.kind === "shoot"
-            ? props.items.map((c) => (
-                <CastingLine
-                  key={c.id}
-                  id={c.id}
-                  kind="shoot"
-                  name={c.talentName}
-                  role={c.roleName}
-                  meta={[
-                    c.callTime ? `call ${timeFmt.format(new Date(c.callTime))}` : null,
-                    rateLabel(c.agreedRatePence, c.talentRatePence),
-                  ]}
-                  pill={CAST_STATUS[c.status]}
-                />
-              ))
+            ? props.items.map((c) => {
+                const cost = bookingCostPence(c.agreedRatePence, c.talentRatePence, c.durationMinutes);
+                return (
+                  <CastingLine
+                    key={c.id}
+                    id={c.id}
+                    kind="shoot"
+                    name={c.talentName}
+                    role={c.roleName}
+                    meta={[
+                      c.callTime ? `call ${timeFmt.format(new Date(c.callTime))}` : null,
+                      c.durationMinutes != null ? `${c.durationMinutes / 60} hr` : null,
+                      rateLabel(c.agreedRatePence, c.talentRatePence),
+                      cost != null ? `= ${gbp.format(cost / 100)}` : null,
+                      c.costOwner === "agency" ? "Blanc Script pays" : "billed to client",
+                    ]}
+                    pill={CAST_STATUS[c.status]}
+                  />
+                );
+              })
             : props.kind === "project"
               ? props.items.map((c) => (
                   <CastingLine
@@ -226,14 +233,31 @@ function AssignForm({
           <input name="roleName" placeholder="Role / character (optional)" className={inputCls} />
 
           {kind === "shoot" ? (
-            <div className="grid grid-cols-2 gap-2">
-              <input type="datetime-local" name="callTime" className={inputCls} aria-label="Call time" />
-              <select name="status" defaultValue="pencilled" className={cn(inputCls, "pr-8")}>
-                <option value="pencilled">Pencilled</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="released">Released</option>
-              </select>
-            </div>
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                <input type="datetime-local" name="callTime" className={inputCls} aria-label="Call time" />
+                <select name="status" defaultValue="pencilled" className={cn(inputCls, "pr-8")}>
+                  <option value="pencilled">Pencilled</option>
+                  <option value="confirmed">Confirmed</option>
+                  <option value="released">Released</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  name="hours"
+                  placeholder="Hours worked"
+                  className={inputCls}
+                  aria-label="Hours worked"
+                />
+                <select name="costOwner" defaultValue="client" className={cn(inputCls, "pr-8")}>
+                  <option value="client">Billed to client</option>
+                  <option value="agency">Blanc Script absorbs</option>
+                </select>
+              </div>
+            </>
           ) : null}
 
           {kind === "shoot" || kind === "project" ? (

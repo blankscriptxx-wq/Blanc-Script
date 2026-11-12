@@ -109,7 +109,7 @@ export function FinanceView({
                         <StatusPill tone="gold">Talent pay</StatusPill>
                       </span>
                     ) : (
-                      (r.clientName ?? "—")
+                      (r.clientName ?? "Blanc Script")
                     )}
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums">
@@ -151,7 +151,7 @@ export function FinanceView({
               </StatusPill>
             </Row>
             <Row label={selected.talentName ? "Pay to talent" : "Client"}>
-              {selected.talentName ?? selected.clientName ?? "—"}
+              {selected.talentName ?? selected.clientName ?? "Blanc Script"}
             </Row>
             <Row label="Amount">
               <span className="tabular-nums">{gbp.format(selected.amountPence / 100)}</span>

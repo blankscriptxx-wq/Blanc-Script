@@ -112,6 +112,8 @@ export const availabilityKindEnum = pgEnum("availability_kind", [
   "available",
   "unavailable",
 ]);
+/** Who bears a talent booking's cost: the client (re-billed) or the agency. */
+export const costOwnerEnum = pgEnum("cost_owner", ["client", "agency"]);
 
 // ── Tenancy ─────────────────────────────────────────────────────────────────
 export const organisations = pgTable("organisations", {
@@ -267,6 +269,10 @@ export const talent = pgTable("talent", {
   agentContact: text("agent_contact"),
   baseLocation: text("base_location"),
   instagram: text("instagram"),
+  /** Payment details — visibility gated to can_see_actor_pay; masked in the UI. */
+  bankAccountName: text("bank_account_name"),
+  bankSortCode: text("bank_sort_code"),
+  bankAccountNumber: text("bank_account_number"),
   notes: text("notes"),
   archivedAt: timestamp("archived_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -364,6 +370,8 @@ export const shootTalent = pgTable("shoot_talent", {
   roleName: text("role_name"), // character / role on the day
   callTime: timestamp("call_time", { withTimezone: true }),
   agreedRatePence: integer("agreed_rate_pence"), // null = use talent hourly rate
+  durationMinutes: integer("duration_minutes"), // hours worked on the shoot (× rate = cost)
+  costOwner: costOwnerEnum("cost_owner").notNull().default("client"),
   status: castingStatusEnum("status").notNull().default("pencilled"),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

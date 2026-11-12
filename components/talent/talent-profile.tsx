@@ -41,14 +41,27 @@ function rateText(effectiveRatePence: number | null, isOverride: boolean): strin
 function cap(s: string): string {
   return s[0].toUpperCase() + s.slice(1);
 }
+function maskAccount(n: string | null): string {
+  if (!n) return "—";
+  const digits = n.replace(/\s/g, "");
+  if (digits.length <= 4) return `••${digits}`;
+  return `••••${digits.slice(-4)}`;
+}
+function hoursLabel(mins: number | null): string | null {
+  if (mins == null) return null;
+  const h = mins / 60;
+  return `${h} hr`;
+}
 
 export function TalentProfileView({ profile }: { profile: TalentProfile }) {
-  const { talent: t, summary, payments, byClient } = profile;
+  const { talent: t, summary, payments, byClient, canSeePay } = profile;
+  const hasBank = t.bankAccountName || t.bankSortCode || t.bankAccountNumber;
 
   const tiles = [
     { label: "Shoots", value: String(summary.shootsCount) },
     { label: "Clients", value: String(summary.clientsCount) },
-    { label: "Booked value", value: money(summary.totalBookedPence), hint: "agreed rates" },
+    { label: "Billed to clients", value: money(summary.clientBilledPence), hint: "re-billed talent cost" },
+    { label: "Blanc Script covers", value: money(summary.absorbedPence), hint: "absorbed cost" },
     { label: "Paid to date", value: money(summary.paidPence) },
     { label: "Outstanding", value: money(summary.outstandingPence), hint: "owed to them" },
   ];
@@ -104,6 +117,18 @@ export function TalentProfileView({ profile }: { profile: TalentProfile }) {
           <Detail label="Agent contact" value={t.agentContact ?? "—"} />
           <Detail label="On book since" value={dateFmt.format(new Date(t.createdAt))} />
         </div>
+        {canSeePay && hasBank ? (
+          <div className="mt-3 border-t border-bs-border pt-3">
+            <div className="mb-1.5 text-xs uppercase tracking-wide text-bs-subtle">
+              Payment details
+            </div>
+            <div className="grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
+              <Detail label="Account name" value={t.bankAccountName ?? "—"} />
+              <Detail label="Sort code" value={t.bankSortCode ?? "—"} />
+              <Detail label="Account number" value={maskAccount(t.bankAccountNumber)} />
+            </div>
+          </div>
+        ) : null}
         {t.notes?.trim() ? (
           <p className="mt-3 whitespace-pre-wrap border-t border-bs-border pt-3 text-sm text-bs-muted">
             {t.notes}
@@ -112,7 +137,7 @@ export function TalentProfileView({ profile }: { profile: TalentProfile }) {
       </div>
 
       {/* Summary tiles */}
-      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {tiles.map((k) => (
           <div key={k.label} className="rounded-md border border-bs-border bg-bs-surface p-4">
             <div className="text-eyebrow uppercase text-bs-subtle">{k.label}</div>
@@ -154,10 +179,22 @@ export function TalentProfileView({ profile }: { profile: TalentProfile }) {
                 key={g.clientId ?? "none"}
                 className="overflow-hidden rounded-md border border-bs-border bg-bs-surface"
               >
-                <div className="border-b border-bs-border bg-bs-surface-2 px-4 py-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-bs-border bg-bs-surface-2 px-4 py-2.5">
                   <h3 className="font-display text-h3 text-bs-text">
                     {g.clientName ?? "No client attached"}
                   </h3>
+                  <div className="flex flex-wrap gap-1.5 text-xs">
+                    {g.billedToClientPence > 0 ? (
+                      <span className="rounded-full bg-bs-surface px-2.5 py-1 text-bs-muted">
+                        Billed to client: <span className="tabular-nums text-bs-text">{money(g.billedToClientPence)}</span>
+                      </span>
+                    ) : null}
+                    {g.absorbedPence > 0 ? (
+                      <span className="rounded-full bg-bs-surface px-2.5 py-1 text-bs-muted">
+                        Blanc Script covers: <span className="tabular-nums text-bs-text">{money(g.absorbedPence)}</span>
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
                 <div className="space-y-4 p-4">
                   <LineGroup icon={<Camera className="h-3.5 w-3.5" />} label="Shoots" empty={g.shoots.length === 0}>
@@ -168,7 +205,10 @@ export function TalentProfileView({ profile }: { profile: TalentProfile }) {
                         sub={[
                           s.roleName,
                           s.scheduledAt ? dateFmt.format(new Date(s.scheduledAt)) : null,
-                          rateText(s.effectiveRatePence, s.rateIsOverride),
+                          hoursLabel(s.durationMinutes),
+                          s.costPence != null
+                            ? `${money(s.costPence)} ${s.costOwner === "agency" ? "(Blanc Script)" : "(client)"}`
+                            : rateText(s.effectiveRatePence, s.rateIsOverride),
                         ]}
                         pill={CAST_STATUS[s.status]}
                       />
@@ -188,12 +228,6 @@ export function TalentProfileView({ profile }: { profile: TalentProfile }) {
                       <Line key={c.id} title={c.title} sub={[c.roleName]} />
                     ))}
                   </LineGroup>
-                  {g.clientInvoices.length ? (
-                    <div>
-                      <GroupLabel icon={<Receipt className="h-3.5 w-3.5" />} label="Client invoices" />
-                      <InvoiceTable rows={g.clientInvoices} />
-                    </div>
-                  ) : null}
                 </div>
               </div>
             ))}
@@ -289,7 +323,7 @@ function InvoiceTable({
             <tr key={r.id} className="border-b border-bs-border last:border-0">
               <td className="px-3 py-2 text-bs-text">{r.number ?? "—"}</td>
               {showClient ? (
-                <td className="px-3 py-2 text-bs-muted">{r.clientName ?? "—"}</td>
+                <td className="px-3 py-2 text-bs-muted">{r.clientName ?? "Blanc Script"}</td>
               ) : null}
               <td className="px-3 py-2 text-right tabular-nums text-bs-text">
                 {gbp.format(r.amountPence / 100)}

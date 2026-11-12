@@ -251,6 +251,25 @@ function AddTalentDialog({
             <input name="agentContact" placeholder="email or phone" className={inputCls} />
           </Field>
         </div>
+        <div className="rounded-sm border border-bs-border p-3">
+          <p className="mb-2 text-xs uppercase tracking-wide text-bs-subtle">
+            Payment details (optional)
+          </p>
+          <Field label="Account name">
+            <input name="bankAccountName" placeholder="Name on the account" className={inputCls} />
+          </Field>
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <Field label="Sort code">
+              <input name="bankSortCode" placeholder="12-34-56" className={inputCls} />
+            </Field>
+            <Field label="Account number">
+              <input name="bankAccountNumber" placeholder="12345678" className={inputCls} />
+            </Field>
+          </div>
+          <p className="mt-2 text-[11px] text-bs-subtle">
+            Visible only to people who can see talent pay.
+          </p>
+        </div>
         {state && !state.ok ? (
           <p className="text-sm text-bs-danger">{state.error}</p>
         ) : null}

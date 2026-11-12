@@ -32,6 +32,14 @@ function toDate(fd: FormData, key: string): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+function hoursToMinutes(fd: FormData, key: string): number | null {
+  const v = str(fd, key);
+  if (v === "") return null;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.round(n * 60);
+}
+
 export async function assignShootTalentAction(
   _prev: CastingActionState,
   formData: FormData,
@@ -43,6 +51,8 @@ export async function assignShootTalentAction(
       roleName: optStr(formData, "roleName"),
       callTime: toDate(formData, "callTime"),
       agreedRatePence: poundsToPence(formData, "rate"),
+      durationMinutes: hoursToMinutes(formData, "hours"),
+      costOwner: (str(formData, "costOwner") || "client") as "client" | "agency",
       status: (str(formData, "status") || "pencilled") as
         | "pencilled"
         | "confirmed"
