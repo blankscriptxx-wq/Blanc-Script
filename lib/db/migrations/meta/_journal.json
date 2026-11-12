@@ -15,6 +15,13 @@
       "when": 1794445904279,
       "tag": "0001_mysterious_maestro",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794461477222,
+      "tag": "0002_aberrant_starjammers",
+      "breakpoints": true
     }
   ]
 }

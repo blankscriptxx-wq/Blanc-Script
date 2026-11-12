@@ -81,6 +81,28 @@ export const invoiceStatusEnum = pgEnum("invoice_status", [
   "paid",
   "overdue",
 ]);
+export const deliverableStatusEnum = pgEnum("deliverable_status", [
+  "editing",
+  "in_review",
+  "changes_requested",
+  "approved",
+  "published",
+]);
+export const contentChannelEnum = pgEnum("content_channel", [
+  "instagram",
+  "tiktok",
+  "youtube",
+  "linkedin",
+  "other",
+]);
+export const contentStatusEnum = pgEnum("content_status", [
+  "idea",
+  "scripting",
+  "filming",
+  "editing",
+  "scheduled",
+  "posted",
+]);
 
 // ── Tenancy ─────────────────────────────────────────────────────────────────
 export const organisations = pgTable("organisations", {
@@ -253,6 +275,42 @@ export const invoices = pgTable("invoices", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ── Edits (deliverables / review & approvals) ─────────────────────────────
+export const deliverables = pgTable("deliverables", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organisations.id),
+  projectId: uuid("project_id").references(() => projects.id),
+  clientId: uuid("client_id").references(() => clients.id),
+  title: text("title").notNull(),
+  status: deliverableStatusEnum("status").notNull().default("editing"),
+  versionLabel: text("version_label"), // e.g. "v1", "v2"
+  previewUrl: text("preview_url"),
+  notes: text("notes"),
+  dueAt: timestamp("due_at", { withTimezone: true }),
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ── Content calendar (planned social content) ─────────────────────────────
+export const contentItems = pgTable("content_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organisations.id),
+  clientId: uuid("client_id").references(() => clients.id),
+  title: text("title").notNull(),
+  channel: contentChannelEnum("channel").notNull().default("instagram"),
+  status: contentStatusEnum("status").notNull().default("idea"),
+  scheduledFor: timestamp("scheduled_for", { withTimezone: true }),
+  notes: text("notes"),
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const schema = {
   organisations,
   memberships,
@@ -265,4 +323,6 @@ export const schema = {
   activityLog,
   talent,
   invoices,
+  deliverables,
+  contentItems,
 };
