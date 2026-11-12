@@ -9,7 +9,7 @@ import { StatusPill } from "@/components/ds/status-pill";
 import {
   createTaskAction,
   moveTaskAction,
-} from "@/app/(app)/projects/[id]/actions";
+} from "@/app/(os)/(app)/projects/[id]/actions";
 import type { TaskRow, TaskStatus } from "@/lib/data/tasks";
 import { cn } from "@/lib/cn";
 

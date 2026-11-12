@@ -5,7 +5,7 @@ import { AiGenerate } from "@/components/ai/ai-generate";
 import {
   breakIntoTasksAction,
   draftBriefAction,
-} from "@/app/(app)/projects/[id]/ai-actions";
+} from "@/app/(os)/(app)/projects/[id]/ai-actions";
 
 /**
  * Client wrappers around the Projects AI actions. They bind the projectId and

@@ -11,7 +11,7 @@ import {
   createAddonAction,
   updateAddonAction,
   type AddonsActionState,
-} from "@/app/(app)/settings/addons-actions";
+} from "@/app/(os)/(app)/settings/addons-actions";
 import { ADDON_CADENCES, ADDON_CADENCE_LABELS } from "@/lib/addons-constants";
 import type { AddOnRow } from "@/lib/data/addons";
 

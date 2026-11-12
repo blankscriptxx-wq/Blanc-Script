@@ -19,7 +19,7 @@ import {
 import { StatusPill } from "@/components/ds/status-pill";
 import { Button } from "@/components/ds/button";
 import { Dialog } from "@/components/ds/dialog";
-import { addContactAction } from "@/app/(app)/clients/[id]/actions";
+import { addContactAction } from "@/app/(os)/(app)/clients/[id]/actions";
 import { DraftSummaryButton, DraftEmailButton } from "@/components/clients/client-ai";
 import type {
   ClientProfile,

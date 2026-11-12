@@ -10,7 +10,7 @@ import { Dialog } from "@/components/ds/dialog";
 import { Sheet } from "@/components/ds/sheet";
 import { EmptyState } from "@/components/ds/empty-state";
 import { PulseDot } from "@/components/ds/motion";
-import { createShootAction } from "@/app/(app)/shoots/actions";
+import { createShootAction } from "@/app/(os)/(app)/shoots/actions";
 import type { ShootRow } from "@/lib/data/shoots";
 import { CastingSection } from "@/components/castings/casting-section";
 import type { ShootCasting, TalentPickerOption } from "@/lib/data/castings";
@@ -18,7 +18,7 @@ import { Uploader } from "@/components/uploads/uploader";
 import { FileList } from "@/components/uploads/file-list";
 import type { MediaAssetRow } from "@/lib/data/media";
 import { AiGenerate } from "@/components/ai/ai-generate";
-import { draftCallSheetAction, draftShotListAction } from "@/app/(app)/shoots/ai-actions";
+import { draftCallSheetAction, draftShotListAction } from "@/app/(os)/(app)/shoots/ai-actions";
 import { cn } from "@/lib/cn";
 
 const dateFmt = new Intl.DateTimeFormat("en-GB", {

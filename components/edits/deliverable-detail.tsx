@@ -29,7 +29,7 @@ import {
   archiveDeliverableAction,
   resolveCommentAction,
   type DetailActionState,
-} from "@/app/(app)/edits/[id]/actions";
+} from "@/app/(os)/(app)/edits/[id]/actions";
 import type { DeliverableStatus } from "@/lib/data/edits";
 import type {
   DeliverableDetail,
@@ -42,7 +42,7 @@ import { AiGenerate } from "@/components/ai/ai-generate";
 import {
   summariseCommentsAction,
   draftClientUpdateAction,
-} from "@/app/(app)/edits/[id]/ai-actions";
+} from "@/app/(os)/(app)/edits/[id]/ai-actions";
 import { cn } from "@/lib/cn";
 
 type Tone = React.ComponentProps<typeof StatusPill>["tone"];

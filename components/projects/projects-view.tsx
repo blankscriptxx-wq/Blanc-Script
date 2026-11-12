@@ -10,7 +10,7 @@ import { StatusPill } from "@/components/ds/status-pill";
 import { Dialog } from "@/components/ds/dialog";
 import { Sheet } from "@/components/ds/sheet";
 import { EmptyState } from "@/components/ds/empty-state";
-import { createProjectAction } from "@/app/(app)/projects/actions";
+import { createProjectAction } from "@/app/(os)/(app)/projects/actions";
 import type { ProjectRow } from "@/lib/data/projects";
 import { CastingSection } from "@/components/castings/casting-section";
 import type { ProjectCasting, TalentPickerOption } from "@/lib/data/castings";

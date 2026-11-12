@@ -7,7 +7,7 @@ import {
   chatAction,
   newThreadAction,
   captureInsightAction,
-} from "@/app/(app)/clients/[id]/strategy/actions";
+} from "@/app/(os)/(app)/clients/[id]/strategy/actions";
 import type { ThreadRow } from "@/lib/data/client-chat";
 import type { ChatMessage } from "@/lib/ai/claude";
 import { cn } from "@/lib/cn";

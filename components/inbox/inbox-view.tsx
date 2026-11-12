@@ -12,7 +12,7 @@ import {
   createConversationAction,
   sendMessageAction,
   setStatusAction,
-} from "@/app/(app)/inbox/actions";
+} from "@/app/(os)/(app)/inbox/actions";
 import type { ConversationRow, MessageRow, WaStatus } from "@/lib/data/inbox";
 import { cn } from "@/lib/cn";
 

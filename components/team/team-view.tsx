@@ -13,7 +13,7 @@ import {
   changeRoleAction,
   toggleCapabilityAction,
   type TeamActionState,
-} from "@/app/(app)/team/actions";
+} from "@/app/(os)/(app)/team/actions";
 
 const ROLE_TONE: Record<Role, React.ComponentProps<typeof StatusPill>["tone"]> = {
   owner: "accent",

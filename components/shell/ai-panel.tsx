@@ -3,7 +3,7 @@
 import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Sparkles, X, ArrowUp, Loader2 } from "lucide-react";
-import { askAssistantAction } from "@/app/(app)/ai/actions";
+import { askAssistantAction } from "@/app/(os)/(app)/ai/actions";
 import { cn } from "@/lib/cn";
 
 const QUICK_ACTIONS = [

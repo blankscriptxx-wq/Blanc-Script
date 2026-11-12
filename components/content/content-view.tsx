@@ -14,11 +14,11 @@ import {
   updateContentAction,
   setContentStatusAction,
   rescheduleContentAction,
-} from "@/app/(app)/content/actions";
+} from "@/app/(os)/(app)/content/actions";
 import {
   draftCaptionAction,
   suggestHashtagsAction,
-} from "@/app/(app)/content/ai-actions";
+} from "@/app/(os)/(app)/content/ai-actions";
 import { AiGenerate } from "@/components/ai/ai-generate";
 import type { ContentRow, ContentChannel, ContentStatus } from "@/lib/data/content";
 import { CastingSection } from "@/components/castings/casting-section";

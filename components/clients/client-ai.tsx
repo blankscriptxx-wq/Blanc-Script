@@ -4,7 +4,7 @@ import { AiGenerate } from "@/components/ai/ai-generate";
 import {
   draftClientEmailAction,
   draftClientSummaryAction,
-} from "@/app/(app)/clients/[id]/ai-actions";
+} from "@/app/(os)/(app)/clients/[id]/ai-actions";
 
 /**
  * Client wrappers around the Clients AI actions. They bind the clientId and

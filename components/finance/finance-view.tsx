@@ -14,7 +14,7 @@ import { Spotlight, CountUp } from "@/components/ds/motion";
 import {
   createInvoiceAction,
   draftTalentPaymentsAction,
-} from "@/app/(app)/finance/actions";
+} from "@/app/(os)/(app)/finance/actions";
 import type { InvoiceRow, InvoiceStatus, FinanceSummary } from "@/lib/data/finance";
 import { cn } from "@/lib/cn";
 

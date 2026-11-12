@@ -18,8 +18,8 @@ import {
   voidInvoiceAction,
   type LineItemActionState,
   type UpdateInvoiceActionState,
-} from "@/app/(app)/finance/[id]/actions";
-import { draftLineItemsAction, draftTermsAction } from "@/app/(app)/finance/[id]/ai-actions";
+} from "@/app/(os)/(app)/finance/[id]/actions";
+import { draftLineItemsAction, draftTermsAction } from "@/app/(os)/(app)/finance/[id]/ai-actions";
 import type { InvoiceDetail } from "@/lib/data/invoice-detail";
 import type { InvoiceStatus } from "@/lib/data/finance";
 

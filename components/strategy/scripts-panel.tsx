@@ -18,7 +18,7 @@ import {
   setScriptStatusAction,
   pushScriptToContentAction,
   archiveScriptAction,
-} from "@/app/(app)/clients/[id]/strategy/actions";
+} from "@/app/(os)/(app)/clients/[id]/strategy/actions";
 import type { ScriptRow, ScriptFormat, ScriptStatus } from "@/lib/data/scripts";
 import type { ScriptMediaRow } from "@/lib/data/media";
 

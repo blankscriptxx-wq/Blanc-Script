@@ -4,12 +4,14 @@ import type { Config } from "tailwindcss";
  * Blanc Script OS Tailwind config.
  * Colours bind to the `--bs-*` semantic variables (see app/globals.css) under a
  * `bs` namespace, so `bg-bs-surface`, `text-bs-muted`, `border-bs-border` etc.
- * This is the OS token layer — intentionally separate from the marketing site.
+ * This is the OS token layer — intentionally separate from the marketing site,
+ * which has its own config in site/tailwind.config.ts (loaded via @config in
+ * app/(site)/globals.css).
  */
 const config: Config = {
   darkMode: ["class", '[data-theme="dark"]'],
   content: [
-    "./app/**/*.{ts,tsx}",
+    "./app/(os)/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",
     "./lib/**/*.{ts,tsx}",
   ],

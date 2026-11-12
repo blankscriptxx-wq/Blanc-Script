@@ -5,7 +5,7 @@ import { Button } from "@/components/ds/button";
 import {
   updateWorkspaceDetailsAction,
   type SettingsActionState,
-} from "@/app/(app)/settings/actions";
+} from "@/app/(os)/(app)/settings/actions";
 
 const inputCls =
   "h-9 w-full rounded-sm border border-bs-border-strong bg-bs-surface px-3 text-body text-bs-text outline-none placeholder:text-bs-subtle";

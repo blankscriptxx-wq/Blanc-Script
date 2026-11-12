@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     template: "%s · Blanc Script OS",
   },
   description: "The Blanc Script agency operating system.",
-  manifest: "/manifest.webmanifest",
+  manifest: "/os.webmanifest",
   applicationName: "Blanc Script OS",
   appleWebApp: { capable: true, title: "Blanc Script", statusBarStyle: "default" },
   robots: { index: false, follow: false },

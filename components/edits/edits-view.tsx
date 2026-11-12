@@ -10,7 +10,7 @@ import { StatusPill } from "@/components/ds/status-pill";
 import { Dialog } from "@/components/ds/dialog";
 import { Sheet } from "@/components/ds/sheet";
 import { EmptyState } from "@/components/ds/empty-state";
-import { createDeliverableAction } from "@/app/(app)/edits/actions";
+import { createDeliverableAction } from "@/app/(os)/(app)/edits/actions";
 import type { DeliverableRow, DeliverableStatus } from "@/lib/data/edits";
 import { cn } from "@/lib/cn";
 

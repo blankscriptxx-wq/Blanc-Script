@@ -2,7 +2,7 @@
 import * as React from "react";
 import { Film, Image as ImageIcon, FileText, Music, File, Download, X } from "lucide-react";
 import { StatusPill } from "@/components/ds/status-pill";
-import { removeMediaAction } from "@/app/(app)/uploads/actions";
+import { removeMediaAction } from "@/app/(os)/(app)/uploads/actions";
 import type { MediaAssetRow, MediaKind } from "@/lib/data/media";
 
 const KIND_ICON: Record<MediaKind, React.ComponentType<{ className?: string }>> = {

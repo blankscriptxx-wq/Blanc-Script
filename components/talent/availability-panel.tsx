@@ -8,7 +8,7 @@ import {
   addAvailabilityAction,
   removeAvailabilityAction,
   type AvailabilityActionState,
-} from "@/app/(app)/talent/[id]/actions";
+} from "@/app/(os)/(app)/talent/[id]/actions";
 import type { AvailabilityRow } from "@/lib/data/talent";
 
 const dateFmt = new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeZone: "Europe/London" });

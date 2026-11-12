@@ -11,7 +11,7 @@ import {
   createPlanAction,
   updatePlanAction,
   type PackagesActionState,
-} from "@/app/(app)/settings/packages-actions";
+} from "@/app/(os)/(app)/settings/packages-actions";
 import type { ServicePlanRow } from "@/lib/data/service-plans";
 
 const inputCls =

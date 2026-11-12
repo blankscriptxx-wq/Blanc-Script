@@ -8,7 +8,7 @@ import {
   dismissKnowledgeAction,
   researchClientAction,
   saveProfileAction,
-} from "@/app/(app)/clients/[id]/strategy/actions";
+} from "@/app/(os)/(app)/clients/[id]/strategy/actions";
 import { AiGenerate } from "@/components/ai/ai-generate";
 import { Button } from "@/components/ds/button";
 import { StatusPill } from "@/components/ds/status-pill";

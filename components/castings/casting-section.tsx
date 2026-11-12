@@ -11,7 +11,7 @@ import {
   removeCastingAction,
   setRatingAction,
   type CastingActionState,
-} from "@/app/(app)/castings/actions";
+} from "@/app/(os)/(app)/castings/actions";
 import { bookingCostPence } from "@/lib/casting-cost";
 import type {
   CastingStatus,

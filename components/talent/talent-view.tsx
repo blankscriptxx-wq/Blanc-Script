@@ -10,7 +10,7 @@ import { StatusPill } from "@/components/ds/status-pill";
 import { Dialog } from "@/components/ds/dialog";
 import { Sheet } from "@/components/ds/sheet";
 import { EmptyState } from "@/components/ds/empty-state";
-import { createTalentAction } from "@/app/(app)/talent/actions";
+import { createTalentAction } from "@/app/(os)/(app)/talent/actions";
 import type { TalentRow } from "@/lib/data/talent";
 import { TalentAppearances } from "@/components/castings/talent-appearances";
 import type {

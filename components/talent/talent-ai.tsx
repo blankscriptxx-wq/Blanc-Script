@@ -4,7 +4,7 @@ import { AiGenerate } from "@/components/ai/ai-generate";
 import {
   draftTalentBioAction,
   draftOutreachAction,
-} from "@/app/(app)/talent/[id]/ai-actions";
+} from "@/app/(os)/(app)/talent/[id]/ai-actions";
 
 /**
  * Client wrappers around the Talent AI actions. They bind the talentId and

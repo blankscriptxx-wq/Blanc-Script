@@ -5,7 +5,7 @@ import { Upload, Loader2 } from "lucide-react";
 import {
   presignUploadAction,
   confirmUploadAction,
-} from "@/app/(app)/uploads/actions";
+} from "@/app/(os)/(app)/uploads/actions";
 import type { MediaFilter } from "@/lib/data/media";
 
 type State = "idle" | "uploading" | "error" | "done";
