@@ -414,7 +414,7 @@ export function OnboardingCard({
             className={primary}
             disabled={busy !== ""}
             onClick={() => {
-              if (window.confirm(`Send the welcome to ${email || "the client"}? This sets their package, publishes the documents${oneOff ? ", raises the invoice" : ""} and gives them a portal login.`)) {
+              if (window.confirm(`Send the welcome to ${email || "the client"}? This ${oneOff ? "raises the invoice" : "sets their package"}, publishes the documents and gives them a portal login.`)) {
                 void run("send", () => sendOnboardingAction(clientId, payload()));
               }
             }}

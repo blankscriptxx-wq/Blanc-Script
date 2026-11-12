@@ -61,7 +61,6 @@ export default async function ClientProfilePage({
         <>
           {canMoney ? (
             <OnboardingCard
-              key={`${onboarding?.status ?? "none"}-${onboarding?.sentAt?.toString() ?? ""}`}
               clientId={id}
               onboarding={onboarding}
               plans={plans}

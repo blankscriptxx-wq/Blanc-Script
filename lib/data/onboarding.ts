@@ -481,7 +481,12 @@ export async function sendOnboarding(clientId: string): Promise<{ emailStatus: E
         });
         await db
           .update(invoices)
-          .set({ paymentUrl: link.url, stripePaymentLinkId: link.id, stripeLinkAmountPence: total })
+          .set({
+            // Pre-fill the payer's email so they only need their card.
+            paymentUrl: `${link.url}?prefilled_email=${encodeURIComponent(ob.contactEmail)}`,
+            stripePaymentLinkId: link.id,
+            stripeLinkAmountPence: total,
+          })
           .where(eq(invoices.id, inv.id));
       }
     }
