@@ -57,6 +57,13 @@
       "when": 1794467007305,
       "tag": "0007_fearless_maximus",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794467675250,
+      "tag": "0008_spooky_titanium_man",
+      "breakpoints": true
     }
   ]
 }

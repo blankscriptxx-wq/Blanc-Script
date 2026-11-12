@@ -10,18 +10,21 @@ export type BookingCostArgs = {
   talentHourlyPence: number | null;
   talentDayPence: number | null;
   durationMinutes: number | null;
+  dayCount?: number | null;
 };
 
 /**
  * Cost of a booking.
- * - Day mode: the agreed day amount, else the talent's standard day rate.
+ * - Day mode: the agreed day amount (else the talent's standard day rate) × number of days.
  * - Hourly mode: effective hourly rate × hours worked.
  * Returns null when the inputs needed are missing.
  */
 export function bookingCostPence(args: BookingCostArgs): number | null {
   if (args.mode === "day") {
     const amount = args.agreedRatePence ?? args.talentDayPence;
-    return amount ?? null;
+    if (amount == null) return null;
+    const days = args.dayCount && args.dayCount > 0 ? args.dayCount : 1;
+    return amount * days;
   }
   const rate = args.agreedRatePence ?? args.talentHourlyPence;
   if (rate == null || args.durationMinutes == null) return null;

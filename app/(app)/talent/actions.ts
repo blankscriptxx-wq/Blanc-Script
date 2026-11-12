@@ -26,6 +26,9 @@ export async function createTalentAction(
     const bankAccountName = ((formData.get("bankAccountName") as string) || "").trim();
     const bankSortCode = ((formData.get("bankSortCode") as string) || "").trim();
     const bankAccountNumber = ((formData.get("bankAccountNumber") as string) || "").trim();
+    const heightRaw = ((formData.get("heightCm") as string) || "").trim();
+    const heightCm = heightRaw === "" ? null : Math.round(Number(heightRaw));
+    const wardrobeNotes = ((formData.get("wardrobeNotes") as string) || "").trim();
 
     await createTalent({
       name: (formData.get("name") as string) ?? "",
@@ -45,6 +48,8 @@ export async function createTalentAction(
       bankAccountName: bankAccountName ? bankAccountName : null,
       bankSortCode: bankSortCode ? bankSortCode : null,
       bankAccountNumber: bankAccountNumber ? bankAccountNumber : null,
+      heightCm: heightCm != null && Number.isFinite(heightCm) ? heightCm : null,
+      wardrobeNotes: wardrobeNotes ? wardrobeNotes : null,
     });
     revalidatePath("/talent");
     return { ok: true, error: "" };

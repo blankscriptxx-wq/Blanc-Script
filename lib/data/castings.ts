@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db/client";
 import {
@@ -11,6 +11,7 @@ import {
   shoots,
   shootTalent,
   talent,
+  talentAvailability,
 } from "@/lib/db/schema";
 import { requireUser } from "@/lib/data/clients";
 
@@ -33,8 +34,14 @@ export type ShootCasting = {
   talentDayRatePence: number | null;
   durationMinutes: number | null;
   rateMode: RateMode;
+  dayCount: number | null;
   costOwner: CostOwner;
   status: CastingStatus;
+  rating: number | null;
+  /** The talent is marked unavailable on this shoot's date. */
+  unavailableClash: boolean;
+  /** The talent is booked on another shoot the same day. */
+  dayClash: boolean;
 };
 
 export type ProjectCasting = {
@@ -103,8 +110,27 @@ export async function listShootCastings(): Promise<ShootCasting[]> {
       talentDayRatePence: talent.dayRatePence,
       durationMinutes: shootTalent.durationMinutes,
       rateMode: shootTalent.rateMode,
+      dayCount: shootTalent.dayCount,
       costOwner: shootTalent.costOwner,
       status: shootTalent.status,
+      rating: shootTalent.rating,
+      unavailableClash: sql<boolean>`exists (
+        select 1 from ${talentAvailability} ta
+        where ta.talent_id = ${shootTalent.talentId}
+          and ta.org_id = ${shootTalent.orgId}
+          and ta.kind = 'unavailable'
+          and ${shoots.scheduledAt} is not null
+          and ${shoots.scheduledAt} between ta.start_date and ta.end_date
+      )`,
+      dayClash: sql<boolean>`exists (
+        select 1 from ${shootTalent} st2
+        join ${shoots} s2 on s2.id = st2.shoot_id
+        where st2.talent_id = ${shootTalent.talentId}
+          and st2.id <> ${shootTalent.id}
+          and ${shoots.scheduledAt} is not null
+          and s2.scheduled_at is not null
+          and date(s2.scheduled_at) = date(${shoots.scheduledAt})
+      )`,
     })
     .from(shootTalent)
     .innerJoin(shoots, eq(shootTalent.shootId, shoots.id))
@@ -180,6 +206,7 @@ const shootCastingInput = z.object({
   agreedRatePence: z.number().int().min(0).optional().nullable(),
   durationMinutes: z.number().int().min(0).max(100000).optional().nullable(),
   rateMode: z.enum(["hourly", "day"]).default("hourly"),
+  dayCount: z.number().int().min(1).max(365).optional().nullable(),
   costOwner: z.enum(["client", "agency"]).default("client"),
   status: castingStatus.default("pencilled"),
 });
@@ -201,6 +228,7 @@ export async function addShootCasting(raw: z.input<typeof shootCastingInput>) {
       agreedRatePence: input.agreedRatePence ?? null,
       durationMinutes: input.durationMinutes ?? null,
       rateMode: input.rateMode,
+      dayCount: input.dayCount ?? null,
       costOwner: input.costOwner,
       status: input.status,
     })
@@ -214,6 +242,46 @@ export async function addShootCasting(raw: z.input<typeof shootCastingInput>) {
     meta: { talentId: input.talentId },
   });
   return row;
+}
+
+export async function setShootCastingRating(id: string, rating: number | null) {
+  const user = await requireUser();
+  const safe = rating == null ? null : Math.max(1, Math.min(5, Math.round(rating)));
+  await getDb()
+    .update(shootTalent)
+    .set({ rating: safe })
+    .where(and(eq(shootTalent.id, id), eq(shootTalent.orgId, user.orgId)));
+}
+
+/** Soft clash check for a talent on a shoot's date (unavailable window or same-day booking). */
+export async function checkShootClash(
+  shootId: string,
+  talentId: string,
+): Promise<{ unavailable: boolean; dayClash: boolean }> {
+  const user = await requireUser();
+  const [row] = await getDb()
+    .select({
+      unavailable: sql<boolean>`exists (
+        select 1 from ${talentAvailability} ta
+        join ${shoots} s on s.id = ${shootId}
+        where ta.talent_id = ${talentId} and ta.org_id = ${user.orgId}
+          and ta.kind = 'unavailable' and s.scheduled_at is not null
+          and s.scheduled_at between ta.start_date and ta.end_date
+      )`,
+      dayClash: sql<boolean>`exists (
+        select 1 from ${shootTalent} st
+        join ${shoots} s2 on s2.id = st.shoot_id
+        join ${shoots} s on s.id = ${shootId}
+        where st.talent_id = ${talentId} and st.org_id = ${user.orgId}
+          and st.shoot_id <> ${shootId}
+          and s.scheduled_at is not null and s2.scheduled_at is not null
+          and date(s2.scheduled_at) = date(s.scheduled_at)
+      )`,
+    })
+    .from(shoots)
+    .where(and(eq(shoots.id, shootId), eq(shoots.orgId, user.orgId)))
+    .limit(1);
+  return { unavailable: Boolean(row?.unavailable), dayClash: Boolean(row?.dayClash) };
 }
 
 const projectCastingInput = z.object({

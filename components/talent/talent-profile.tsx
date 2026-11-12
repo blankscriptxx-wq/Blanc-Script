@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Camera, FolderKanban, CalendarRange, Receipt } from "lucide-react";
+import { ArrowLeft, Camera, FolderKanban, CalendarRange, Receipt, Star } from "lucide-react";
 import { StatusPill } from "@/components/ds/status-pill";
 import { AvailabilityPanel } from "@/components/talent/availability-panel";
 import type {
@@ -84,6 +84,13 @@ export function TalentProfileView({ profile }: { profile: TalentProfile }) {
           >
             {cap(t.status)}
           </StatusPill>
+          {summary.avgRating != null ? (
+            <span className="inline-flex items-center gap-1 text-sm text-bs-text">
+              <Star className="h-4 w-4 fill-bs-gold text-bs-gold" />
+              <span className="font-medium tabular-nums">{summary.avgRating}</span>
+              <span className="text-xs text-bs-subtle">({summary.ratedCount})</span>
+            </span>
+          ) : null}
         </div>
         {t.tags.length ? (
           <div className="mt-3 flex flex-wrap gap-1.5">
@@ -115,6 +122,8 @@ export function TalentProfileView({ profile }: { profile: TalentProfile }) {
           />
           <Detail label="Agent / rep" value={t.agentName ?? "—"} />
           <Detail label="Agent contact" value={t.agentContact ?? "—"} />
+          <Detail label="Height" value={t.heightCm != null ? `${t.heightCm} cm` : "—"} />
+          <Detail label="Wardrobe / sizes" value={t.wardrobeNotes ?? "—"} />
           <Detail label="On book since" value={dateFmt.format(new Date(t.createdAt))} />
         </div>
         {canSeePay && hasBank ? (
@@ -205,10 +214,13 @@ export function TalentProfileView({ profile }: { profile: TalentProfile }) {
                         sub={[
                           s.roleName,
                           s.scheduledAt ? dateFmt.format(new Date(s.scheduledAt)) : null,
-                          s.rateMode === "day" ? "day rate" : hoursLabel(s.durationMinutes),
+                          s.rateMode === "day"
+                            ? `day rate${s.dayCount && s.dayCount > 1 ? ` × ${s.dayCount}` : ""}`
+                            : hoursLabel(s.durationMinutes),
                           s.costPence != null
                             ? `${money(s.costPence)} ${s.costOwner === "agency" ? "(Blanc Script)" : "(client)"}`
                             : rateText(s.effectiveRatePence, s.rateIsOverride),
+                          s.rating != null ? `★ ${s.rating}` : null,
                         ]}
                         pill={CAST_STATUS[s.status]}
                       />

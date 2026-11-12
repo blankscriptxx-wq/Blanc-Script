@@ -13,7 +13,10 @@ import { createContentAction } from "@/app/(app)/content/actions";
 import type { ContentRow, ContentChannel, ContentStatus } from "@/lib/data/content";
 import { CastingSection } from "@/components/castings/casting-section";
 import type { ContentCasting, TalentPickerOption } from "@/lib/data/castings";
+import { ContentCalendar } from "@/components/content/content-calendar";
 import { cn } from "@/lib/cn";
+
+type ContentViewMode = "board" | "calendar";
 
 type Tone = React.ComponentProps<typeof StatusPill>["tone"];
 
@@ -80,6 +83,7 @@ export function ContentView({
   const router = useRouter();
   const [addOpen, setAddOpen] = React.useState(false);
   const [selected, setSelected] = React.useState<ContentRow | null>(null);
+  const [mode, setMode] = React.useState<ContentViewMode>("board");
 
   const grouped = React.useMemo(() => {
     const map: Record<ContentStatus, ContentRow[]> = {
@@ -96,16 +100,21 @@ export function ContentView({
 
   return (
     <>
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-bs-muted">
           {rows.length} {rows.length === 1 ? "item" : "items"} in the pipeline
         </p>
-        <Button onClick={() => setAddOpen(true)}>
-          <Plus className="h-4 w-4" /> New content
-        </Button>
+        <div className="flex items-center gap-3">
+          <ViewToggle mode={mode} onChange={setMode} />
+          <Button onClick={() => setAddOpen(true)}>
+            <Plus className="h-4 w-4" /> New content
+          </Button>
+        </div>
       </div>
 
-      {rows.length === 0 ? (
+      {mode === "calendar" ? (
+        <ContentCalendar rows={rows} onSelect={setSelected} />
+      ) : rows.length === 0 ? (
         <EmptyState
           title="Nothing planned yet."
           description="Add your first content idea to start building the calendar — from first idea through to posted."
@@ -217,6 +226,47 @@ export function ContentView({
         ) : null}
       </Sheet>
     </>
+  );
+}
+
+function ViewToggle({
+  mode,
+  onChange,
+}: {
+  mode: ContentViewMode;
+  onChange: (mode: ContentViewMode) => void;
+}) {
+  const options: { value: ContentViewMode; label: string }[] = [
+    { value: "board", label: "Board" },
+    { value: "calendar", label: "Calendar" },
+  ];
+  return (
+    <div
+      role="tablist"
+      aria-label="Content view"
+      className="inline-flex items-center gap-0.5 rounded-sm border border-bs-border bg-bs-surface-2 p-0.5"
+    >
+      {options.map((opt) => {
+        const active = mode === opt.value;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(opt.value)}
+            className={cn(
+              "rounded-xs px-3 py-1 text-sm font-medium transition-colors",
+              active
+                ? "bg-bs-surface text-bs-text shadow-elev-1"
+                : "text-bs-muted hover:text-bs-text",
+            )}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

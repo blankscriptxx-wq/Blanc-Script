@@ -2,8 +2,11 @@ import { Check, Minus } from "lucide-react";
 import { PageHeader } from "@/components/ds/page-header";
 import { ThemeSwitcher } from "@/components/ds/theme-switcher";
 import { WorkspaceForm } from "@/components/settings/workspace-form";
+import { PackagesEditor } from "@/components/settings/packages-editor";
+import { StatusPill } from "@/components/ds/status-pill";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getWorkspace } from "@/lib/data/settings";
+import { listServicePlans, type ServicePlanRow } from "@/lib/data/service-plans";
 import {
   CAPABILITIES,
   INTERNAL_ROLES,
@@ -48,6 +51,17 @@ export default async function SettingsPage() {
   const user = await getCurrentUser();
   const canSettings = user?.capabilities.has("can_settings") ?? false;
   const workspace = user?.hasAccess ? await getWorkspace() : null;
+  const plans: ServicePlanRow[] = user?.hasAccess ? await listServicePlans() : [];
+
+  const planPrice = (p: ServicePlanRow) =>
+    p.bespoke || p.pricePence == null
+      ? "Bespoke"
+      : new Intl.NumberFormat("en-GB", {
+          style: "currency",
+          currency: "GBP",
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 2,
+        }).format(p.pricePence / 100);
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -83,6 +97,33 @@ export default async function SettingsPage() {
           </div>
         ) : (
           <p className="mt-4 text-sm text-bs-subtle">No workspace loaded.</p>
+        )}
+      </section>
+
+      {/* Service packages */}
+      <section className="mt-6 rounded-md border border-bs-border bg-bs-surface p-5">
+        <h2 className="font-display text-h3">Service packages</h2>
+        <p className="mt-1 text-sm text-bs-muted">
+          Your retainer tiers — the packages shown on Today and offered to clients.
+          {!canSettings ? " Only owners and ops can change these." : ""}
+        </p>
+        {canSettings ? (
+          <PackagesEditor plans={plans} />
+        ) : plans.length > 0 ? (
+          <ul className="mt-4 divide-y divide-bs-border rounded-md border border-bs-border">
+            {plans.map((p) => (
+              <li key={p.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium text-bs-text">{p.name}</span>
+                  {p.mostPopular ? <StatusPill tone="gold">★ Popular</StatusPill> : null}
+                  {p.bespoke ? <StatusPill tone="gold">Premium</StatusPill> : null}
+                </span>
+                <span className="text-sm text-bs-muted">{planPrice(p)}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-4 text-sm text-bs-subtle">No packages yet.</p>
         )}
       </section>
 

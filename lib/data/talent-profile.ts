@@ -27,6 +27,8 @@ export type TalentProfileShoot = {
   rateIsOverride: boolean;
   durationMinutes: number | null;
   rateMode: "hourly" | "day";
+  dayCount: number | null;
+  rating: number | null;
   costPence: number | null;
   costOwner: "client" | "agency";
 };
@@ -84,6 +86,8 @@ export type TalentProfile = {
     bankAccountName: string | null;
     bankSortCode: string | null;
     bankAccountNumber: string | null;
+    heightCm: number | null;
+    wardrobeNotes: string | null;
   };
   canSeePay: boolean;
   summary: {
@@ -97,6 +101,9 @@ export type TalentProfile = {
     absorbedPence: number;
     paidPence: number;
     outstandingPence: number;
+    /** Average post-shoot rating (1–5), or null if none rated. */
+    avgRating: number | null;
+    ratedCount: number;
   };
   availability: AvailabilityRow[];
   payments: TalentProfileInvoice[];
@@ -127,6 +134,8 @@ export async function getTalentProfile(id: string): Promise<TalentProfile | null
       bankAccountName: talent.bankAccountName,
       bankSortCode: talent.bankSortCode,
       bankAccountNumber: talent.bankAccountNumber,
+      heightCm: talent.heightCm,
+      wardrobeNotes: talent.wardrobeNotes,
     })
     .from(talent)
     .where(and(eq(talent.id, id), eq(talent.orgId, org)))
@@ -154,6 +163,8 @@ export async function getTalentProfile(id: string): Promise<TalentProfile | null
         agreedRatePence: shootTalent.agreedRatePence,
         durationMinutes: shootTalent.durationMinutes,
         rateMode: shootTalent.rateMode,
+        dayCount: shootTalent.dayCount,
+        rating: shootTalent.rating,
         costOwner: shootTalent.costOwner,
       })
       .from(shootTalent)
@@ -250,6 +261,7 @@ export async function getTalentProfile(id: string): Promise<TalentProfile | null
       talentHourlyPence: t.ratePerHourPence,
       talentDayPence: t.dayRatePence,
       durationMinutes: s.durationMinutes,
+      dayCount: s.dayCount,
     });
     const owner = s.costOwner as "client" | "agency";
     const g = ensure(s.clientId, s.clientName);
@@ -262,6 +274,8 @@ export async function getTalentProfile(id: string): Promise<TalentProfile | null
       ...e,
       durationMinutes: s.durationMinutes,
       rateMode: s.rateMode as "hourly" | "day",
+      dayCount: s.dayCount,
+      rating: s.rating,
       costPence,
       costOwner: owner,
     });
@@ -318,6 +332,14 @@ export async function getTalentProfile(id: string): Promise<TalentProfile | null
 
   const availability = await listAvailability(id);
 
+  const ratings = shootRows
+    .map((s) => s.rating)
+    .filter((r): r is number => r != null);
+  const avgRating =
+    ratings.length > 0
+      ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
+      : null;
+
   return {
     talent: {
       ...t,
@@ -335,6 +357,8 @@ export async function getTalentProfile(id: string): Promise<TalentProfile | null
       absorbedPence,
       paidPence,
       outstandingPence,
+      avgRating,
+      ratedCount: ratings.length,
     },
     availability,
     payments,

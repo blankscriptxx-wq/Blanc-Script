@@ -275,6 +275,8 @@ export const talent = pgTable("talent", {
   bankAccountName: text("bank_account_name"),
   bankSortCode: text("bank_sort_code"),
   bankAccountNumber: text("bank_account_number"),
+  heightCm: integer("height_cm"),
+  wardrobeNotes: text("wardrobe_notes"), // sizes, fit notes
   notes: text("notes"),
   archivedAt: timestamp("archived_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -374,8 +376,10 @@ export const shootTalent = pgTable("shoot_talent", {
   agreedRatePence: integer("agreed_rate_pence"), // override: hourly amount, or day amount in day mode
   durationMinutes: integer("duration_minutes"), // hours worked (used when charging hourly)
   rateMode: rateModeEnum("rate_mode").notNull().default("hourly"),
+  dayCount: integer("day_count"), // number of days in day mode (null = 1)
   costOwner: costOwnerEnum("cost_owner").notNull().default("client"),
   status: castingStatusEnum("status").notNull().default("pencilled"),
+  rating: integer("rating"), // 1–5, set after the shoot
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -430,6 +434,50 @@ export const clientContacts = pgTable("client_contacts", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ── Edits: deliverable versions + review comments ─────────────────────────
+export const deliverableVersions = pgTable("deliverable_versions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organisations.id),
+  deliverableId: uuid("deliverable_id")
+    .notNull()
+    .references(() => deliverables.id),
+  label: text("label").notNull(), // e.g. "v1", "v2"
+  previewUrl: text("preview_url"),
+  note: text("note"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const reviewComments = pgTable("review_comments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organisations.id),
+  deliverableId: uuid("deliverable_id")
+    .notNull()
+    .references(() => deliverables.id),
+  authorUserId: uuid("author_user_id"),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ── Finance: invoice line items ───────────────────────────────────────────
+export const invoiceLineItems = pgTable("invoice_line_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organisations.id),
+  invoiceId: uuid("invoice_id")
+    .notNull()
+    .references(() => invoices.id),
+  description: text("description").notNull(),
+  quantity: integer("quantity").notNull().default(1),
+  unitPence: integer("unit_pence").notNull().default(0),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const schema = {
   organisations,
   memberships,
@@ -444,7 +492,10 @@ export const schema = {
   talent,
   talentAvailability,
   invoices,
+  invoiceLineItems,
   deliverables,
+  deliverableVersions,
+  reviewComments,
   contentItems,
   shootTalent,
   projectTalent,

@@ -4,12 +4,14 @@ import {
   addContentCasting,
   addProjectCasting,
   addShootCasting,
+  checkShootClash,
   removeContentCasting,
   removeProjectCasting,
   removeShootCasting,
+  setShootCastingRating,
 } from "@/lib/data/castings";
 
-export type CastingActionState = { ok?: boolean; error?: string };
+export type CastingActionState = { ok?: boolean; error?: string; warning?: string };
 
 function str(fd: FormData, key: string): string {
   return String(fd.get(key) ?? "").trim();
@@ -40,19 +42,29 @@ function hoursToMinutes(fd: FormData, key: string): number | null {
   return Math.round(n * 60);
 }
 
+function toInt(fd: FormData, key: string): number | null {
+  const v = str(fd, key);
+  if (v === "") return null;
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) ? n : null;
+}
+
 export async function assignShootTalentAction(
   _prev: CastingActionState,
   formData: FormData,
 ): Promise<CastingActionState> {
   try {
+    const shootId = str(formData, "shootId");
+    const talentId = str(formData, "talentId");
     await addShootCasting({
-      shootId: str(formData, "shootId"),
-      talentId: str(formData, "talentId"),
+      shootId,
+      talentId,
       roleName: optStr(formData, "roleName"),
       callTime: toDate(formData, "callTime"),
       agreedRatePence: poundsToPence(formData, "rate"),
       durationMinutes: hoursToMinutes(formData, "hours"),
       rateMode: (str(formData, "rateMode") || "hourly") as "hourly" | "day",
+      dayCount: toInt(formData, "dayCount"),
       costOwner: (str(formData, "costOwner") || "client") as "client" | "agency",
       status: (str(formData, "status") || "pencilled") as
         | "pencilled"
@@ -61,10 +73,26 @@ export async function assignShootTalentAction(
     });
     revalidatePath("/shoots");
     revalidatePath("/talent");
-    return { ok: true };
+    // Soft clash warning — the booking still goes through.
+    const clash = await checkShootClash(shootId, talentId);
+    const warnings: string[] = [];
+    if (clash.unavailable) warnings.push("marked unavailable on this date");
+    if (clash.dayClash) warnings.push("already booked on another shoot that day");
+    return warnings.length
+      ? { ok: true, warning: `Heads up: this talent is ${warnings.join(" and ")}.` }
+      : { ok: true };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Could not assign talent." };
   }
+}
+
+export async function setRatingAction(formData: FormData): Promise<void> {
+  const id = str(formData, "id");
+  const r = str(formData, "rating");
+  if (!id) return;
+  await setShootCastingRating(id, r === "" ? null : Number(r));
+  revalidatePath("/shoots");
+  revalidatePath("/talent");
 }
 
 export async function assignProjectTalentAction(

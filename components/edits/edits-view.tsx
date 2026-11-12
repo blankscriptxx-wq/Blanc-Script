@@ -3,7 +3,8 @@
 import * as React from "react";
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, ExternalLink } from "lucide-react";
+import { Plus, ExternalLink, ArrowUpRight } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ds/button";
 import { StatusPill } from "@/components/ds/status-pill";
 import { Dialog } from "@/components/ds/dialog";
@@ -154,6 +155,13 @@ export function EditsView({
       >
         {selected ? (
           <div className="space-y-4">
+            <Link
+              href={`/edits/${selected.id}`}
+              className="flex items-center justify-between rounded-sm border border-bs-border bg-bs-surface-2 px-3 py-2.5 text-sm font-medium text-bs-text transition-colors hover:bg-bs-surface"
+            >
+              View / review
+              <ArrowUpRight className="h-4 w-4 text-bs-subtle" />
+            </Link>
             <Row label="Status">
               <StatusPill tone={STATUS_TONE[selected.status]}>
                 {STATUS_LABEL[selected.status]}

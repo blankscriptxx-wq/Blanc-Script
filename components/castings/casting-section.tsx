@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import { useActionState } from "react";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Star, TriangleAlert } from "lucide-react";
 import { StatusPill } from "@/components/ds/status-pill";
 import { cn } from "@/lib/cn";
 import {
@@ -9,6 +9,7 @@ import {
   assignProjectTalentAction,
   assignShootTalentAction,
   removeCastingAction,
+  setRatingAction,
   type CastingActionState,
 } from "@/app/(app)/castings/actions";
 import { bookingCostPence } from "@/lib/casting-cost";
@@ -77,7 +78,14 @@ export function CastingSection(props: Props) {
                   talentHourlyPence: c.talentRatePence,
                   talentDayPence: c.talentDayRatePence,
                   durationMinutes: c.durationMinutes,
+                  dayCount: c.dayCount,
                 });
+                const days = c.dayCount && c.dayCount > 0 ? c.dayCount : 1;
+                const warn = c.unavailableClash
+                  ? "Unavailable on this date"
+                  : c.dayClash
+                    ? "Double-booked this day"
+                    : null;
                 return (
                   <CastingLine
                     key={c.id}
@@ -85,10 +93,11 @@ export function CastingSection(props: Props) {
                     kind="shoot"
                     name={c.talentName}
                     role={c.roleName}
+                    warn={warn}
                     meta={[
                       c.callTime ? `call ${timeFmt.format(new Date(c.callTime))}` : null,
                       c.rateMode === "day"
-                        ? "day rate"
+                        ? `day rate${days > 1 ? ` × ${days}` : ""}`
                         : c.durationMinutes != null
                           ? `${c.durationMinutes / 60} hr`
                           : null,
@@ -96,6 +105,7 @@ export function CastingSection(props: Props) {
                       c.costOwner === "agency" ? "Blanc Script pays" : "billed to client",
                     ]}
                     pill={CAST_STATUS[c.status]}
+                    footer={<RatingControl id={c.id} rating={c.rating} />}
                   />
                 );
               })
@@ -148,6 +158,8 @@ function CastingLine({
   role,
   meta,
   pill,
+  warn,
+  footer,
 }: {
   id: string;
   kind: "shoot" | "project" | "content";
@@ -155,32 +167,80 @@ function CastingLine({
   role: string | null;
   meta: (string | null)[];
   pill?: { label: string; tone: React.ComponentProps<typeof StatusPill>["tone"] };
+  warn?: string | null;
+  footer?: React.ReactNode;
 }) {
   const bits = meta.filter(Boolean) as string[];
   return (
-    <li className="flex items-start justify-between gap-3 rounded-sm bg-bs-surface-2 px-3 py-2">
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="text-sm font-medium text-bs-text">{name}</span>
-          {role ? <span className="text-xs text-bs-muted">{role}</span> : null}
-          {pill ? <StatusPill tone={pill.tone}>{pill.label}</StatusPill> : null}
+    <li className="rounded-sm bg-bs-surface-2 px-3 py-2">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="text-sm font-medium text-bs-text">{name}</span>
+            {role ? <span className="text-xs text-bs-muted">{role}</span> : null}
+            {pill ? <StatusPill tone={pill.tone}>{pill.label}</StatusPill> : null}
+            {warn ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-bs-danger-soft px-2 py-0.5 text-[11px] font-medium text-bs-danger">
+                <TriangleAlert className="h-3 w-3" /> {warn}
+              </span>
+            ) : null}
+          </div>
+          {bits.length ? (
+            <div className="mt-0.5 text-xs text-bs-subtle">{bits.join(" · ")}</div>
+          ) : null}
         </div>
-        {bits.length ? (
-          <div className="mt-0.5 text-xs text-bs-subtle">{bits.join(" · ")}</div>
-        ) : null}
+        <form action={removeCastingAction}>
+          <input type="hidden" name="kind" value={kind} />
+          <input type="hidden" name="id" value={id} />
+          <button
+            type="submit"
+            aria-label={`Remove ${name}`}
+            className="rounded-sm p-1 text-bs-subtle transition-colors hover:bg-bs-surface hover:text-bs-danger"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </form>
       </div>
-      <form action={removeCastingAction}>
-        <input type="hidden" name="kind" value={kind} />
-        <input type="hidden" name="id" value={id} />
+      {footer ? <div className="mt-1.5">{footer}</div> : null}
+    </li>
+  );
+}
+
+function RatingControl({ id, rating }: { id: string; rating: number | null }) {
+  return (
+    <form action={setRatingAction} className="flex items-center gap-1">
+      <input type="hidden" name="id" value={id} />
+      <span className="text-[11px] text-bs-subtle">Rating</span>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button
+          key={n}
+          type="submit"
+          name="rating"
+          value={n}
+          aria-label={`${n} star${n > 1 ? "s" : ""}`}
+          className="leading-none"
+        >
+          <Star
+            className={cn(
+              "h-3.5 w-3.5 transition-colors",
+              rating != null && n <= rating
+                ? "fill-bs-gold text-bs-gold"
+                : "text-bs-subtle hover:text-bs-gold",
+            )}
+          />
+        </button>
+      ))}
+      {rating != null ? (
         <button
           type="submit"
-          aria-label={`Remove ${name}`}
-          className="rounded-sm p-1 text-bs-subtle transition-colors hover:bg-bs-surface hover:text-bs-danger"
+          name="rating"
+          value=""
+          className="ml-1 text-[11px] text-bs-subtle hover:text-bs-text"
         >
-          <X className="h-3.5 w-3.5" />
+          clear
         </button>
-      </form>
-    </li>
+      ) : null}
+    </form>
   );
 }
 
@@ -251,7 +311,7 @@ function AssignForm({
                   <option value="released">Released</option>
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <select name="rateMode" defaultValue="hourly" className={cn(inputCls, "pr-8")}>
                   <option value="hourly">Charge hourly</option>
                   <option value="day">Charge as day rate</option>
@@ -261,9 +321,18 @@ function AssignForm({
                   step="0.5"
                   min="0"
                   name="hours"
-                  placeholder="Hours (if hourly)"
+                  placeholder="Hours"
                   className={inputCls}
-                  aria-label="Hours worked"
+                  aria-label="Hours worked (hourly mode)"
+                />
+                <input
+                  type="number"
+                  step="1"
+                  min="1"
+                  name="dayCount"
+                  placeholder="Days"
+                  className={inputCls}
+                  aria-label="Number of days (day mode)"
                 />
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -297,6 +366,11 @@ function AssignForm({
 
           {state?.error ? (
             <p className="text-xs text-bs-danger">{state.error}</p>
+          ) : null}
+          {state?.warning ? (
+            <p className="flex items-center gap-1.5 rounded-sm bg-bs-warning-soft px-2 py-1 text-xs text-bs-warning">
+              <TriangleAlert className="h-3.5 w-3.5 shrink-0" /> {state.warning}
+            </p>
           ) : null}
 
           <div className="flex justify-end gap-2 pt-0.5">

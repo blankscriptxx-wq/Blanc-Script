@@ -85,6 +85,8 @@ export const talentInput = z.object({
   bankAccountName: z.string().trim().max(160).nullable().optional(),
   bankSortCode: z.string().trim().max(12).nullable().optional(),
   bankAccountNumber: z.string().trim().max(34).nullable().optional(),
+  heightCm: z.number().int().min(0).max(300).nullable().optional(),
+  wardrobeNotes: z.string().trim().max(500).nullable().optional(),
 });
 export type TalentInput = z.infer<typeof talentInput>;
 
@@ -109,6 +111,8 @@ export async function createTalent(input: TalentInput) {
       bankAccountName: data.bankAccountName ?? null,
       bankSortCode: data.bankSortCode ?? null,
       bankAccountNumber: data.bankAccountNumber ?? null,
+      heightCm: data.heightCm ?? null,
+      wardrobeNotes: data.wardrobeNotes ?? null,
     })
     .returning({ id: talent.id });
   await getDb().insert(activityLog).values({

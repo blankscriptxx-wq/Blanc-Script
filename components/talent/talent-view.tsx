@@ -244,6 +244,14 @@ function AddTalentDialog({
           </Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
+          <Field label="Height (cm, optional)">
+            <input name="heightCm" type="number" step="1" min="0" placeholder="175" className={inputCls} />
+          </Field>
+          <Field label="Wardrobe / sizes (optional)">
+            <input name="wardrobeNotes" placeholder="e.g. M top, 32 waist, UK 9" className={inputCls} />
+          </Field>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
           <Field label="Agent / rep (optional)">
             <input name="agentName" placeholder="Agency name" className={inputCls} />
           </Field>
