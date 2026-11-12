@@ -2,25 +2,45 @@
 
 import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Sparkles, X, ArrowUp, Lock } from "lucide-react";
+import { Sparkles, X, ArrowUp, Loader2 } from "lucide-react";
+import { askAssistantAction } from "@/app/(app)/ai/actions";
 import { cn } from "@/lib/cn";
 
 const QUICK_ACTIONS = [
   "What needs me today?",
-  "Which edits are late, and who has them?",
-  "Who's waiting for a reply on WhatsApp?",
-  "Draft a chase for the overdue invoices",
+  "Which edits are in review?",
+  "Summarise my recent activity",
+  "What's outstanding in finance?",
 ];
 
-/** Blanc Script AI — slide-over. Honest preview: not wired until an Anthropic
- *  key is connected (Milestone 6). Shows what it will do, never fakes answers. */
-export function AIPanel({
-  open,
-  onClose,
-}: {
-  open: boolean;
-  onClose: () => void;
-}) {
+type Msg = { role: "user" | "assistant" | "error"; text: string };
+
+/** Blanc Script AI — a working assistant grounded in the workspace. Needs an
+ *  Anthropic API key (Settings → Integrations); without it, it says so. */
+export function AIPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [messages, setMessages] = React.useState<Msg[]>([]);
+  const [input, setInput] = React.useState("");
+  const [pending, setPending] = React.useState(false);
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages, pending]);
+
+  async function send(q: string) {
+    const question = q.trim();
+    if (!question || pending) return;
+    setMessages((m) => [...m, { role: "user", text: question }]);
+    setInput("");
+    setPending(true);
+    const res = await askAssistantAction(question);
+    setMessages((m) => [
+      ...m,
+      res.ok ? { role: "assistant", text: res.text } : { role: "error", text: res.error },
+    ]);
+    setPending(false);
+  }
+
   return (
     <AnimatePresence>
       {open ? (
@@ -56,51 +76,79 @@ export function AIPanel({
               </button>
             </header>
 
-            <div className="flex-1 overflow-y-auto p-4">
-              <p className="font-serif text-h3 italic text-bs-text">
-                Your assistant, grounded in your workspace.
-              </p>
-              <p className="mt-2 text-sm text-bs-muted">
-                It answers from your real clients, shoots, edits and invoices, and
-                only ever acts within your permissions — never moves money, always
-                asks before sending.
-              </p>
-
-              <div className="mt-5 text-eyebrow uppercase text-bs-subtle">
-                Try asking
-              </div>
-              <div className="mt-2 grid gap-2">
-                {QUICK_ACTIONS.map((q) => (
-                  <button
-                    key={q}
-                    disabled
-                    className="group flex items-center justify-between rounded-md border border-bs-border bg-bs-surface px-3 py-2.5 text-left text-sm text-bs-text/90 disabled:cursor-not-allowed"
-                  >
-                    <span>{q}</span>
-                    <ArrowUp className="h-4 w-4 rotate-45 text-bs-subtle" />
-                  </button>
-                ))}
-              </div>
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">
+              {messages.length === 0 ? (
+                <>
+                  <p className="font-serif text-h3 italic text-bs-text">
+                    Your assistant, grounded in your workspace.
+                  </p>
+                  <p className="mt-2 text-sm text-bs-muted">
+                    It answers from your real clients, shoots, edits and invoices, and only
+                    within your permissions — it never moves money or sends anything.
+                  </p>
+                  <div className="mt-5 text-eyebrow uppercase text-bs-subtle">Try asking</div>
+                  <div className="mt-2 grid gap-2">
+                    {QUICK_ACTIONS.map((q) => (
+                      <button
+                        key={q}
+                        onClick={() => send(q)}
+                        className="group flex items-center justify-between rounded-md border border-bs-border bg-bs-surface px-3 py-2.5 text-left text-sm text-bs-text/90 transition-colors hover:bg-bs-surface-2"
+                      >
+                        <span>{q}</span>
+                        <ArrowUp className="h-4 w-4 rotate-45 text-bs-subtle" />
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-3">
+                  {messages.map((m, i) => (
+                    <div
+                      key={i}
+                      className={cn(
+                        "rounded-md px-3 py-2 text-sm",
+                        m.role === "user"
+                          ? "ml-6 bg-bs-primary-soft text-bs-text"
+                          : m.role === "error"
+                            ? "bg-bs-danger-soft text-bs-danger"
+                            : "mr-6 bg-bs-surface text-bs-text",
+                      )}
+                    >
+                      <p className="whitespace-pre-wrap leading-relaxed">{m.text}</p>
+                    </div>
+                  ))}
+                  {pending ? (
+                    <div className="mr-6 flex items-center gap-2 rounded-md bg-bs-surface px-3 py-2 text-sm text-bs-subtle">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Thinking…
+                    </div>
+                  ) : null}
+                </div>
+              )}
             </div>
 
             <div className="border-t border-bs-border p-4">
-              <div className="mb-3 flex items-start gap-2 rounded-md bg-bs-warning-soft px-3 py-2 text-xs text-bs-warning">
-                <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                <span>
-                  Not connected yet. Add an Anthropic API key in Settings to
-                  activate the assistant (planned for Milestone 6).
-                </span>
-              </div>
-              <div className="flex items-center gap-2 rounded-pill border border-bs-border-strong bg-bs-surface px-3 py-2 opacity-60">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  send(input);
+                }}
+                className="flex items-center gap-2 rounded-pill border border-bs-border-strong bg-bs-surface px-3 py-2"
+              >
                 <input
-                  disabled
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
                   placeholder="Ask anything…"
                   className="flex-1 bg-transparent text-body outline-none placeholder:text-bs-subtle"
                 />
-                <span className="grid h-7 w-7 place-items-center rounded-pill bg-bs-primary text-bs-on-accent">
-                  <ArrowUp className="h-4 w-4" />
-                </span>
-              </div>
+                <button
+                  type="submit"
+                  disabled={pending || !input.trim()}
+                  aria-label="Send"
+                  className="grid h-7 w-7 place-items-center rounded-pill bg-bs-primary text-bs-on-accent disabled:opacity-50"
+                >
+                  {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" />}
+                </button>
+              </form>
             </div>
           </motion.aside>
         </>

@@ -35,6 +35,11 @@ import type {
   DeliverableVersionRow,
   ReviewCommentRow,
 } from "@/lib/data/deliverable-detail";
+import { AiGenerate } from "@/components/ai/ai-generate";
+import {
+  summariseCommentsAction,
+  draftClientUpdateAction,
+} from "@/app/(app)/edits/[id]/ai-actions";
 import { cn } from "@/lib/cn";
 
 type Tone = React.ComponentProps<typeof StatusPill>["tone"];
@@ -195,6 +200,13 @@ export function DeliverableDetailView({
             {d.notes}
           </p>
         ) : null}
+
+        <div className="mt-3 border-t border-bs-border pt-3">
+          <AiGenerate
+            label="Draft client update"
+            action={() => draftClientUpdateAction(d.id)}
+          />
+        </div>
       </div>
 
       {/* Status workflow */}
@@ -594,6 +606,14 @@ function CommentsSection({
           Review comments{comments.length ? ` · ${comments.length}` : ""}
         </h2>
       </div>
+
+      {comments.length > 0 ? (
+        <AiGenerate
+          label="Summarise comments"
+          action={() => summariseCommentsAction(deliverableId)}
+          className="mb-3"
+        />
+      ) : null}
 
       <form
         ref={formRef}

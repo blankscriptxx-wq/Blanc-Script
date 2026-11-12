@@ -15,6 +15,11 @@ import {
   setContentStatusAction,
   rescheduleContentAction,
 } from "@/app/(app)/content/actions";
+import {
+  draftCaptionAction,
+  suggestHashtagsAction,
+} from "@/app/(app)/content/ai-actions";
+import { AiGenerate } from "@/components/ai/ai-generate";
 import type { ContentRow, ContentChannel, ContentStatus } from "@/lib/data/content";
 import { CastingSection } from "@/components/castings/casting-section";
 import type { ContentCasting, TalentPickerOption } from "@/lib/data/castings";
@@ -673,6 +678,8 @@ function EditContentDialog({
   onSaved: () => void;
 }) {
   const [state, action, pending] = useActionState(updateContentAction, null);
+  const [body, setBody] = React.useState(row.body ?? "");
+  const [hashtags, setHashtags] = React.useState(row.hashtags ?? "");
   React.useEffect(() => {
     if (state?.ok) onSaved();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -744,17 +751,29 @@ function EditContentDialog({
         <Field label="Caption / copy (optional)">
           <textarea
             name="body"
-            defaultValue={row.body ?? ""}
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
             placeholder="Post caption or copy…"
             className={textareaCls}
+          />
+          <AiGenerate
+            action={() => draftCaptionAction(row.id)}
+            label="Draft caption"
+            onResult={(t) => setBody(t)}
           />
         </Field>
         <Field label="Hashtags (optional)">
           <input
             name="hashtags"
-            defaultValue={row.hashtags ?? ""}
+            value={hashtags}
+            onChange={(e) => setHashtags(e.target.value)}
             placeholder="#reels #behindthescenes"
             className={inputCls}
+          />
+          <AiGenerate
+            action={() => suggestHashtagsAction(row.id)}
+            label="Suggest hashtags"
+            onResult={(t) => setHashtags(t)}
           />
         </Field>
         <Field label="Link (optional)">

@@ -8,6 +8,7 @@ import { ArrowLeft, ExternalLink, Pencil, Plus, X } from "lucide-react";
 import { StatusPill } from "@/components/ds/status-pill";
 import { Button } from "@/components/ds/button";
 import { Dialog } from "@/components/ds/dialog";
+import { AiGenerate } from "@/components/ai/ai-generate";
 import { cn } from "@/lib/cn";
 import {
   addLineItemAction,
@@ -18,6 +19,7 @@ import {
   type LineItemActionState,
   type UpdateInvoiceActionState,
 } from "@/app/(app)/finance/[id]/actions";
+import { draftLineItemsAction, draftTermsAction } from "@/app/(app)/finance/[id]/ai-actions";
 import type { InvoiceDetail } from "@/lib/data/invoice-detail";
 import type { InvoiceStatus } from "@/lib/data/finance";
 
@@ -239,6 +241,19 @@ export function InvoiceDetailView({
         </div>
 
         <AddLineItemForm invoiceId={invoice.id} />
+        <AiDraftLineItems invoiceId={invoice.id} onDrafted={() => router.refresh()} />
+      </section>
+
+      {/* Payment terms */}
+      <section className="mt-4 rounded-md border border-bs-border bg-bs-surface p-5">
+        <h2 className="font-display text-h3 text-bs-text">Payment terms</h2>
+        <p className="mt-0.5 mb-3 text-sm text-bs-muted">
+          Draft professional terms, then copy them into the Terms field via Edit invoice.
+        </p>
+        <AiGenerate
+          action={() => draftTermsAction(invoice.id)}
+          label="Draft terms"
+        />
       </section>
 
       {/* Danger zone */}
@@ -432,6 +447,39 @@ function EditField({ label, children }: { label: string; children: React.ReactNo
       <span className="block text-sm font-medium text-bs-text">{label}</span>
       {children}
     </label>
+  );
+}
+
+function AiDraftLineItems({
+  invoiceId,
+  onDrafted,
+}: {
+  invoiceId: string;
+  onDrafted: () => void;
+}) {
+  const [brief, setBrief] = React.useState("");
+
+  return (
+    <div className="mt-3 space-y-2 rounded-md border border-dashed border-bs-border bg-bs-surface p-3">
+      <label className="block space-y-1.5">
+        <span className="block text-sm font-medium text-bs-text">AI draft line items</span>
+        <input
+          value={brief}
+          onChange={(e) => setBrief(e.target.value)}
+          placeholder="e.g. 2-day product shoot in London, edit and colour grade"
+          className={inputCls}
+          aria-label="Brief for AI line items"
+        />
+      </label>
+      <AiGenerate
+        action={() => draftLineItemsAction(invoiceId, brief)}
+        label="Draft line items"
+        onResult={() => {
+          setBrief("");
+          onDrafted();
+        }}
+      />
+    </div>
   );
 }
 
