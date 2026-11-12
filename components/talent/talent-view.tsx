@@ -77,7 +77,7 @@ export function TalentView({
           action={<Button onClick={() => setAddOpen(true)}>Add talent</Button>}
         />
       ) : (
-        <div className="overflow-hidden rounded-md border border-bs-border bg-bs-surface">
+        <div className="overflow-x-auto rounded-md border border-bs-border bg-bs-surface">
           <table className="w-full text-left text-body">
             <thead className="border-b border-bs-border bg-bs-surface-2 text-xs uppercase tracking-wide text-bs-subtle">
               <tr>

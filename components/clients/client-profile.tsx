@@ -306,7 +306,7 @@ export function ClientProfileView({
             No invoices raised for this client yet.
           </p>
         ) : (
-          <div className="overflow-hidden rounded-sm border border-bs-border">
+          <div className="overflow-x-auto rounded-sm border border-bs-border">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-bs-border bg-bs-surface-2 text-xs uppercase tracking-wide text-bs-subtle">
                 <tr>
