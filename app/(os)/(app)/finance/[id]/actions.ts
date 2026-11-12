@@ -75,6 +75,17 @@ export async function setInvoiceStatusAction(formData: FormData): Promise<void> 
   revalidatePath("/finance");
 }
 
+/** Paid in cash or by bank transfer: mark paid without Stripe and email the receipt. */
+export async function markPaidDirectFormAction(formData: FormData): Promise<void> {
+  const invoiceId = str(formData, "invoiceId");
+  const method = str(formData, "method") === "bank" ? "bank" : "cash";
+  if (!invoiceId) return;
+  const { markInvoicePaidDirect } = await import("@/lib/data/cash");
+  await markInvoicePaidDirect(invoiceId, method).catch(() => {});
+  revalidatePath(`/finance/${invoiceId}`);
+  revalidatePath("/finance");
+}
+
 export type UpdateInvoiceActionState = { ok?: boolean; error?: string };
 
 export async function updateInvoiceAction(

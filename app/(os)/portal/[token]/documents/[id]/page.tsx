@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import { AcceptDocument } from "@/components/portal/accept-document";
+import { DocumentPaper } from "@/components/documents/document-paper";
 import { getPortalDocument } from "@/lib/data/documents";
 import { resolvePortal } from "@/lib/data/portal";
 
@@ -40,9 +41,7 @@ export default async function PortalDocumentPage({
       ) : (
         <p className="mt-2 text-sm text-bs-muted">Please read this through, then accept it at the bottom.</p>
       )}
-      <article className="mt-4 whitespace-pre-wrap rounded-md border border-bs-border bg-bs-surface p-6 text-[15px] leading-relaxed text-bs-text">
-        {doc.body}
-      </article>
+      <DocumentPaper body={doc.body} />
       {doc.status === "sent" ? (
         <AcceptDocument token={token} documentId={doc.id} defaultName={ctx.viewerName} />
       ) : null}

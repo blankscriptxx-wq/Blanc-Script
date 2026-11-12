@@ -6,6 +6,7 @@ import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { Dialog } from "@/components/ds/dialog";
 import { MERGE_FIELDS } from "@/lib/documents/merge";
 import {
+  addStarterTemplatesAction,
   archiveTemplateAction,
   saveTemplateAction,
 } from "@/app/(os)/(app)/settings/integration-actions";
@@ -25,6 +26,8 @@ export function DocumentTemplates({ templates }: { templates: TemplateView[] }) 
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState("");
   const bodyRef = React.useRef<HTMLTextAreaElement>(null);
+  const [starterBusy, setStarterBusy] = React.useState(false);
+  const [starterNote, setStarterNote] = React.useState("");
 
   function open(t: TemplateView | null) {
     setEditing(t ?? { id: null, name: "", body: "" });
@@ -102,6 +105,22 @@ export function DocumentTemplates({ templates }: { templates: TemplateView[] }) 
       >
         <Plus className="h-4 w-4" /> Add template
       </button>
+      <button
+        type="button"
+        disabled={starterBusy}
+        onClick={async () => {
+          setStarterBusy(true);
+          const res = await addStarterTemplatesAction().catch(() => null);
+          setStarterBusy(false);
+          setStarterNote(res ? (res.ok ? res.message : res.error) : "Something went wrong.");
+          router.refresh();
+        }}
+        className="ml-2 inline-flex h-9 items-center gap-1.5 rounded-sm border border-bs-border-strong bg-bs-surface px-3 text-sm font-medium text-bs-text transition-colors hover:bg-bs-surface-2 disabled:opacity-50"
+      >
+        {starterBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+        Add Blanc Script starter agreements
+      </button>
+      {starterNote ? <p className="mt-2 text-xs text-bs-muted">{starterNote}</p> : null}
 
       <Dialog open={editing !== null} onClose={() => setEditing(null)} title={editing?.id ? "Edit template" : "New template"}>
         <div className="space-y-3">

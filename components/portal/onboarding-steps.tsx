@@ -9,6 +9,7 @@ import { PayButton } from "@/components/portal/pay-button";
 export type PortalOnboardingView = {
   status: "sent" | "completed";
   billingType: "subscription" | "one_off";
+  paymentMethod: "card" | "cash";
   progress: { accountReady: boolean; docsTotal: number; docsAccepted: number; paid: boolean };
   nextDocumentId: string | null;
   invoice: { id: string; paymentUrl: string | null; totalPence: number } | null;
@@ -79,12 +80,27 @@ export function OnboardingSteps({ token, ob }: { token: string; ob: PortalOnboar
           n={3}
           done={p.paid}
           title={
-            ob.billingType === "subscription"
+            ob.paymentMethod === "cash"
+              ? p.paid ? "Payment received" : `Pay by cash or bank transfer${ob.invoice ? ` (${money(ob.invoice.totalPence)})` : ""}`
+              : ob.billingType === "subscription"
               ? p.paid ? "Monthly payment set up" : "Set up your monthly payment"
               : p.paid ? "Invoice paid" : `Pay your invoice${ob.invoice ? ` (${money(ob.invoice.totalPence)})` : ""}`
           }
         >
-          {p.paid ? null : !docsDone ? (
+          {p.paid ? null : ob.paymentMethod === "cash" ? (
+            <p className="text-xs text-bs-subtle">
+              You&rsquo;re paying us directly. We&rsquo;ll mark this as paid as soon as we receive it, and your paid
+              invoice will appear below.
+              {ob.invoice ? (
+                <>
+                  {" "}
+                  <Link href={`/portal/${token}/invoices/${ob.invoice.id}`} className="text-bs-primary hover:underline">
+                    View invoice
+                  </Link>
+                </>
+              ) : null}
+            </p>
+          ) : !docsDone ? (
             <p className="text-xs text-bs-subtle">Available once you&rsquo;ve accepted your documents.</p>
           ) : ob.billingType === "subscription" ? (
             ob.canPayByCard ? (

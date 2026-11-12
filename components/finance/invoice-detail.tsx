@@ -14,6 +14,7 @@ import {
   addLineItemAction,
   removeLineItemAction,
   setInvoiceStatusAction,
+  markPaidDirectFormAction,
   updateInvoiceAction,
   voidInvoiceAction,
   type LineItemActionState,
@@ -165,6 +166,24 @@ export function InvoiceDetailView({
             );
           })}
         </div>
+        {invoice.status !== "paid" && !invoice.talentName ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-bs-border pt-3">
+            <span className="text-sm text-bs-muted">Paid outside Stripe?</span>
+            {(["cash", "bank"] as const).map((m) => (
+              <form key={m} action={markPaidDirectFormAction}>
+                <input type="hidden" name="invoiceId" value={invoice.id} />
+                <input type="hidden" name="method" value={m} />
+                <button
+                  type="submit"
+                  className="rounded-sm border border-bs-border-strong px-3 py-1.5 text-sm font-medium text-bs-text transition-colors hover:bg-bs-surface-2"
+                >
+                  {m === "cash" ? "Mark paid — cash" : "Mark paid — bank transfer"}
+                </button>
+              </form>
+            ))}
+            <span className="text-xs text-bs-subtle">Emails the client a receipt and switches off any card link.</span>
+          </div>
+        ) : null}
       </section>
 
       {/* Line items */}

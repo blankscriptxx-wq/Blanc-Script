@@ -15,6 +15,9 @@ import { getOnboarding } from "@/lib/data/onboarding";
 import { listPlanOptions } from "@/lib/data/clients";
 import { listAddOns } from "@/lib/data/addons";
 import { emailConfigured } from "@/lib/email/send";
+import { cashPaymentDefaults } from "@/lib/data/cash";
+import { ClientProposals } from "@/components/clients/client-proposals";
+import { listProposals } from "@/lib/data/proposals";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +44,7 @@ export default async function ClientProfilePage({
   const canDocs =
     (user?.capabilities.has("can_contract") || user?.capabilities.has("can_settings")) ?? false;
 
-  const [portalLinks, billing, documents, templates, uploads, assignOptions, onboarding, plans, addOns] = await Promise.all([
+  const [portalLinks, billing, documents, templates, uploads, assignOptions, onboarding, plans, addOns, cashDefaults, proposalRows] = await Promise.all([
     listPortalLinks(id).catch(() => []),
     canMoney && user?.orgId ? getBillingSummary(user.orgId, id).catch(() => null) : null,
     canDocs ? listClientDocuments(id).catch(() => []) : [],
@@ -51,6 +54,8 @@ export default async function ClientProfilePage({
     canMoney ? getOnboarding(id).catch(() => null) : null,
     canMoney ? listPlanOptions().catch(() => []) : [],
     canMoney ? listAddOns().catch(() => []) : [],
+    canMoney && user?.orgId ? cashPaymentDefaults(user.orgId, id).catch(() => null) : null,
+    canMoney ? listProposals(id).catch(() => []) : [],
   ]);
 
   return (
@@ -59,6 +64,7 @@ export default async function ClientProfilePage({
       portalLinks={portalLinks}
       sections={
         <>
+          {canMoney ? <ClientProposals clientId={id} proposals={proposalRows} /> : null}
           {canMoney ? (
             <OnboardingCard
               clientId={id}
@@ -72,7 +78,7 @@ export default async function ClientProfilePage({
             />
           ) : null}
           {billing ? (
-            <SubscriptionCard clientId={id} billing={billing} stripeReady={stripeConfigured()} />
+            <SubscriptionCard clientId={id} billing={billing} stripeReady={stripeConfigured()} cashDefaultPence={cashDefaults?.totalPence ?? 0} />
           ) : null}
           {canDocs ? (
             <ClientDocuments

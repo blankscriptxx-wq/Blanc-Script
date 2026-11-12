@@ -2,9 +2,10 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Check, Circle, Copy, Loader2, Mail, Plus, Rocket, Send, Trash2 } from "lucide-react";
+import { Banknote, Check, Circle, Copy, Loader2, Mail, Plus, Rocket, Send, Trash2 } from "lucide-react";
 import {
   cancelOnboardingAction,
+  markPaidDirectAction,
   remindOnboardingAction,
   saveOnboardingAction,
   sendOnboardingAction,
@@ -16,6 +17,8 @@ type Extra = { name: string; pricePence: number; cadence: "monthly" | "one_off" 
 export type OnboardingCardView = {
   status: "draft" | "sent" | "completed" | "cancelled";
   billingType: "subscription" | "one_off";
+  paymentMethod: "card" | "cash";
+  invoiceId: string | null;
   servicePlanId: string | null;
   planName: string | null;
   monthlyPence: number | null;
@@ -90,6 +93,7 @@ export function OnboardingCard({
   const [name, setName] = React.useState(draft?.contactName ?? firstContact?.name ?? "");
   const [email, setEmail] = React.useState(draft?.contactEmail ?? firstContact?.email ?? "");
   const [welcome, setWelcome] = React.useState(draft?.welcomeNote ?? "");
+  const [payBy, setPayBy] = React.useState<"card" | "cash">(draft?.paymentMethod ?? "card");
   const [busy, setBusy] = React.useState("");
   const [note, setNote] = React.useState<{ ok: boolean; text: string } | null>(null);
   const [invite, setInvite] = React.useState("");
@@ -116,6 +120,7 @@ export function OnboardingCard({
       contactName: name,
       contactEmail: email,
       welcomeNote: welcome.trim() || null,
+      paymentMethod: payBy,
     };
   }
 
@@ -179,9 +184,11 @@ export function OnboardingCard({
           {
             ok: p.paid,
             text:
-              onboarding.billingType === "subscription"
-                ? p.paid ? "Monthly payment set up" : "Monthly payment not set up yet"
-                : p.paid ? "Invoice paid" : "Invoice not paid yet",
+              onboarding.paymentMethod === "cash"
+                ? p.paid ? "Paid directly (cash or bank transfer)" : "Paying directly — not received yet"
+                : onboarding.billingType === "subscription"
+                  ? p.paid ? "Monthly payment set up" : "Monthly payment not set up yet"
+                  : p.paid ? "Invoice paid" : "Invoice not paid yet",
           },
         ]
       : [];
@@ -219,6 +226,35 @@ export function OnboardingCard({
               </button>
             ) : (
               <>
+                {p && !p.paid && onboarding.invoiceId ? (
+                  <>
+                    <button
+                      type="button"
+                      className={primary}
+                      disabled={busy !== ""}
+                      onClick={() => {
+                        if (window.confirm("Mark this invoice as paid in cash? The client is emailed a receipt and sees it as paid.")) {
+                          void run("cash", () => markPaidDirectAction(clientId, onboarding.invoiceId!, "cash"));
+                        }
+                      }}
+                    >
+                      {busy === "cash" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
+                      Mark paid — cash
+                    </button>
+                    <button
+                      type="button"
+                      className={ghost}
+                      disabled={busy !== ""}
+                      onClick={() => {
+                        if (window.confirm("Mark this invoice as paid by bank transfer?")) {
+                          void run("bank", () => markPaidDirectAction(clientId, onboarding.invoiceId!, "bank"));
+                        }
+                      }}
+                    >
+                      Paid by bank transfer
+                    </button>
+                  </>
+                ) : null}
                 <button type="button" className={ghost} disabled={busy !== ""} onClick={() => run("remind", () => remindOnboardingAction(clientId))}>
                   {busy === "remind" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
                   Send reminder
@@ -373,6 +409,23 @@ export function OnboardingCard({
         </div>
 
         <div className="mb-3">
+          <p className={label}>How will they pay?</p>
+          <div className="inline-flex rounded-sm border border-bs-border-strong p-0.5 text-sm">
+            {(["card", "cash"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setPayBy(m)}
+                aria-pressed={payBy === m}
+                className={`rounded-[3px] px-3 py-1.5 font-medium transition-colors ${payBy === m ? "bg-bs-primary text-bs-on-accent" : "text-bs-muted hover:text-bs-text"}`}
+              >
+                {m === "card" ? "By card (Stripe)" : "Cash or bank transfer"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mb-3">
           <label className={label} htmlFor="ob-deliverables">Agreed deliverables (one per line)</label>
           <textarea id="ob-deliverables" rows={4} className={`${input} h-auto py-2`} value={deliverables} onChange={(e) => setDeliverables(e.target.value)} placeholder={"8 short-form videos a month\n1 shoot day a month\n2 rounds of revisions"} />
         </div>
@@ -433,7 +486,9 @@ export function OnboardingCard({
           ) : null}
         </div>
         <p className="mt-3 text-xs text-bs-subtle">
-          {!stripeReady
+          {payBy === "cash"
+            ? "Nothing goes through Stripe. An invoice is raised now; press “Mark paid” here when you receive the money, and the client gets their paid invoice. Record later months from the Subscription card."
+            : !stripeReady
             ? "Stripe isn't connected, so the client won't be able to pay by card yet."
             : oneOff
               ? "The client pays the invoice by card. Prices are ex VAT; no VAT is added."

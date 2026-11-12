@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/data/clients";
 import { connectStripeWebhook } from "@/lib/data/billing";
-import { archiveTemplate, saveTemplate } from "@/lib/data/documents";
+import { addStarterTemplates, archiveTemplate, saveTemplate } from "@/lib/data/documents";
 import { emailConfigured, sendEmail } from "@/lib/email/send";
 import { stripeConfigured } from "@/lib/payments/stripe";
 import { setFollowUpsEnabled } from "@/lib/data/followups";
@@ -82,5 +82,16 @@ export async function setFollowUpsAction(on: boolean): Promise<SettingsResult> {
     return { ok: true, message: on ? "Follow-up emails are on." : "Follow-up emails are off." };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Could not change the setting." };
+  }
+}
+
+/** Add the Blanc Script starter agreements to this workspace's templates. */
+export async function addStarterTemplatesAction(): Promise<SettingsResult> {
+  try {
+    const n = await addStarterTemplates();
+    revalidatePath("/settings");
+    return { ok: true, message: n ? `Added ${n} template${n === 1 ? "" : "s"}. Read them through and edit the wording to suit.` : "The starter templates are already here." };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not add the templates." };
   }
 }

@@ -33,7 +33,7 @@ function isSitePath(pathname: string): boolean {
 const OS_PREFIXES = [
   "/today", "/insights", "/clients", "/projects", "/shoots", "/edits",
   "/content", "/inbox", "/finance", "/team", "/talent", "/settings",
-  "/uploads", "/auth", "/api", "/portal", "/pay",
+  "/uploads", "/auth", "/api", "/portal", "/pay", "/proposal",
 ];
 
 function isOsPath(pathname: string): boolean {
@@ -46,6 +46,7 @@ const PUBLIC_OS_PREFIXES = [
   "/api/auth",
   "/portal", // client portal (private link, no account)
   "/pay", // payment confirmation page
+  "/proposal", // client proposal (private link, no account)
   "/api/stripe", // Stripe webhook (signature-checked)
   "/api/aniro", // Aniro WhatsApp webhook (signature-checked)
   "/api/cron", // scheduled jobs (secret-checked)

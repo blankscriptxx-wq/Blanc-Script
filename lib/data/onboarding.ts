@@ -51,6 +51,7 @@ export const onboardingInput = z.object({
   contactName: z.string().trim().min(1, "Add the contact's name.").max(120),
   contactEmail: z.string().trim().toLowerCase().email("Enter the contact's email address."),
   welcomeNote: z.string().trim().max(2000).nullable(),
+  paymentMethod: z.enum(["card", "cash"]).default("card"),
 });
 export type OnboardingInput = z.input<typeof onboardingInput>;
 
@@ -67,6 +68,7 @@ export type OnboardingView = {
   id: string;
   status: "draft" | "sent" | "completed" | "cancelled";
   billingType: "subscription" | "one_off";
+  paymentMethod: "card" | "cash";
   servicePlanId: string | null;
   planName: string | null;
   monthlyPence: number | null;
@@ -142,8 +144,11 @@ async function computeProgress(ob: Row): Promise<OnboardingProgress> {
   const accountReady = link ? !link.requiresLogin || Boolean(link.userId) : false;
   const docsTotal = docs.length;
   const docsAccepted = docs.filter((d) => d.status === "accepted").length;
+  // Card subscriptions are "paid" once Stripe has them live; everything else by its invoice.
   const paid =
-    ob.billingType === "subscription" ? subscriptionIsLive(client?.subscriptionStatus) : inv?.status === "paid";
+    ob.billingType === "subscription" && ob.paymentMethod !== "cash"
+      ? subscriptionIsLive(client?.subscriptionStatus)
+      : inv?.status === "paid";
   return { accountReady, docsTotal, docsAccepted, paid, complete: accountReady && docsAccepted === docsTotal && paid };
 }
 
@@ -231,6 +236,7 @@ async function toView(ob: Row, progress: OnboardingProgress | null): Promise<Onb
     id: ob.id,
     status: ob.status as OnboardingView["status"],
     billingType: ob.billingType as OnboardingView["billingType"],
+    paymentMethod: ob.paymentMethod === "cash" ? "cash" : "card",
     servicePlanId: ob.servicePlanId,
     planName: plan?.name ?? null,
     monthlyPence: ob.monthlyPence,
@@ -322,7 +328,15 @@ function stepsLeft(ob: Row, p: OnboardingProgress): string[] {
     const n = p.docsTotal - p.docsAccepted;
     out.push(`Read and accept ${n === 1 ? "your agreement" : `your ${n} documents`}`);
   }
-  if (!p.paid) out.push(ob.billingType === "subscription" ? "Set up your monthly payment by card" : "Pay your invoice by card");
+  if (!p.paid) {
+    out.push(
+      ob.paymentMethod === "cash"
+        ? "Pay your first invoice by cash or bank transfer — we'll confirm it once received"
+        : ob.billingType === "subscription"
+          ? "Set up your monthly payment by card"
+          : "Pay your invoice by card",
+    );
+  }
   return out;
 }
 
@@ -442,9 +456,16 @@ export async function sendOnboarding(clientId: string): Promise<{ emailStatus: E
         .where(eq(clientDocuments.id, doc.id));
     }
 
-    // 5. One-off project: raise the invoice now, payable by card.
-    if (ob.billingType === "one_off") {
-      const lines = (ob.extras ?? []).filter((x) => x.pricePence > 0);
+    // 5. A one-off project, or anything paid in cash: raise the invoice now.
+    //    (Card subscriptions are invoiced by Stripe when each payment is taken.)
+    const cash = ob.paymentMethod === "cash";
+    if (ob.billingType === "one_off" || cash) {
+      const lines = [
+        ...(ob.billingType === "subscription" && plan
+          ? [{ name: `${plan.name} — monthly package`, pricePence: ob.monthlyPence ?? 0 }]
+          : []),
+        ...(ob.extras ?? []),
+      ].filter((x) => x.pricePence > 0);
       const total = lines.reduce((n, x) => n + x.pricePence, 0);
       const number = await nextInvoiceNumber(user.orgId);
       const [inv] = await db
@@ -455,7 +476,7 @@ export async function sendOnboarding(clientId: string): Promise<{ emailStatus: E
           number,
           status: "sent",
           amountPence: total,
-          reference: ob.projectTitle,
+          reference: ob.billingType === "one_off" ? ob.projectTitle : "First month",
           issuedAt: new Date(),
           dueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         })
@@ -471,7 +492,7 @@ export async function sendOnboarding(clientId: string): Promise<{ emailStatus: E
           sortOrder: i,
         })),
       );
-      if (stripeConfigured()) {
+      if (!cash && stripeConfigured()) {
         const link = await createPaymentLink({
           invoiceId: inv.id,
           title: `Blanc Script invoice ${number} — ${ob.projectTitle ?? "project"}`,
@@ -581,6 +602,7 @@ export async function remindOnboarding(clientId: string): Promise<EmailResult | 
 export type PortalOnboarding = {
   status: "sent" | "completed";
   billingType: "subscription" | "one_off";
+  paymentMethod: "card" | "cash";
   planName: string | null;
   monthlyPence: number | null;
   projectTitle: string | null;
@@ -623,6 +645,7 @@ export async function getPortalOnboarding(ctx: { orgId: string; clientId: string
   return {
     status: ob.status as "sent" | "completed",
     billingType: ob.billingType as "subscription" | "one_off",
+    paymentMethod: ob.paymentMethod === "cash" ? "cash" : "card",
     planName: plan?.name ?? null,
     monthlyPence: ob.monthlyPence,
     projectTitle: ob.projectTitle,

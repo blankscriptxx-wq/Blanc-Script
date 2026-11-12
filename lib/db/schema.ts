@@ -385,6 +385,8 @@ export const invoices = pgTable("invoices", {
   stripeInvoiceId: text("stripe_invoice_id").unique(),
   /** Link to the PDF/receipt for this invoice (Stripe-hosted when from Stripe). */
   documentUrl: text("document_url"),
+  /** How it was paid, when known: card (Stripe) | cash | bank. */
+  paymentMethod: text("payment_method"),
   reference: text("reference"), // PO number / client ref
   terms: text("terms"),
   currency: text("currency").notNull().default("GBP"),
@@ -678,11 +680,48 @@ export const clientOnboardings = pgTable("client_onboardings", {
   templateIds: jsonb("template_ids").$type<string[]>().notNull().default([]),
   contactName: text("contact_name"),
   contactEmail: text("contact_email"),
+  /** card = pays through Stripe; cash = pays us directly and staff mark it paid. */
+  paymentMethod: text("payment_method").notNull().default("card"),
   welcomeNote: text("welcome_note"),
   portalLinkId: uuid("portal_link_id"),
   invoiceId: uuid("invoice_id"),
   sentAt: timestamp("sent_at", { withTimezone: true }),
   completedAt: timestamp("completed_at", { withTimezone: true }),
+  createdByUserId: uuid("created_by_user_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ── Proposals: a branded web page sent to a prospect, accepted with a typed name ─
+export type ProposalItem = { title: string; text: string };
+export type ProposalContent = {
+  preparedFor: string;
+  heroLines: string[];
+  heroIntro: string;
+  opportunity: { heading: string; body: string; stats: { value: string; label: string }[] };
+  whyNow: { heading: string; body: string; cards: ProposalItem[] };
+  create: { heading: string; body: string; pillars: ProposalItem[] };
+  process: { heading: string; steps: ProposalItem[] };
+  investment: { heading: string; price: string; priceNote: string; body: string; includes: string[] };
+  close: { heading: string; body: string };
+};
+
+export const proposals = pgTable("proposals", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organisations.id),
+  clientId: uuid("client_id")
+    .notNull()
+    .references(() => clients.id),
+  token: text("token").notNull().unique(),
+  title: text("title").notNull(),
+  status: text("status").notNull().default("draft"), // draft | sent | accepted
+  content: jsonb("content").$type<ProposalContent>().notNull(),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  viewedAt: timestamp("viewed_at", { withTimezone: true }),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+  acceptedByName: text("accepted_by_name"),
   createdByUserId: uuid("created_by_user_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

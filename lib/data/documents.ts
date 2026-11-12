@@ -16,6 +16,7 @@ import {
 import { requireUser } from "@/lib/data/clients";
 import { appOrigin, sendEmail } from "@/lib/email/send";
 import { mergeTemplate } from "@/lib/documents/merge";
+import { STARTER_TEMPLATES } from "@/lib/documents/starter-templates";
 import type { PortalContext } from "@/lib/data/portal";
 
 /**
@@ -47,6 +48,18 @@ export async function listTemplates(): Promise<TemplateRow[]> {
     .from(documentTemplates)
     .where(and(eq(documentTemplates.orgId, user.orgId), isNull(documentTemplates.archivedAt)))
     .orderBy(asc(documentTemplates.name));
+}
+
+/** Add Blanc Script's starter templates (any whose name isn't already there). */
+export async function addStarterTemplates(): Promise<number> {
+  const user = await requireUser();
+  requireDocs(user);
+  const existing = new Set((await listTemplates()).map((t) => t.name));
+  const missing = STARTER_TEMPLATES.filter((t) => !existing.has(t.name));
+  if (missing.length) {
+    await getDb().insert(documentTemplates).values(missing.map((t) => ({ orgId: user.orgId, name: t.name, body: t.body })));
+  }
+  return missing.length;
 }
 
 const templateInput = z.object({

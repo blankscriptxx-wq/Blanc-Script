@@ -98,7 +98,7 @@ export default async function PortalHomePage({
     listPortalUploads(ctx).catch(() => []),
   ]);
   const billing = billingRaw
-    ? { ...billingRaw, canStart: billingRaw.canStart && stripeConfigured() && onboarding?.status !== "sent", upgrades: stripeConfigured() ? billingRaw.upgrades : [] }
+    ? { ...billingRaw, canStart: billingRaw.canStart && stripeConfigured() && onboarding?.status !== "sent" && onboarding?.paymentMethod !== "cash", upgrades: stripeConfigured() ? billingRaw.upgrades : [] }
     : null;
   const waiting = home.deliverables.filter((d) => d.status === "in_review").length;
   const toAccept = documents.filter((d) => d.status === "sent").length;
@@ -125,6 +125,7 @@ export default async function PortalHomePage({
             ob={{
               status: onboarding.status,
               billingType: onboarding.billingType,
+              paymentMethod: onboarding.paymentMethod,
               progress: onboarding.progress,
               nextDocumentId: onboarding.nextDocumentId,
               invoice: onboarding.invoice,

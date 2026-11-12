@@ -381,6 +381,7 @@ export async function recordStripeInvoice(inv: StripeInvoice, opts: { notify: bo
         paymentUrl: inv.hosted_invoice_url,
         documentUrl: inv.invoice_pdf,
         stripeInvoiceId: inv.id,
+        paymentMethod: "card",
       })
       .returning({ id: invoices.id });
   } catch {

@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Check, Copy, CreditCard, Loader2, RefreshCw } from "lucide-react";
+import { Banknote, Check, Copy, CreditCard, Loader2, RefreshCw } from "lucide-react";
+import { recordDirectPaymentAction } from "@/app/(os)/(app)/clients/[id]/onboarding-actions";
 import {
   staffUpgradeAction,
   subscriptionLinkAction,
@@ -41,10 +42,12 @@ export function SubscriptionCard({
   clientId,
   billing,
   stripeReady,
+  cashDefaultPence,
 }: {
   clientId: string;
   billing: BillingView;
   stripeReady: boolean;
+  cashDefaultPence: number;
 }) {
   const router = useRouter();
   const [busy, setBusy] = React.useState("");
@@ -52,6 +55,10 @@ export function SubscriptionCard({
   const [link, setLink] = React.useState("");
   const [copied, setCopied] = React.useState(false);
   const [target, setTarget] = React.useState("");
+  const [cashOpen, setCashOpen] = React.useState(false);
+  const [cashAmount, setCashAmount] = React.useState(cashDefaultPence ? (cashDefaultPence / 100).toFixed(2).replace(/\.00$/, "") : "");
+  const [cashNote, setCashNote] = React.useState("");
+  const [cashMethod, setCashMethod] = React.useState<"cash" | "bank">("cash");
 
   async function run(key: string, fn: () => Promise<BillingResult>) {
     setBusy(key);
@@ -157,6 +164,53 @@ export function SubscriptionCard({
             ) : null}
           </div>
         )}
+
+        <div className="mt-3 border-t border-bs-border pt-3">
+          {cashOpen ? (
+            <form
+              className="flex flex-wrap items-end gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const amountPence = Math.round(Number(cashAmount.replace(/[£,\s]/g, "")) * 100);
+                if (!Number.isFinite(amountPence) || amountPence < 1) return setNote({ ok: false, text: "Enter the amount received." });
+                void run("cash", () =>
+                  recordDirectPaymentAction(clientId, { amountPence, method: cashMethod, description: cashNote.trim() || undefined }),
+                ).then(() => setCashOpen(false));
+              }}
+            >
+              <label className="text-xs text-bs-muted">
+                Amount received (£)
+                <input value={cashAmount} onChange={(e) => setCashAmount(e.target.value)} inputMode="decimal" aria-label="Amount received in pounds" className="mt-1 block h-8 w-28 rounded-sm border border-bs-border-strong bg-bs-surface px-2 text-sm text-bs-text outline-none" />
+              </label>
+              <label className="text-xs text-bs-muted">
+                Paid by
+                <select value={cashMethod} onChange={(e) => setCashMethod(e.target.value as "cash" | "bank")} aria-label="How it was paid" className="mt-1 block h-8 rounded-sm border border-bs-border-strong bg-bs-surface px-2 pr-7 text-sm text-bs-text outline-none">
+                  <option value="cash">Cash</option>
+                  <option value="bank">Bank transfer</option>
+                </select>
+              </label>
+              <label className="min-w-[180px] flex-1 text-xs text-bs-muted">
+                What it&rsquo;s for (optional)
+                <input value={cashNote} onChange={(e) => setCashNote(e.target.value)} placeholder="Leave blank to itemise their monthly package" aria-label="What the payment is for" className="mt-1 block h-8 w-full rounded-sm border border-bs-border-strong bg-bs-surface px-2 text-sm text-bs-text outline-none placeholder:text-bs-subtle" />
+              </label>
+              <button type="submit" className={btn} disabled={busy !== ""}>
+                {busy === "cash" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-bs-success" />}
+                Create paid invoice
+              </button>
+              <button type="button" className="text-xs text-bs-subtle hover:text-bs-text" onClick={() => setCashOpen(false)}>
+                Cancel
+              </button>
+            </form>
+          ) : (
+            <button type="button" className={btn} onClick={() => setCashOpen(true)}>
+              <Banknote className="h-3.5 w-3.5 text-bs-primary" /> Record cash or bank payment
+            </button>
+          )}
+          <p className="mt-2 text-xs text-bs-subtle">
+            For clients who pay you directly. It creates a paid invoice, shows it in their portal and emails them a
+            receipt — nothing goes through Stripe.
+          </p>
+        </div>
 
         {link ? (
           <div className="mt-3 flex flex-wrap items-center gap-2">

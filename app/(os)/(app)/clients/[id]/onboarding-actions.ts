@@ -8,6 +8,7 @@ import {
   sendOnboarding,
   type OnboardingInput,
 } from "@/lib/data/onboarding";
+import { markInvoicePaidDirect, recordDirectPayment, type DirectMethod } from "@/lib/data/cash";
 
 export type OnboardingResult = { ok: true; message: string; inviteUrl?: string } | { ok: false; error: string };
 
@@ -73,5 +74,31 @@ export async function cancelOnboardingAction(clientId: string): Promise<Onboardi
     return { ok: true, message: "Onboarding cancelled." };
   } catch (e) {
     return fail(e, "Could not cancel.");
+  }
+}
+
+/** The client paid an invoice in cash or by bank transfer: mark it paid (no Stripe involved). */
+export async function markPaidDirectAction(clientId: string, invoiceId: string, method: DirectMethod): Promise<OnboardingResult> {
+  try {
+    await markInvoicePaidDirect(invoiceId, method);
+    refresh(clientId);
+    revalidatePath(`/finance/${invoiceId}`);
+    return { ok: true, message: "Marked as paid. The client can see the paid invoice in their portal." };
+  } catch (e) {
+    return fail(e, "Could not mark it paid.");
+  }
+}
+
+/** Record money received directly: creates a paid invoice for the client. */
+export async function recordDirectPaymentAction(
+  clientId: string,
+  input: { description?: string; amountPence: number; method: DirectMethod },
+): Promise<OnboardingResult> {
+  try {
+    const { number } = await recordDirectPayment(clientId, input);
+    refresh(clientId);
+    return { ok: true, message: `Recorded. Invoice ${number} created and marked paid.` };
+  } catch (e) {
+    return fail(e, "Could not record the payment.");
   }
 }

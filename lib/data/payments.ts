@@ -94,7 +94,7 @@ export async function markInvoicePaidFromStripe(
 ): Promise<boolean> {
   const [row] = await getDb()
     .update(invoices)
-    .set({ status: "paid", paidAt: sql`now()`, updatedAt: sql`now()` })
+    .set({ status: "paid", paidAt: sql`now()`, paymentMethod: "card", updatedAt: sql`now()` })
     .where(and(eq(invoices.id, invoiceId), sql`${invoices.status} <> 'paid'`))
     .returning({ id: invoices.id, orgId: invoices.orgId });
   if (!row) return false;
