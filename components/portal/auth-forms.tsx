@@ -43,7 +43,14 @@ export function PortalClaimForm({ token, email, name }: { token: string; email: 
       </label>
       <label className="block space-y-1.5">
         <span className="block text-sm font-medium">Your name</span>
-        <input name="name" required defaultValue={name} autoComplete="name" className={inputCls} />
+        <input
+          name="name"
+          required
+          key={state?.name ?? name}
+          defaultValue={state?.name ?? name}
+          autoComplete="name"
+          className={inputCls}
+        />
       </label>
       <label className="block space-y-1.5">
         <span className="block text-sm font-medium">Choose a password</span>
@@ -75,7 +82,8 @@ export function PortalSignInForm({ email = "" }: { email?: string }) {
           name="email"
           type="email"
           required
-          defaultValue={email}
+          key={state?.email ?? email}
+          defaultValue={state?.email ?? email}
           autoComplete="email"
           className={inputCls}
         />
