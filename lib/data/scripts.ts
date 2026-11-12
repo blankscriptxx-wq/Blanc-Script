@@ -57,6 +57,34 @@ export async function listScripts(clientId: string): Promise<ScriptRow[]> {
   return rows as ScriptRow[];
 }
 
+export async function getScript(id: string) {
+  const user = await requireUser();
+  const [row] = await getDb()
+    .select({
+      id: scripts.id,
+      clientId: scripts.clientId,
+      title: scripts.title,
+      body: scripts.body,
+      hookScript: scripts.hookScript,
+      notes: scripts.notes,
+    })
+    .from(scripts)
+    .where(and(eq(scripts.id, id), eq(scripts.orgId, user.orgId)))
+    .limit(1);
+  return row ?? null;
+}
+
+export async function appendScriptNotes(id: string, note: string) {
+  const user = await requireUser();
+  const s = await getScript(id);
+  if (!s) return;
+  const merged = [s.notes, note].filter(Boolean).join("\n");
+  await getDb()
+    .update(scripts)
+    .set({ notes: merged.slice(0, 2000), updatedAt: new Date() })
+    .where(and(eq(scripts.id, id), eq(scripts.orgId, user.orgId)));
+}
+
 export const scriptInput = z.object({
   clientId: z.string().uuid(),
   title: z.string().trim().min(1).max(200),

@@ -2,8 +2,12 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, ArrowUp, Plus, MessageSquare, Sparkles } from "lucide-react";
-import { chatAction, newThreadAction } from "@/app/(app)/clients/[id]/strategy/actions";
+import { Loader2, ArrowUp, Plus, MessageSquare, Sparkles, BrainCircuit, Check } from "lucide-react";
+import {
+  chatAction,
+  newThreadAction,
+  captureInsightAction,
+} from "@/app/(app)/clients/[id]/strategy/actions";
 import type { ThreadRow } from "@/lib/data/client-chat";
 import type { ChatMessage } from "@/lib/ai/claude";
 import { cn } from "@/lib/cn";
@@ -210,10 +214,10 @@ export function ChatPanel({
           ) : (
             <div className="space-y-3">
               {messages.map((m, i) => (
-                <ChatBubble key={`seed-${i}`} role={m.role} text={m.content} />
+                <ChatBubble key={`seed-${i}`} role={m.role} text={m.content} clientId={clientId} />
               ))}
               {local.map((m, i) => (
-                <ChatBubble key={`local-${i}`} role={m.role} text={m.text} />
+                <ChatBubble key={`local-${i}`} role={m.role} text={m.text} clientId={clientId} />
               ))}
               {pending ? (
                 <div className="mr-10 flex items-center gap-2 rounded-md bg-bs-surface-2 px-3 py-2 text-sm text-bs-subtle">
@@ -267,7 +271,24 @@ export function ChatPanel({
 }
 
 /** A single transcript bubble — user right-ish, assistant left, errors flagged. */
-function ChatBubble({ role, text }: { role: "user" | "assistant" | "error"; text: string }) {
+function ChatBubble({
+  role,
+  text,
+  clientId,
+}: {
+  role: "user" | "assistant" | "error";
+  text: string;
+  clientId: string;
+}) {
+  const [saved, setSaved] = React.useState(false);
+  const [saving, setSaving] = React.useState(false);
+  async function save() {
+    if (saving || saved) return;
+    setSaving(true);
+    const res = await captureInsightAction(clientId, text);
+    setSaving(false);
+    if (res.ok) setSaved(true);
+  }
   return (
     <div
       className={cn(
@@ -280,6 +301,17 @@ function ChatBubble({ role, text }: { role: "user" | "assistant" | "error"; text
       )}
     >
       <p className="whitespace-pre-wrap leading-relaxed">{text}</p>
+      {role === "assistant" ? (
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving || saved}
+          className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-bs-subtle transition-colors hover:text-bs-text disabled:opacity-70"
+        >
+          {saved ? <Check className="h-3 w-3" /> : <BrainCircuit className="h-3 w-3" />}
+          {saved ? "Saved to brain (awaiting approval)" : saving ? "Saving…" : "Save to brain"}
+        </button>
+      ) : null}
     </div>
   );
 }

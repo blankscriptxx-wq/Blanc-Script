@@ -1,13 +1,16 @@
 "use client";
 
 import * as React from "react";
+import { useActionState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, MessageSquareQuote, ChevronDown, Check, Send, X } from "lucide-react";
+import { Eye, MessageSquareQuote, ChevronDown, Check, Send, X, Lightbulb, LineChart } from "lucide-react";
 import { AiGenerate } from "@/components/ai/ai-generate";
 import { StatusPill } from "@/components/ds/status-pill";
 import { cn } from "@/lib/cn";
 import {
   generateScriptAction,
+  generateIdeasAction,
+  logResultAction,
   setScriptStatusAction,
   pushScriptToContentAction,
   archiveScriptAction,
@@ -79,14 +82,21 @@ export function ScriptsPanel({
               placeholder="Brief or idea (optional)…"
               className="h-9 w-full rounded-sm border border-bs-border-strong bg-bs-surface px-3 text-body text-bs-text outline-none placeholder:text-bs-subtle"
             />
-            <AiGenerate
-              label="Generate script"
-              action={() => generateScriptAction(clientId, brief)}
-              onResult={() => {
-                setBrief("");
-                router.refresh();
-              }}
-            />
+            <div className="flex flex-wrap items-center gap-2">
+              <AiGenerate
+                label="Generate script"
+                action={() => generateScriptAction(clientId, brief)}
+                onResult={() => {
+                  setBrief("");
+                  router.refresh();
+                }}
+              />
+              <AiGenerate
+                label="Generate 5 ideas"
+                action={() => generateIdeasAction(clientId, 5)}
+                onResult={() => router.refresh()}
+              />
+            </div>
           </div>
         ) : (
           <p className="mt-4 rounded-sm border border-dashed border-bs-border bg-bs-surface-2 px-3 py-2.5 text-sm text-bs-muted">
@@ -222,31 +232,81 @@ function ScriptCard({ clientId, script }: { clientId: string; script: ScriptRow 
           </label>
         </form>
 
-        <form action={pushScriptToContentAction}>
-          <input type="hidden" name="id" value={script.id} />
-          <input type="hidden" name="clientId" value={clientId} />
-          <button
-            type="submit"
-            disabled={pushed}
-            className={cn(
-              "inline-flex h-8 items-center gap-1.5 rounded-sm px-3 text-xs font-medium transition-colors",
-              pushed
-                ? "cursor-default bg-bs-success-soft text-bs-success"
-                : "bg-bs-primary text-bs-on-accent hover:bg-bs-primary-hover",
-            )}
-          >
-            {pushed ? (
-              <>
-                <Check className="h-3.5 w-3.5" /> Added &#10003;
-              </>
-            ) : (
-              <>
-                <Send className="h-3.5 w-3.5" /> Push to Content
-              </>
-            )}
-          </button>
-        </form>
+        <div className="flex flex-wrap items-center gap-2">
+          <LogResult clientId={clientId} scriptId={script.id} />
+          <form action={pushScriptToContentAction}>
+            <input type="hidden" name="id" value={script.id} />
+            <input type="hidden" name="clientId" value={clientId} />
+            <button
+              type="submit"
+              disabled={pushed}
+              className={cn(
+                "inline-flex h-8 items-center gap-1.5 rounded-sm px-3 text-xs font-medium transition-colors",
+                pushed
+                  ? "cursor-default bg-bs-success-soft text-bs-success"
+                  : "bg-bs-primary text-bs-on-accent hover:bg-bs-primary-hover",
+              )}
+            >
+              {pushed ? (
+                <>
+                  <Check className="h-3.5 w-3.5" /> Added &#10003;
+                </>
+              ) : (
+                <>
+                  <Send className="h-3.5 w-3.5" /> Push to Content
+                </>
+              )}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
+  );
+}
+
+/** Log how a produced script performed → proposes a performance insight to the brain. */
+function LogResult({ clientId, scriptId }: { clientId: string; scriptId: string }) {
+  const [open, setOpen] = React.useState(false);
+  const [state, action, pending] = useActionState<{ ok?: boolean; error?: string }, FormData>(
+    logResultAction,
+    {},
+  );
+  const formRef = React.useRef<HTMLFormElement>(null);
+  React.useEffect(() => {
+    if (state?.ok) {
+      formRef.current?.reset();
+      setOpen(false);
+    }
+  }, [state]);
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex h-8 items-center gap-1.5 rounded-sm border border-bs-border-strong px-3 text-xs font-medium text-bs-text transition-colors hover:bg-bs-surface-2"
+      >
+        <LineChart className="h-3.5 w-3.5 text-bs-primary" /> Log result
+      </button>
+    );
+  }
+  return (
+    <form ref={formRef} action={action} className="flex items-center gap-1.5">
+      <input type="hidden" name="scriptId" value={scriptId} />
+      <input type="hidden" name="clientId" value={clientId} />
+      <input
+        name="result"
+        placeholder="e.g. 120k views, saves high…"
+        className="h-8 w-52 rounded-sm border border-bs-border-strong bg-bs-surface px-2.5 text-sm text-bs-text outline-none placeholder:text-bs-subtle"
+      />
+      <button
+        type="submit"
+        disabled={pending}
+        className="inline-flex h-8 items-center gap-1 rounded-sm bg-bs-text px-2.5 text-xs font-medium text-bs-surface disabled:opacity-60"
+      >
+        <Lightbulb className="h-3.5 w-3.5" /> {pending ? "Learning…" : "Learn"}
+      </button>
+      {state?.error ? <span className="text-xs text-bs-danger">{state.error}</span> : null}
+    </form>
   );
 }

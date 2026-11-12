@@ -14,7 +14,14 @@ import {
   getThreadClientId,
   getThreadMessages,
 } from "@/lib/data/client-chat";
-import { createScript, pushScriptToContent, setScriptStatus, archiveScript } from "@/lib/data/scripts";
+import {
+  appendScriptNotes,
+  archiveScript,
+  createScript,
+  getScript,
+  pushScriptToContent,
+  setScriptStatus,
+} from "@/lib/data/scripts";
 
 export type AiResult = { ok: true; text: string } | { ok: false; error: string };
 
@@ -227,6 +234,116 @@ export async function generateScriptAction(clientId: string, brief: string): Pro
     return { ok: true, text: `Drafted “${script.title || "Untitled script"}”.` };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Could not generate a script." };
+  }
+}
+
+// ── Capture an insight from chat into the brain (approve-gated) ───────────────
+export async function captureInsightAction(
+  clientId: string,
+  text: string,
+): Promise<AiResult> {
+  try {
+    const content = text.trim().slice(0, 4000);
+    if (!content) return { ok: false, error: "Nothing to save." };
+    let title = content.split(/[.\n]/)[0]?.trim().slice(0, 100) || "Insight";
+    // Tidy the title with AI when available (optional — capture works without it).
+    if (aiConfigured()) {
+      title =
+        (await runChat({
+          system: "Give a 3-7 word title for this note. Return only the title.",
+          messages: [{ role: "user", content }],
+          maxTokens: 30,
+        }).catch(() => title)) || title;
+      title = title.replace(/^["']|["']$/g, "").slice(0, 100);
+    }
+    await proposeKnowledge({
+      clientId,
+      kind: "insight",
+      title,
+      content,
+      source: "chat",
+      status: "proposed",
+    });
+    revalidatePath(path(clientId));
+    return { ok: true, text: "Saved to the brain for your approval." };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not save." };
+  }
+}
+
+// ── Log a script's real-world result → propose a performance insight ──────────
+export async function logResultAction(
+  _prev: { ok?: boolean; error?: string },
+  formData: FormData,
+): Promise<{ ok?: boolean; error?: string }> {
+  const scriptId = String(formData.get("scriptId") ?? "");
+  const clientId = String(formData.get("clientId") ?? "");
+  const result = String(formData.get("result") ?? "").trim();
+  try {
+    if (!result) return { error: "Enter how it performed." };
+    const s = await getScript(scriptId);
+    if (!s) return { error: "Script not found." };
+    await appendScriptNotes(scriptId, `Result: ${result}`);
+
+    // Distil a reusable lesson (AI if available, else store the raw result).
+    let content = result;
+    if (aiConfigured()) {
+      content =
+        (await runChat({
+          system:
+            "You turn a content result into one short, reusable lesson for future scripts (what to repeat or avoid). British English, one or two sentences.",
+          messages: [
+            {
+              role: "user",
+              content: `Script: ${s.title}. Hook: ${s.hookScript ?? ""}. Result: ${result}`,
+            },
+          ],
+          maxTokens: 200,
+        }).catch(() => result)) || result;
+    }
+    await proposeKnowledge({
+      clientId,
+      kind: "performance",
+      title: `What we learned: ${s.title}`.slice(0, 160),
+      content,
+      source: "performance",
+      status: "proposed",
+    });
+    revalidatePath(path(clientId));
+    return { ok: true };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Could not log the result." };
+  }
+}
+
+// ── Generate an idea backlog (quick ideas as scripts) ─────────────────────────
+export async function generateIdeasAction(clientId: string, count = 5): Promise<AiResult> {
+  try {
+    if (!aiConfigured())
+      return { ok: false, error: "Add an Anthropic API key in Settings → Integrations to generate ideas." };
+    const context = await buildBrainContext(clientId);
+    const n = Math.max(1, Math.min(10, count));
+    const out = await runJson<{ ideas: { title: string; hook: string }[] }>({
+      system: `You are the content strategist for this client. Propose ${n} fresh short-form video ideas. Each has a title and a one-line script hook. Return JSON {ideas:[{title, hook}]}. British English.\n\nCLIENT BRAIN:\n${context}`,
+      prompt: `Give ${n} ideas.`,
+      maxTokens: 1200,
+    });
+    let created = 0;
+    for (const idea of (out.ideas ?? []).slice(0, n)) {
+      if (!idea.title) continue;
+      await createScript({
+        clientId,
+        title: idea.title.slice(0, 200),
+        format: "reel",
+        status: "idea",
+        hookScript: idea.hook ?? null,
+      }).catch(() => {});
+      created++;
+    }
+    revalidatePath(path(clientId));
+    return { ok: true, text: `Added ${created} ideas to the backlog.` };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not generate ideas." };
   }
 }
 
