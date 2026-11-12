@@ -100,3 +100,24 @@ export async function createProject(input: ProjectInput) {
   });
   return row;
 }
+
+/** Set (or clear) a project's brief. */
+export async function updateProjectBrief(projectId: string, brief: string) {
+  const user = await requireUser();
+  const id = z.string().uuid().parse(projectId);
+  const text = z.string().trim().max(8000, "Keep the brief under 8,000 characters.").parse(brief);
+  const [row] = await getDb()
+    .update(projects)
+    .set({ brief: text || null, updatedAt: new Date() })
+    .where(and(eq(projects.id, id), eq(projects.orgId, user.orgId)))
+    .returning({ id: projects.id });
+  if (!row) throw new Error("That project was not found in your workspace.");
+  await getDb().insert(activityLog).values({
+    orgId: user.orgId,
+    actorUserId: user.id,
+    action: "project.updated",
+    entityType: "project",
+    entityId: id,
+    meta: { field: "brief" },
+  });
+}

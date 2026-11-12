@@ -13,6 +13,7 @@ import {
 } from "@/lib/db/schema";
 import { requireUser } from "@/lib/data/clients";
 import type { InvoiceStatus } from "@/lib/data/finance";
+import { invoiceGrossPence } from "@/lib/data/finance";
 
 export type ClientProfileShootStatus =
   | "booked"
@@ -158,7 +159,7 @@ export async function getClientProfile(id: string): Promise<ClientProfile | null
           id: invoices.id,
           number: invoices.number,
           status: invoices.status,
-          amountPence: invoices.amountPence,
+          amountPence: invoiceGrossPence,
           dueAt: invoices.dueAt,
         })
         .from(invoices)

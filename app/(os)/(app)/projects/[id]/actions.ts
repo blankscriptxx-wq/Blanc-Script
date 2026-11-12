@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createTask, setTaskStatus, type TaskStatus } from "@/lib/data/tasks";
+import { updateProjectBrief } from "@/lib/data/projects";
 
 const STATUSES: TaskStatus[] = ["todo", "in_progress", "blocked", "done"];
 
@@ -36,4 +37,17 @@ export async function moveTaskAction(formData: FormData): Promise<void> {
   if (!taskId) return;
   await setTaskStatus(taskId, status);
   revalidatePath(`/projects/${projectId}`);
+}
+
+export async function saveBriefAction(
+  projectId: string,
+  brief: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    await updateProjectBrief(projectId, brief);
+    revalidatePath(`/projects/${projectId}`);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not save the brief." };
+  }
 }

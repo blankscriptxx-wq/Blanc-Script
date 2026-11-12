@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createShoot } from "@/lib/data/shoots";
+import { createShoot, setShootProject } from "@/lib/data/shoots";
 
 export async function createShootAction(
   _prev: { ok: boolean; error: string } | null,
@@ -9,6 +9,7 @@ export async function createShootAction(
 ) {
   try {
     const clientId = (formData.get("clientId") as string) || "";
+    const projectId = (formData.get("projectId") as string) || "";
     const scheduledAt = (formData.get("scheduledAt") as string) || "";
     const locationName = (formData.get("locationName") as string) || "";
     const talentIds = formData
@@ -18,6 +19,7 @@ export async function createShootAction(
     await createShoot({
       title: (formData.get("title") as string) ?? "",
       clientId: clientId ? clientId : null,
+      projectId: projectId ? projectId : null,
       scheduledAt: scheduledAt ? scheduledAt : null,
       locationName: locationName ? locationName : null,
       talentIds,
@@ -28,4 +30,15 @@ export async function createShootAction(
   } catch (e) {
     return { ok: false, error: (e as Error).message || "Could not book shoot." };
   }
+}
+
+/** Link a shoot to a project, or unlink it when no project is chosen. */
+export async function setShootProjectAction(formData: FormData): Promise<void> {
+  const shootId = String(formData.get("shootId") ?? "");
+  const projectId = String(formData.get("projectId") ?? "");
+  if (!shootId) return;
+  await setShootProject(shootId, projectId || null);
+  revalidatePath("/shoots");
+  revalidatePath("/projects");
+  if (projectId) revalidatePath(`/projects/${projectId}`);
 }

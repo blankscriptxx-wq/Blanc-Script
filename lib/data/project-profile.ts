@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, or } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import {
   clients,
@@ -49,6 +49,7 @@ export type ProjectProfile = {
     name: string;
     status: ProjectStatus;
     brief: string | null;
+    clientId: string | null;
     clientName: string | null;
     createdAt: Date;
     updatedAt: Date;
@@ -89,25 +90,29 @@ export async function getProjectProfile(
     .limit(1);
   if (!p) return null;
 
-  // Shoots linked to this project's client (shoots carry clientId, not projectId).
-  const shootRows = p.clientId
-    ? await db
-        .select({
-          id: shoots.id,
-          title: shoots.title,
-          status: shoots.status,
-          scheduledAt: shoots.scheduledAt,
-        })
-        .from(shoots)
-        .where(
-          and(
-            eq(shoots.orgId, org),
-            eq(shoots.clientId, p.clientId),
-            isNull(shoots.archivedAt),
-          ),
-        )
-        .orderBy(desc(shoots.scheduledAt))
-    : [];
+  // Shoots booked against this project, plus the client's shoots that haven't
+  // been linked to any project yet (older bookings carry only a client).
+  const shootRows = await db
+    .select({
+      id: shoots.id,
+      title: shoots.title,
+      status: shoots.status,
+      scheduledAt: shoots.scheduledAt,
+    })
+    .from(shoots)
+    .where(
+      and(
+        eq(shoots.orgId, org),
+        isNull(shoots.archivedAt),
+        p.clientId
+          ? or(
+              eq(shoots.projectId, p.id),
+              and(isNull(shoots.projectId), eq(shoots.clientId, p.clientId)),
+            )
+          : eq(shoots.projectId, p.id),
+      ),
+    )
+    .orderBy(desc(shoots.scheduledAt));
 
   const [tasks, talentRows, deliverableRows] = await Promise.all([
     listTasksForProject(id),
@@ -147,6 +152,7 @@ export async function getProjectProfile(
       name: p.name,
       status: p.status as ProjectStatus,
       brief: p.brief,
+      clientId: p.clientId,
       clientName: p.clientName,
       createdAt: p.createdAt,
       updatedAt: p.updatedAt,

@@ -7,6 +7,13 @@ import { requireUser } from "@/lib/data/clients";
 import { listShootCastings, bookingCostPence } from "@/lib/data/castings";
 
 /**
+ * What an invoice is actually worth to the payer: the net amount plus VAT at
+ * the invoice's tax rate (no tax rate = no VAT). Use this wherever an amount
+ * owed, outstanding or paid is shown; `invoices.amountPence` alone is net.
+ */
+export const invoiceGrossPence = sql<number>`(${invoices.amountPence} + round(${invoices.amountPence} * coalesce(${invoices.taxRatePct}, 0) / 100.0))::int`;
+
+/**
  * Finance data access — internal invoices. EVERY query is scoped to the caller's
  * org_id (tenancy enforced here, with Neon RLS as defence in depth). Xero sync is a
  * later integration and is intentionally not wired up.
@@ -36,7 +43,7 @@ export async function listInvoices(): Promise<InvoiceRow[]> {
       clientName: clients.name,
       talentId: invoices.talentId,
       talentName: talent.name,
-      amountPence: invoices.amountPence,
+      amountPence: invoiceGrossPence,
       status: invoices.status,
       currency: invoices.currency,
       dueAt: invoices.dueAt,
@@ -60,8 +67,8 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
   const user = await requireUser();
   const [agg] = await getDb()
     .select({
-      outstandingPence: sql<number>`coalesce(sum(${invoices.amountPence}) filter (where ${invoices.status} in ('sent','approved','overdue')), 0)`,
-      paidThisMonthPence: sql<number>`coalesce(sum(${invoices.amountPence}) filter (where ${invoices.status} = 'paid' and ${invoices.paidAt} >= date_trunc('month', now())), 0)`,
+      outstandingPence: sql<number>`coalesce(sum(${invoiceGrossPence}) filter (where ${invoices.status} in ('sent','approved','overdue')), 0)`,
+      paidThisMonthPence: sql<number>`coalesce(sum(${invoiceGrossPence}) filter (where ${invoices.status} = 'paid' and ${invoices.paidAt} >= date_trunc('month', now())), 0)`,
       overdueCount: sql<number>`count(*) filter (where ${invoices.status} = 'overdue')`,
     })
     .from(invoices)

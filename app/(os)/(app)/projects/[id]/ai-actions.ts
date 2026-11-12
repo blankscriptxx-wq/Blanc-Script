@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { aiConfigured, runAssist, runJson } from "@/lib/ai/claude";
 import { getProjectProfile } from "@/lib/data/project-profile";
 import { createTask } from "@/lib/data/tasks";
+import { getClientProfile } from "@/lib/data/client-brain";
 
 /**
  * AI helpers for the Projects module. Every action is wrapped in try/catch and
@@ -15,10 +16,25 @@ export type ProjectAiResult =
   | { ok: false; error: string };
 
 const BRIEF_SYSTEM =
-  "You write a concise creative project brief for a video agency (objective, audience, deliverables, tone). British English.";
+  "You write a concise creative project brief for a video agency: objective, audience, deliverables, tone and key dates. Base it on the project and the client details given; do not invent facts about the client's business that aren't supplied. Plain text with short labelled sections, no Markdown symbols. British English.";
 
 const TASKS_SYSTEM =
-  "Break this project brief into 5-10 concrete production tasks for a video shoot/edit workflow. Return JSON {tasks:[{title}]}.";
+  "Break this project into 5-10 concrete production tasks for a video shoot/edit workflow. Tailor every task to this specific client and brief: use the client's actual business, products and constraints as given, and never assume a sector (for example a restaurant) that isn't stated. Return JSON {tasks:[{title}]}.";
+
+/** What we know about the project's client, so drafts fit their business. */
+async function clientContext(clientId: string | null, clientName: string | null): Promise<string> {
+  const lines = [`Client: ${clientName ?? "—"}`];
+  if (clientId) {
+    const profile = await getClientProfile(clientId).catch(() => null);
+    if (profile?.brandSummary) lines.push(`About the client: ${profile.brandSummary}`);
+    if (profile?.audience) lines.push(`Audience: ${profile.audience}`);
+    if (profile?.tone) lines.push(`Tone of voice: ${profile.tone}`);
+    if (profile?.pillars?.length) lines.push(`Content pillars: ${profile.pillars.join(", ")}`);
+    if (profile?.dosAndDonts) lines.push(`Do's and don'ts: ${profile.dosAndDonts}`);
+    if (profile?.notes) lines.push(`Notes: ${profile.notes}`);
+  }
+  return lines.join("\n");
+}
 
 /**
  * Draft a creative brief from the project's name and client. Returns the brief
@@ -39,8 +55,8 @@ export async function draftBriefAction(
     if (!profile) {
       return { ok: false, error: "That project was not found in your workspace." };
     }
-    const { name, clientName } = profile.project;
-    const prompt = `Project name: ${name}\nClient: ${clientName ?? "—"}`;
+    const { name, clientId, clientName } = profile.project;
+    const prompt = `Project name: ${name}\n${await clientContext(clientId, clientName)}`;
     const text = await runAssist({ system: BRIEF_SYSTEM, prompt });
     if (!text) {
       return { ok: false, error: "The assistant returned an empty brief. Try again." };
@@ -76,10 +92,15 @@ export async function proposeTasksAction(projectId: string): Promise<ProposeTask
     if (!profile) {
       return { ok: false, error: "That project was not found in your workspace." };
     }
-    const brief = profile.project.brief?.trim() || profile.project.name;
+    const { name, clientId, clientName } = profile.project;
+    const brief = profile.project.brief?.trim();
     const result = await runJson<{ tasks: { title: string }[] }>({
       system: TASKS_SYSTEM,
-      prompt: brief,
+      prompt: [
+        `Project name: ${name}`,
+        await clientContext(clientId, clientName),
+        brief ? `Brief:\n${brief}` : "Brief: (none written yet)",
+      ].join("\n"),
     });
 
     const tasks = (result?.tasks ?? [])

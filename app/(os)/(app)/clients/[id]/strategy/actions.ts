@@ -42,7 +42,7 @@ export async function researchClientAction(clientId: string): Promise<AiResult> 
 
     const report = await runResearch({
       system:
-        "You are a brand and content strategist for a creative video agency. Research the client's niche and competitors on the web. Produce a concise landscape: who the client is, their audience, 3-5 competitors (what works for each), and 3-5 content opportunities. British English.",
+        "You are a brand and content strategist for a creative video agency. Research the client's niche and competitors on the web. Produce a concise landscape: who the client is, their audience, 3-5 competitors (what works for each in their content), and 3-5 content opportunities (angles, formats or series the client could own). Report what you learn about the market and audience only. Do not include project management advice, scheduling reminders, or instructions to the agency. British English.",
       prompt: `Client: ${profile.clientName}. ${profile.brandSummary ? `What we know: ${profile.brandSummary}` : ""} ${profile.notes ?? ""}`.trim(),
       maxTokens: 2500,
     });
@@ -58,7 +58,7 @@ export async function researchClientAction(clientId: string): Promise<AiResult> 
       opportunities?: { title: string; detail: string }[];
     }>({
       system:
-        "Extract a strategy brief from this research as JSON with keys: brandSummary, audience, tone, pillars (array), competitors (array of {name, insight}), opportunities (array of {title, detail}).",
+        "Extract a strategy brief from this research as JSON with keys: brandSummary, audience, tone, pillars (array), competitors (array of {name, insight}), opportunities (array of {title, detail}). Competitors must be real named brands with what works in their content. Opportunities must be content ideas or angles — lasting knowledge about what to make — never tasks, reminders, deadlines or admin for the agency (omit anything like \"confirm the date\" or \"lock the schedule\").",
       prompt: report,
       // Generous: a truncated reply is unparseable and would lose everything.
       maxTokens: 4000,

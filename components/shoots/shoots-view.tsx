@@ -11,7 +11,7 @@ import { Dialog } from "@/components/ds/dialog";
 import { Sheet } from "@/components/ds/sheet";
 import { EmptyState } from "@/components/ds/empty-state";
 import { PulseDot } from "@/components/ds/motion";
-import { createShootAction } from "@/app/(os)/(app)/shoots/actions";
+import { createShootAction, setShootProjectAction } from "@/app/(os)/(app)/shoots/actions";
 import type { ShootRow } from "@/lib/data/shoots";
 import { CastingSection } from "@/components/castings/casting-section";
 import type { ShootCasting, TalentPickerOption } from "@/lib/data/castings";
@@ -63,9 +63,12 @@ function ShootStatus({ status }: { status: ShootRow["status"] }) {
   );
 }
 
+type ProjectOption = { id: string; name: string; clientId: string | null };
+
 export function ShootsView({
   rows,
   clientOptions,
+  projectOptions = [],
   castings = [],
   talentOptions = [],
   media = [],
@@ -73,6 +76,7 @@ export function ShootsView({
 }: {
   rows: ShootRow[];
   clientOptions: { id: string; name: string }[];
+  projectOptions?: ProjectOption[];
   castings?: ShootCasting[];
   talentOptions?: TalentPickerOption[];
   media?: MediaAssetRow[];
@@ -137,6 +141,7 @@ export function ShootsView({
         open={addOpen}
         onClose={() => setAddOpen(false)}
         clientOptions={clientOptions}
+        projectOptions={projectOptions}
         talentOptions={talentOptions}
         onCreated={() => {
           setAddOpen(false);
@@ -156,6 +161,39 @@ export function ShootsView({
               <ShootStatus status={selected.status} />
             </Row>
             <Row label="Client">{selected.clientName ?? "—"}</Row>
+            <Row label="Project">
+              <form action={setShootProjectAction}>
+                <input type="hidden" name="shootId" value={selected.id} />
+                <select
+                  key={selected.id}
+                  name="projectId"
+                  aria-label="Project"
+                  defaultValue={selected.projectId ?? ""}
+                  onChange={(e) => {
+                    const projectId = e.currentTarget.value || null;
+                    const project = projectOptions.find((o) => o.id === projectId);
+                    setSelected({
+                      ...selected,
+                      projectId,
+                      projectName: project?.name ?? null,
+                    });
+                    e.currentTarget.form?.requestSubmit();
+                  }}
+                  className="h-8 max-w-[220px] rounded-sm border border-bs-border-strong bg-bs-surface px-2 pr-7 text-sm text-bs-text outline-none"
+                >
+                  <option value="">No project</option>
+                  {projectOptions
+                    .filter(
+                      (o) => !selected.clientId || !o.clientId || o.clientId === selected.clientId,
+                    )
+                    .map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.name}
+                      </option>
+                    ))}
+                </select>
+              </form>
+            </Row>
             <Row label="Date">
               <span className="tabular-nums">{formatDate(selected.scheduledAt)}</span>
             </Row>
@@ -209,12 +247,14 @@ function BookShootDialog({
   open,
   onClose,
   clientOptions,
+  projectOptions,
   talentOptions,
   onCreated,
 }: {
   open: boolean;
   onClose: () => void;
   clientOptions: { id: string; name: string }[];
+  projectOptions: ProjectOption[];
   talentOptions: TalentPickerOption[];
   onCreated: () => void;
 }) {
@@ -254,6 +294,16 @@ function BookShootDialog({
             <input type="datetime-local" name="scheduledAt" className={inputCls} />
           </Field>
         </div>
+        <Field label="Project (optional)">
+          <select name="projectId" defaultValue="" className={cn(inputCls, "pr-8")}>
+            <option value="">None</option>
+            {projectOptions.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name}
+              </option>
+            ))}
+          </select>
+        </Field>
         <Field label="Location (optional)">
           <input
             name="locationName"

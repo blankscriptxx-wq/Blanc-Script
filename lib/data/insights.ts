@@ -14,6 +14,7 @@ import {
   tasks,
 } from "@/lib/db/schema";
 import { requireUser } from "@/lib/data/clients";
+import { invoiceGrossPence } from "@/lib/data/finance";
 
 /**
  * Insights — an at-a-glance, org-wide analytics read. EVERY query is scoped to
@@ -228,8 +229,8 @@ export async function getInsights(): Promise<Insights> {
   if (canSeeMoney) {
     const [agg] = await db
       .select({
-        outstandingPence: sql<number>`coalesce(sum(${invoices.amountPence}) filter (where ${invoices.status} in ('sent','approved','overdue')), 0)`,
-        paidThisMonthPence: sql<number>`coalesce(sum(${invoices.amountPence}) filter (where ${invoices.status} = 'paid' and ${invoices.paidAt} >= date_trunc('month', now())), 0)`,
+        outstandingPence: sql<number>`coalesce(sum(${invoiceGrossPence}) filter (where ${invoices.status} in ('sent','approved','overdue')), 0)`,
+        paidThisMonthPence: sql<number>`coalesce(sum(${invoiceGrossPence}) filter (where ${invoices.status} = 'paid' and ${invoices.paidAt} >= date_trunc('month', now())), 0)`,
         overdueCount: sql<number>`count(*) filter (where ${invoices.status} = 'overdue')`,
         invoiceCount: sql<number>`count(*)`,
       })

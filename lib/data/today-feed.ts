@@ -9,6 +9,7 @@ import {
   tasks,
 } from "@/lib/db/schema";
 import { requireUser } from "@/lib/data/clients";
+import { invoiceGrossPence } from "@/lib/data/finance";
 
 /**
  * Today / command-centre feed. Everything here is org-scoped via `requireUser()`
@@ -95,7 +96,7 @@ export async function getNeedsYou(): Promise<NeedsYouResult> {
       .select({
         id: invoices.id,
         number: invoices.number,
-        amountPence: invoices.amountPence,
+        amountPence: invoiceGrossPence,
         dueAt: invoices.dueAt,
         status: invoices.status,
       })

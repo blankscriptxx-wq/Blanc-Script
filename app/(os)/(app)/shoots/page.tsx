@@ -1,6 +1,6 @@
 import { PageHeader } from "@/components/ds/page-header";
 import { ShootsView } from "@/components/shoots/shoots-view";
-import { listShoots, listClientOptions } from "@/lib/data/shoots";
+import { listShoots, listClientOptions, listProjectOptions } from "@/lib/data/shoots";
 import { listShootCastings, listTalentPickerOptions } from "@/lib/data/castings";
 import { listMediaWithShoot, storageConfigured } from "@/lib/data/media";
 
@@ -8,9 +8,10 @@ export const metadata = { title: "Shoots" };
 export const dynamic = "force-dynamic";
 
 export default async function ShootsPage() {
-  const [rows, clientOptions, castings, talentOptions, media] = await Promise.all([
+  const [rows, clientOptions, projectOptions, castings, talentOptions, media] = await Promise.all([
     listShoots(),
     listClientOptions(),
+    listProjectOptions(),
     listShootCastings(),
     listTalentPickerOptions(),
     listMediaWithShoot(),
@@ -21,6 +22,7 @@ export default async function ShootsPage() {
       <ShootsView
         rows={rows}
         clientOptions={clientOptions}
+        projectOptions={projectOptions}
         castings={castings}
         talentOptions={talentOptions}
         media={media}

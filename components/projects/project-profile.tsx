@@ -2,7 +2,8 @@ import Link from "next/link";
 import { ArrowLeft, Camera, Users, FileVideo, FolderOpen } from "lucide-react";
 import { StatusPill } from "@/components/ds/status-pill";
 import { TasksBoard } from "@/components/tasks/tasks-board";
-import { BreakIntoTasksButton, DraftBriefButton } from "@/components/projects/project-ai";
+import { BreakIntoTasksButton } from "@/components/projects/project-ai";
+import { BriefEditor } from "@/components/projects/brief-editor";
 import { Uploader } from "@/components/uploads/uploader";
 import { FileList } from "@/components/uploads/file-list";
 import type { MediaAssetRow } from "@/lib/data/media";
@@ -89,21 +90,7 @@ export function ProjectProfileView({
       </div>
 
       {/* Brief */}
-      <section className="mt-4">
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-display text-h3">Brief</h2>
-          <DraftBriefButton projectId={p.id} />
-        </div>
-        {p.brief?.trim() ? (
-          <p className="whitespace-pre-wrap rounded-md border border-bs-border bg-bs-surface p-4 text-sm text-bs-muted">
-            {p.brief}
-          </p>
-        ) : (
-          <p className="rounded-md border border-dashed border-bs-border bg-bs-surface px-4 py-6 text-sm text-bs-subtle">
-            No brief yet. Add one to give the team the shape of this project.
-          </p>
-        )}
-      </section>
+      <BriefEditor projectId={p.id} brief={p.brief} />
 
       {/* Summary tiles */}
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">

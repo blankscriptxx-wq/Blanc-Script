@@ -249,6 +249,8 @@ export const shoots = pgTable("shoots", {
     .notNull()
     .references(() => organisations.id),
   clientId: uuid("client_id").references(() => clients.id),
+  // The project this shoot is for (optional; a shoot can be client-only).
+  projectId: uuid("project_id").references(() => projects.id),
   title: text("title").notNull(),
   status: shootStatusEnum("status").notNull().default("booked"),
   scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
