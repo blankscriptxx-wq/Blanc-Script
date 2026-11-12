@@ -41,6 +41,8 @@ export type InvoiceDetailHeader = {
   taxRatePct: number | null;
   /** Online payment link (Stripe etc.), when set. */
   paymentUrl: string | null;
+  stripePaymentLinkId: string | null;
+  stripeLinkAmountPence: number | null;
   /** PO number / client reference. */
   reference: string | null;
   /** Free-text payment terms. */
@@ -85,6 +87,8 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
       talentName: talent.name,
       taxRatePct: invoices.taxRatePct,
       paymentUrl: invoices.paymentUrl,
+      stripePaymentLinkId: invoices.stripePaymentLinkId,
+      stripeLinkAmountPence: invoices.stripeLinkAmountPence,
       reference: invoices.reference,
       terms: invoices.terms,
     })
@@ -142,6 +146,8 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
       talentName: inv.talentName,
       taxRatePct: inv.taxRatePct,
       paymentUrl: inv.paymentUrl,
+      stripePaymentLinkId: inv.stripePaymentLinkId,
+      stripeLinkAmountPence: inv.stripeLinkAmountPence,
       reference: inv.reference,
       terms: inv.terms,
     },

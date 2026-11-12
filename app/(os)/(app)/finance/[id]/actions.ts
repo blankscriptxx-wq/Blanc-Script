@@ -12,6 +12,7 @@ import {
   type UpdateInvoiceInput,
 } from "@/lib/data/invoice-detail";
 import type { InvoiceStatus } from "@/lib/data/finance";
+import { checkInvoicePayment, createInvoicePaymentLink } from "@/lib/data/payments";
 
 export type LineItemActionState = { ok?: boolean; error?: string };
 
@@ -118,4 +119,39 @@ export async function voidInvoiceAction(formData: FormData): Promise<void> {
   revalidatePath(`/finance/${invoiceId}`);
   revalidatePath("/finance");
   redirect("/finance");
+}
+
+export type PaymentActionResult =
+  | { ok: true; message: string; url?: string }
+  | { ok: false; error: string };
+
+/** Create (or replace) the Stripe payment link for an invoice. */
+export async function createPaymentLinkAction(invoiceId: string): Promise<PaymentActionResult> {
+  try {
+    const { url } = await createInvoicePaymentLink(invoiceId);
+    revalidatePath(`/finance/${invoiceId}`);
+    return { ok: true, message: "Payment link ready.", url };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not create the payment link." };
+  }
+}
+
+/** Ask Stripe whether the invoice has been paid; marks it paid if so. */
+export async function checkPaymentAction(invoiceId: string): Promise<PaymentActionResult> {
+  try {
+    const result = await checkInvoicePayment(invoiceId);
+    revalidatePath(`/finance/${invoiceId}`);
+    revalidatePath("/finance");
+    return {
+      ok: true,
+      message:
+        result === "paid"
+          ? "Paid — the invoice has been marked as paid."
+          : result === "no_link"
+            ? "No payment link yet."
+            : "Not paid yet.",
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not check the payment." };
+  }
 }

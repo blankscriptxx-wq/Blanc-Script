@@ -27,6 +27,15 @@ const STATUSES: WaStatus[] = ["open", "snoozed", "closed"];
 const timeFmt = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit" });
 const dayFmt = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" });
 
+const DELIVERY_LABEL: Record<string, string> = {
+  stored: "Saved, not sent",
+  queued: "Sending",
+  sent: "Sent",
+  delivered: "Delivered",
+  read: "Read",
+  failed: "Not delivered",
+};
+
 function cap(s: string) {
   return s[0].toUpperCase() + s.slice(1);
 }
@@ -50,11 +59,14 @@ export function InboxView({
   selectedId,
   messages,
   clientOptions,
+  live = false,
 }: {
   conversations: ConversationRow[];
   selectedId: string | null;
   messages: MessageRow[];
   clientOptions: { id: string; name: string }[];
+  /** True when the Aniro WhatsApp connection is configured. */
+  live?: boolean;
 }) {
   const router = useRouter();
   const [addOpen, setAddOpen] = React.useState(false);
@@ -140,6 +152,7 @@ export function InboxView({
               key={selected.id}
               conversation={selected}
               messages={messages}
+              live={live}
               onChanged={() => router.refresh()}
             />
           ) : (
@@ -169,10 +182,12 @@ export function InboxView({
 function Conversation({
   conversation,
   messages,
+  live,
   onChanged,
 }: {
   conversation: ConversationRow;
   messages: MessageRow[];
+  live: boolean;
   onChanged: () => void;
 }) {
   const [optimistic, setOptimistic] = React.useState<OptimisticMessage[]>([]);
@@ -208,6 +223,8 @@ function Conversation({
         body: text,
         authorUserId: null,
         authorName: "You",
+        deliveryStatus: null,
+        deliveryError: null,
         sentAt: new Date(),
         pending: true,
       },
@@ -277,14 +294,18 @@ function Conversation({
         </div>
       </header>
 
+      {live ? null : (
+        <>
       {/* Not-connected banner */}
       <div className="flex items-start gap-2 border-b border-bs-border bg-bs-info-soft px-4 py-2.5 text-sm text-bs-info">
         <Info className="mt-0.5 h-4 w-4 shrink-0" />
         <p>
-          WhatsApp isn&rsquo;t connected yet — messages are saved here, not sent. Connect
-          Periskope/Aniro to go live.
+          WhatsApp isn&rsquo;t connected yet — messages are saved here, not sent. They&rsquo;ll send for
+          real once the Aniro WhatsApp connection is switched on.
         </p>
       </div>
+        </>
+      )}
 
       {/* Transcript */}
       <div ref={scrollRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-bs-surface-2/40 p-4">
@@ -320,6 +341,14 @@ function Conversation({
                     <span className="tabular-nums">
                       {pending ? "Saving…" : timeFmt.format(new Date(m.sentAt))}
                     </span>
+                    {outbound && !pending && m.deliveryStatus ? (
+                      <span
+                        title={m.deliveryError ?? undefined}
+                        className={m.deliveryStatus === "failed" ? "font-medium underline" : undefined}
+                      >
+                        · {DELIVERY_LABEL[m.deliveryStatus] ?? m.deliveryStatus}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -339,7 +368,7 @@ function Conversation({
               if (e.key === "Enter" && !e.shiftKey) send(e);
             }}
             rows={1}
-            placeholder="Write a message… (stored, not sent)"
+            placeholder={live ? "Write a WhatsApp message…" : "Write a message… (stored, not sent)"}
             className="max-h-32 min-h-[1.5rem] flex-1 resize-none bg-transparent text-body text-bs-text outline-none placeholder:text-bs-subtle"
           />
           <Button

@@ -5,6 +5,7 @@ import {
   listMessages,
   listClientOptions,
 } from "@/lib/data/inbox";
+import { aniroConfigured } from "@/lib/whatsapp/aniro";
 
 export const metadata = { title: "Inbox" };
 export const dynamic = "force-dynamic";
@@ -34,6 +35,7 @@ export default async function InboxPage({
         selectedId={selectedId}
         messages={messages}
         clientOptions={clientOptions}
+        live={aniroConfigured()}
       />
     </div>
   );

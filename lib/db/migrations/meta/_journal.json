@@ -92,6 +92,13 @@
       "when": 1794493966397,
       "tag": "0012_bored_maggott",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794496033669,
+      "tag": "0013_magenta_vertigo",
+      "breakpoints": true
     }
   ]
 }

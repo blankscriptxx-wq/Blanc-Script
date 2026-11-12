@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { InvoiceDetailView } from "@/components/finance/invoice-detail";
 import { getInvoiceDetail } from "@/lib/data/invoice-detail";
 import { listClientOptions, listTalentOptions } from "@/lib/data/finance";
+import { stripeConfigured, stripeMode, stripeWebhookConfigured } from "@/lib/payments/stripe";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,11 @@ export default async function InvoiceDetailPage({
       detail={detail}
       clientOptions={clientOptions}
       talentOptions={talentOptions}
+      payments={{
+        configured: stripeConfigured(),
+        mode: stripeMode(),
+        webhook: stripeWebhookConfigured(),
+      }}
     />
   );
 }

@@ -27,6 +27,7 @@ import type {
   ClientProfileShootStatus,
 } from "@/lib/data/client-profile";
 import type { InvoiceStatus } from "@/lib/data/finance";
+import { PortalLinks, type PortalLinkView } from "@/components/clients/portal-links";
 
 type Tone = React.ComponentProps<typeof StatusPill>["tone"];
 
@@ -98,7 +99,13 @@ function humanAction(action: string): string {
     .replace(/^\w/, (ch) => ch.toUpperCase());
 }
 
-export function ClientProfileView({ profile }: { profile: ClientProfile }) {
+export function ClientProfileView({
+  profile,
+  portalLinks = [],
+}: {
+  profile: ClientProfile;
+  portalLinks?: PortalLinkView[];
+}) {
   const { client: c, summary, contacts, projects, shoots, invoices, activity } =
     profile;
   const [addOpen, setAddOpen] = React.useState(false);
@@ -212,6 +219,12 @@ export function ClientProfileView({ profile }: { profile: ClientProfile }) {
           </div>
         )}
       </section>
+
+      <PortalLinks
+        clientId={profile.client.id}
+        links={portalLinks}
+        suggestions={profile.contacts.map((c) => c.name)}
+      />
 
       {/* Projects */}
       <section className="mt-8">

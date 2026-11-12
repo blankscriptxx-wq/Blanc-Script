@@ -25,6 +25,7 @@ export type ClientProfile = {
   dosAndDonts: string | null;
   notes: string | null;
   researchedAt: Date | null;
+  autoResearch: boolean;
 };
 
 export type KnowledgeRow = {
@@ -67,6 +68,7 @@ export async function getClientProfile(clientId: string): Promise<ClientProfile 
       dosAndDonts: null,
       notes: null,
       researchedAt: null,
+      autoResearch: true,
     };
   }
   return {
@@ -80,6 +82,7 @@ export async function getClientProfile(clientId: string): Promise<ClientProfile 
     dosAndDonts: p.dosAndDonts,
     notes: p.notes,
     researchedAt: p.researchedAt,
+    autoResearch: p.autoResearch,
   };
 }
 

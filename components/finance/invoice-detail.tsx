@@ -26,6 +26,7 @@ import {
   type ProposedLineItem,
 } from "@/app/(os)/(app)/finance/[id]/ai-actions";
 import type { InvoiceDetail } from "@/lib/data/invoice-detail";
+import { OnlinePayment, type PaymentsInfo } from "@/components/finance/online-payment";
 import type { InvoiceStatus } from "@/lib/data/finance";
 
 type Option = { id: string; name: string };
@@ -69,8 +70,10 @@ export function InvoiceDetailView({
   detail,
   clientOptions = [],
   talentOptions = [],
+  payments = { configured: false, mode: null, webhook: false },
 }: {
   detail: InvoiceDetail;
+  payments?: PaymentsInfo;
   clientOptions?: Option[];
   talentOptions?: Option[];
 }) {
@@ -119,17 +122,18 @@ export function InvoiceDetailView({
           <Detail label="Reference" value={invoice.reference ?? "—"} />
           {invoice.terms ? <Detail label="Terms" value={invoice.terms} /> : null}
         </div>
-        {invoice.paymentUrl ? (
-          <a
-            href={invoice.paymentUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-3 inline-flex items-center gap-1.5 rounded-sm border border-bs-border-strong bg-bs-surface-2 px-3 py-1.5 text-sm font-medium text-bs-text transition-colors hover:bg-bs-surface"
-          >
-            <ExternalLink className="h-4 w-4 text-bs-subtle" /> Payment link
-          </a>
-        ) : null}
       </div>
+
+      <OnlinePayment
+        invoiceId={invoice.id}
+        status={invoice.status}
+        isTalentPayment={Boolean(invoice.talentName)}
+        paymentUrl={invoice.paymentUrl}
+        hasStripeLink={Boolean(invoice.stripePaymentLinkId)}
+        linkAmountPence={invoice.stripeLinkAmountPence}
+        grossPence={grandTotalPence}
+        payments={payments}
+      />
 
       {/* Status control */}
       <section className="mt-4 rounded-md border border-bs-border bg-bs-surface p-5">

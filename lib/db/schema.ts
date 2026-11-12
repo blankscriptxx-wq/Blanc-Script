@@ -352,7 +352,7 @@ export const talentAvailability = pgTable("talent_availability", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-// ── Invoices (internal; Xero sync is a later integration) ─────────────────
+// ── Invoices (the OS is the invoicing system; online payment via Stripe) ──
 export const invoices = pgTable("invoices", {
   id: uuid("id").primaryKey().defaultRandom(),
   orgId: uuid("org_id")
@@ -368,6 +368,9 @@ export const invoices = pgTable("invoices", {
   taxRatePct: integer("tax_rate_pct"),
   /** Online payment link (Stripe etc.). */
   paymentUrl: text("payment_url"),
+  /** Stripe Payment Link behind paymentUrl, and the gross amount it charges. */
+  stripePaymentLinkId: text("stripe_payment_link_id"),
+  stripeLinkAmountPence: integer("stripe_link_amount_pence"),
   reference: text("reference"), // PO number / client ref
   terms: text("terms"),
   currency: text("currency").notNull().default("GBP"),
@@ -524,6 +527,9 @@ export const reviewComments = pgTable("review_comments", {
     .notNull()
     .references(() => deliverables.id),
   authorUserId: uuid("author_user_id"),
+  /** Set when the comment was left by a client through the portal. */
+  portalLinkId: uuid("portal_link_id"),
+  authorName: text("author_name"),
   body: text("body").notNull(),
   /** Optional self-reference for replies. */
   parentId: uuid("parent_id"),
@@ -577,7 +583,25 @@ export const mediaAssets = pgTable("media_assets", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-// ── WhatsApp inbox (Periskope/Aniro connection deferred) ──────────────────
+// ── Client portal: unguessable share links, one per person given access ───
+export const portalLinks = pgTable("portal_links", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organisations.id),
+  clientId: uuid("client_id")
+    .notNull()
+    .references(() => clients.id),
+  /** Who the link was given to (shown on their comments), e.g. "Hannah Fernley". */
+  label: text("label").notNull(),
+  token: text("token").notNull().unique(),
+  createdByUserId: uuid("created_by_user_id"),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ── WhatsApp inbox (sent and received through Aniro when connected) ───────
 export const waConversations = pgTable("wa_conversations", {
   id: uuid("id").primaryKey().defaultRandom(),
   orgId: uuid("org_id")
@@ -586,6 +610,8 @@ export const waConversations = pgTable("wa_conversations", {
   clientId: uuid("client_id").references(() => clients.id),
   contactName: text("contact_name"),
   contactPhone: text("contact_phone"),
+  /** The provider's id for this chat, when the conversation is live. */
+  externalId: text("external_id"),
   status: waStatusEnum("status").notNull().default("open"),
   lastMessageAt: timestamp("last_message_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -602,6 +628,10 @@ export const waMessages = pgTable("wa_messages", {
   direction: waDirectionEnum("direction").notNull(),
   body: text("body").notNull(),
   authorUserId: uuid("author_user_id"),
+  /** Provider message id (dedupes webhooks) and delivery state. */
+  externalId: text("external_id"),
+  deliveryStatus: text("delivery_status"), // stored | queued | sent | delivered | read | failed
+  deliveryError: text("delivery_error"),
   sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -622,6 +652,8 @@ export const clientProfiles = pgTable("client_profiles", {
   dosAndDonts: text("dos_and_donts"),
   notes: text("notes"),
   researchedAt: timestamp("researched_at", { withTimezone: true }),
+  /** Re-run web research automatically about once a month. */
+  autoResearch: boolean("auto_research").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

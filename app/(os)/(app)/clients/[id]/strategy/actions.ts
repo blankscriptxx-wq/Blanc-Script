@@ -25,6 +25,7 @@ import {
   pushScriptToContent,
   setScriptStatus,
 } from "@/lib/data/scripts";
+import { runClientResearch, setAutoResearch } from "@/lib/data/research-job";
 
 export type AiResult = { ok: true; text: string } | { ok: false; error: string };
 
@@ -37,79 +38,20 @@ export async function researchClientAction(clientId: string): Promise<AiResult> 
   try {
     if (!aiConfigured())
       return { ok: false, error: "Add an Anthropic API key in Settings → Integrations to run research." };
-    const profile = await getClientProfile(clientId);
-    if (!profile) return { ok: false, error: "Client not found." };
-
-    const report = await runResearch({
-      system:
-        "You are a brand and content strategist for a creative video agency. Research the client's niche and competitors on the web. Produce a concise landscape: who the client is, their audience, 3-5 competitors (what works for each in their content), and 3-5 content opportunities (angles, formats or series the client could own). Report what you learn about the market and audience only. Do not include project management advice, scheduling reminders, or instructions to the agency. British English.",
-      prompt: `Client: ${profile.clientName}. ${profile.brandSummary ? `What we know: ${profile.brandSummary}` : ""} ${profile.notes ?? ""}`.trim(),
-      maxTokens: 2500,
-    });
-    if (!report.trim()) return { ok: false, error: "Research came back empty. Please try again." };
-
-    // Structure the report into a draft profile + proposals.
-    const structured = await runJson<{
-      brandSummary?: string;
-      audience?: string;
-      tone?: string;
-      pillars?: string[];
-      competitors?: { name: string; insight: string }[];
-      opportunities?: { title: string; detail: string }[];
-    }>({
-      system:
-        "Extract a strategy brief from this research as JSON with keys: brandSummary, audience, tone, pillars (array), competitors (array of {name, insight}), opportunities (array of {title, detail}). Competitors must be real named brands with what works in their content. Opportunities must be content ideas or angles — lasting knowledge about what to make — never tasks, reminders, deadlines or admin for the agency (omit anything like \"confirm the date\" or \"lock the schedule\").",
-      prompt: report,
-      // Generous: a truncated reply is unparseable and would lose everything.
-      maxTokens: 4000,
-    }).catch(() => ({}) as Record<string, never>);
-
-    // Seed profile fields only where currently empty (a draft to refine).
-    await upsertClientProfile(clientId, {
-      brandSummary: profile.brandSummary ?? structured.brandSummary ?? null,
-      audience: profile.audience ?? structured.audience ?? null,
-      tone: profile.tone ?? structured.tone ?? null,
-      pillars: profile.pillars?.length ? profile.pillars : structured.pillars ?? [],
-      dosAndDonts: profile.dosAndDonts ?? null,
-      notes: profile.notes ?? null,
-      markResearched: true,
-    });
-
-    for (const c of structured.competitors ?? [])
-      await proposeKnowledge({
-        clientId,
-        kind: "competitor",
-        title: c.name?.slice(0, 200) || "Competitor",
-        content: c.insight ?? "",
-        source: "research",
-      }).catch(() => {});
-    for (const o of structured.opportunities ?? [])
-      await proposeKnowledge({
-        clientId,
-        kind: "insight",
-        title: o.title?.slice(0, 200) || "Opportunity",
-        content: o.detail ?? "",
-        source: "research",
-      }).catch(() => {});
-
-    // Never lose a finished report: if it couldn't be broken into findings,
-    // propose the report itself so it can still be approved into the brain.
-    const found = (structured.competitors?.length ?? 0) + (structured.opportunities?.length ?? 0);
-    if (!found) {
-      await proposeKnowledge({
-        clientId,
-        kind: "insight",
-        title: "Research report",
-        content: report.slice(0, 4000),
-        source: "research",
-      }).catch(() => {});
-    }
-
+    const user = await requireUser();
+    const { report } = await runClientResearch(user.orgId, clientId);
     revalidatePath(path(clientId));
     return { ok: true, text: report };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Research failed." };
   }
+}
+
+/** Turn the monthly automatic research refresh on or off for this client. */
+export async function setAutoResearchAction(clientId: string, enabled: boolean): Promise<void> {
+  const user = await requireUser();
+  await setAutoResearch(user.orgId, clientId, enabled);
+  revalidatePath(path(clientId));
 }
 
 // ── Profile + knowledge ───────────────────────────────────────────────────────

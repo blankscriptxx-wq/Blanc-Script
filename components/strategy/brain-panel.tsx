@@ -7,6 +7,7 @@ import {
   approveKnowledgeAction,
   dismissKnowledgeAction,
   researchClientAction,
+  setAutoResearchAction,
   saveProfileAction,
 } from "@/app/(os)/(app)/clients/[id]/strategy/actions";
 import { AiGenerate } from "@/components/ai/ai-generate";
@@ -112,10 +113,17 @@ export function BrainPanel({
           hint="Uses web search to study the niche & competitors; proposes findings below for your approval."
         />
         {aiReady ? (
-          <AiGenerate
-            action={() => researchClientAction(clientId)}
-            label="Research this client"
-          />
+          <>
+            <AiGenerate
+              action={() => researchClientAction(clientId)}
+              label="Research this client"
+            />
+            <AutoResearchToggle
+              clientId={clientId}
+              enabled={profile.autoResearch}
+              researchedAt={profile.researchedAt}
+            />
+          </>
         ) : (
           <p className="text-sm text-bs-subtle">
             Connect AI in Settings → Integrations to run research.
@@ -351,5 +359,45 @@ export function BrainPanel({
         </form>
       </section>
     </div>
+  );
+}
+
+function AutoResearchToggle({
+  clientId,
+  enabled,
+  researchedAt,
+}: {
+  clientId: string;
+  enabled: boolean;
+  researchedAt: Date | null;
+}) {
+  const [on, setOn] = React.useState(enabled);
+  const [pending, startTransition] = React.useTransition();
+  const last = researchedAt
+    ? new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeZone: "Europe/London" }).format(
+        new Date(researchedAt),
+      )
+    : null;
+  return (
+    <label className="flex flex-wrap items-center gap-2 text-sm text-bs-muted">
+      <input
+        type="checkbox"
+        checked={on}
+        disabled={pending}
+        onChange={(e) => {
+          const next = e.currentTarget.checked;
+          setOn(next);
+          startTransition(() => setAutoResearchAction(clientId, next));
+        }}
+      />
+      <span>
+        Refresh this research automatically every month
+        <span className="text-bs-subtle">
+          {" "}
+          · {last ? `last researched ${last}` : "not researched yet"}. New findings still wait
+          for your approval.
+        </span>
+      </span>
+    </label>
   );
 }

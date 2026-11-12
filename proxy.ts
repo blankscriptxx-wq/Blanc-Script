@@ -33,7 +33,7 @@ function isSitePath(pathname: string): boolean {
 const OS_PREFIXES = [
   "/today", "/insights", "/clients", "/projects", "/shoots", "/edits",
   "/content", "/inbox", "/finance", "/team", "/talent", "/settings",
-  "/uploads", "/auth", "/api",
+  "/uploads", "/auth", "/api", "/portal", "/pay",
 ];
 
 function isOsPath(pathname: string): boolean {
@@ -41,8 +41,18 @@ function isOsPath(pathname: string): boolean {
 }
 
 // OS routes that must stay reachable while signed out.
+const PUBLIC_OS_PREFIXES = [
+  "/auth", // sign-in / sign-up
+  "/api/auth",
+  "/portal", // client portal (private link, no account)
+  "/pay", // payment confirmation page
+  "/api/stripe", // Stripe webhook (signature-checked)
+  "/api/aniro", // Aniro WhatsApp webhook (signature-checked)
+  "/api/cron", // scheduled jobs (secret-checked)
+];
+
 function isPublicOsPath(pathname: string): boolean {
-  return pathname.startsWith("/auth") || pathname.startsWith("/api/auth");
+  return PUBLIC_OS_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
 type Mw = (req: NextRequest, ...rest: unknown[]) => Promise<Response> | Response;

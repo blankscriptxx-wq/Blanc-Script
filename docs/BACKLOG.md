@@ -19,9 +19,8 @@ optional depth on top of a working OS — none of it blocks day-to-day use.
       Requires R2 account + keys (see checklist), an upload component, and signed URLs.
 
 ## Portals (external users)
-- [ ] **Talent portal login** — talent sign in to see their own bookings, call times,
-      and payments (uses the `talent_user` role + `memberships.talentId` already in the schema).
-- [ ] **Client portal login** — clients sign in to approve edits, see their content calendar
+- [x] ~~Talent portal~~ — dropped (not needed).
+- [x] **Client portal** (built: private link per person — review/approve cuts, shoots, schedule, pay invoices). Original note: clients sign in — clients sign in to approve edits, see their content calendar
       and invoices (`client_user` role + `memberships.clientId`).
 
 ## Talent — smaller follow-ons
@@ -32,8 +31,8 @@ optional depth on top of a working OS — none of it blocks day-to-day use.
 
 ## Finance — follow-ons
 - [ ] Auto-draft talent payments from confirmed shoot bookings (rate × hours / day rate already computed).
-- [ ] Xero sync for invoices (currently internal only).
+- [x] ~~Xero sync~~ — dropped: the OS is the invoicing system. Stripe payment links built.
 
 ## Integrations (need external accounts — see checklist)
 - [ ] Anthropic API key → turn on the AI assistant panel.
-- [ ] Resend (email), Metricool (social), Frame.io/Adobe (review), Periskope (WhatsApp).
+- [ ] Resend (email), Metricool (social), Frame.io/Adobe (review), WhatsApp via Aniro (OS side built — see docs/aniro-whatsapp-brief.md; Periskope dropped).

@@ -135,7 +135,7 @@ export async function getDeliverableDetail(id: string): Promise<DeliverableDetai
         rc.id as "id",
         rc.body as "body",
         rc.author_user_id as "authorUserId",
-        u.name as "authorName",
+        coalesce(u.name, rc.author_name || ' (client)') as "authorName",
         rc.parent_id as "parentId",
         rc.timecode_seconds as "timecodeSeconds",
         rc.resolved_at as "resolvedAt",

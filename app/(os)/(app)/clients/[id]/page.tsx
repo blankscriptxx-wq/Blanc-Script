@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { ClientProfileView } from "@/components/clients/client-profile";
 import { getClientProfile } from "@/lib/data/client-profile";
+import { listPortalLinks } from "@/lib/data/portal";
 
 export const dynamic = "force-dynamic";
 
@@ -22,5 +23,6 @@ export default async function ClientProfilePage({
   const { id } = await params;
   const profile = await getClientProfile(id).catch(() => null);
   if (!profile) notFound();
-  return <ClientProfileView profile={profile} />;
+  const portalLinks = await listPortalLinks(id).catch(() => []);
+  return <ClientProfileView profile={profile} portalLinks={portalLinks} />;
 }

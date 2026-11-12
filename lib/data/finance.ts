@@ -15,8 +15,8 @@ export const invoiceGrossPence = sql<number>`(${invoices.amountPence} + round(${
 
 /**
  * Finance data access — internal invoices. EVERY query is scoped to the caller's
- * org_id (tenancy enforced here, with Neon RLS as defence in depth). Xero sync is a
- * later integration and is intentionally not wired up.
+ * org_id (tenancy enforced here, with Neon RLS as defence in depth). The OS is the
+ * invoicing system of record; card payment runs through Stripe (lib/data/payments.ts).
  */
 
 export type InvoiceStatus = "draft" | "sent" | "approved" | "paid" | "overdue";

@@ -256,10 +256,12 @@ export function FinanceView({
             </Row>
             <Row label="Due">{fmtDate(selected.dueAt)}</Row>
             <Row label="Raised">{fmtDate(selected.createdAt)}</Row>
-            <p className="pt-2 text-xs text-bs-subtle">
-              Xero sync, line items and payment reconciliation attach here as that
-              integration comes online.
-            </p>
+            <a
+              href={`/finance/${selected.id}`}
+              className="inline-block pt-2 text-sm font-medium text-bs-primary hover:underline"
+            >
+              Open invoice — line items, payment link and print view
+            </a>
           </div>
         ) : null}
       </Sheet>

@@ -4,15 +4,16 @@ import { z } from "zod";
 import { getDb } from "@/lib/db/client";
 import { clients, waConversations, waMessages, activityLog } from "@/lib/db/schema";
 import { requireUser } from "@/lib/data/clients";
+import { aniroConfigured, normalisePhone, sendWhatsApp } from "@/lib/whatsapp/aniro";
 
 /**
  * Inbox data access (WhatsApp-style). EVERY query is scoped to the caller's
  * org_id — tenancy is enforced here (application layer) and, as defence in
  * depth, by Neon RLS.
  *
- * The live WhatsApp connection (Periskope/Aniro) is deferred: outbound messages
- * are *persisted* here, not actually sent. `sendMessage` only writes to the
- * database and never calls an external provider.
+ * Live WhatsApp runs through Aniro (lib/whatsapp/aniro.ts). When Aniro is
+ * connected, `sendMessage` stores the message and sends it; until then it is
+ * stored only. Inbound messages arrive via /api/aniro/whatsapp.
  */
 
 export type WaStatus = "open" | "snoozed" | "closed";
@@ -36,6 +37,9 @@ export type MessageRow = {
   body: string;
   authorUserId: string | null;
   authorName: string | null;
+  /** stored | queued | sent | delivered | read | failed | received */
+  deliveryStatus: string | null;
+  deliveryError: string | null;
   sentAt: Date;
 };
 
@@ -96,6 +100,8 @@ export async function listMessages(conversationId: string): Promise<MessageRow[]
       msg.body,
       msg.author_user_id as "authorUserId",
       u.name as "authorName",
+      msg.delivery_status as "deliveryStatus",
+      msg.delivery_error as "deliveryError",
       msg.sent_at as "sentAt"
     from wa_messages msg
     left join neon_auth."user" u on u.id = msg.author_user_id
@@ -158,9 +164,9 @@ export const sendMessageInput = z.object({
 });
 
 /**
- * Persist an OUTBOUND message and bump the conversation's last-activity time.
- * This does NOT send to WhatsApp — the Periskope/Aniro connection is deferred,
- * so the message is stored only.
+ * Store an OUTBOUND message and, when Aniro is connected, send it to WhatsApp.
+ * The message is always saved first; a failed send is recorded on the message
+ * (delivery_status = failed) rather than thrown, so nothing typed is lost.
  */
 export async function sendMessage(conversationId: string, body: string) {
   const user = await requireUser();
@@ -168,7 +174,7 @@ export async function sendMessage(conversationId: string, body: string) {
 
   // The conversation must belong to the caller's org.
   const [convo] = await getDb()
-    .select({ id: waConversations.id })
+    .select({ id: waConversations.id, contactPhone: waConversations.contactPhone })
     .from(waConversations)
     .where(
       and(eq(waConversations.id, data.conversationId), eq(waConversations.orgId, user.orgId)),
@@ -176,6 +182,8 @@ export async function sendMessage(conversationId: string, body: string) {
     .limit(1);
   if (!convo) throw new Error("Conversation not found.");
 
+  const live = aniroConfigured();
+  const to = normalisePhone(convo.contactPhone);
   const now = new Date();
   const [row] = await getDb()
     .insert(waMessages)
@@ -185,6 +193,7 @@ export async function sendMessage(conversationId: string, body: string) {
       direction: "outbound",
       body: data.body,
       authorUserId: user.id,
+      deliveryStatus: live ? "queued" : "stored",
       sentAt: now,
     })
     .returning({ id: waMessages.id });
@@ -195,6 +204,20 @@ export async function sendMessage(conversationId: string, body: string) {
     .where(
       and(eq(waConversations.id, data.conversationId), eq(waConversations.orgId, user.orgId)),
     );
+
+  if (live) {
+    const result = to
+      ? await sendWhatsApp({ to, text: data.body, reference: row.id })
+      : ({ ok: false, error: "This contact has no valid phone number." } as const);
+    await getDb()
+      .update(waMessages)
+      .set(
+        result.ok
+          ? { deliveryStatus: result.status, externalId: result.externalId }
+          : { deliveryStatus: "failed", deliveryError: result.error.slice(0, 500) },
+      )
+      .where(eq(waMessages.id, row.id));
+  }
 
   return row;
 }
