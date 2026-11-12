@@ -114,6 +114,8 @@ export const availabilityKindEnum = pgEnum("availability_kind", [
 ]);
 /** Who bears a talent booking's cost: the client (re-billed) or the agency. */
 export const costOwnerEnum = pgEnum("cost_owner", ["client", "agency"]);
+/** How a talent booking is charged: by the hour, or a flat day rate. */
+export const rateModeEnum = pgEnum("rate_mode", ["hourly", "day"]);
 
 // ── Tenancy ─────────────────────────────────────────────────────────────────
 export const organisations = pgTable("organisations", {
@@ -369,8 +371,9 @@ export const shootTalent = pgTable("shoot_talent", {
     .references(() => talent.id),
   roleName: text("role_name"), // character / role on the day
   callTime: timestamp("call_time", { withTimezone: true }),
-  agreedRatePence: integer("agreed_rate_pence"), // null = use talent hourly rate
-  durationMinutes: integer("duration_minutes"), // hours worked on the shoot (× rate = cost)
+  agreedRatePence: integer("agreed_rate_pence"), // override: hourly amount, or day amount in day mode
+  durationMinutes: integer("duration_minutes"), // hours worked (used when charging hourly)
+  rateMode: rateModeEnum("rate_mode").notNull().default("hourly"),
   costOwner: costOwnerEnum("cost_owner").notNull().default("client"),
   status: castingStatusEnum("status").notNull().default("pencilled"),
   notes: text("notes"),

@@ -26,6 +26,7 @@ export type TalentProfileShoot = {
   effectiveRatePence: number | null;
   rateIsOverride: boolean;
   durationMinutes: number | null;
+  rateMode: "hourly" | "day";
   costPence: number | null;
   costOwner: "client" | "agency";
 };
@@ -152,6 +153,7 @@ export async function getTalentProfile(id: string): Promise<TalentProfile | null
         status: shootTalent.status,
         agreedRatePence: shootTalent.agreedRatePence,
         durationMinutes: shootTalent.durationMinutes,
+        rateMode: shootTalent.rateMode,
         costOwner: shootTalent.costOwner,
       })
       .from(shootTalent)
@@ -242,11 +244,13 @@ export async function getTalentProfile(id: string): Promise<TalentProfile | null
 
   for (const s of shootRows) {
     const e = eff(s.agreedRatePence);
-    const costPence = bookingCostPence(
-      s.agreedRatePence,
-      t.ratePerHourPence,
-      s.durationMinutes,
-    );
+    const costPence = bookingCostPence({
+      mode: s.rateMode as "hourly" | "day",
+      agreedRatePence: s.agreedRatePence,
+      talentHourlyPence: t.ratePerHourPence,
+      talentDayPence: t.dayRatePence,
+      durationMinutes: s.durationMinutes,
+    });
     const owner = s.costOwner as "client" | "agency";
     const g = ensure(s.clientId, s.clientName);
     g.shoots.push({
@@ -257,6 +261,7 @@ export async function getTalentProfile(id: string): Promise<TalentProfile | null
       status: s.status as CastingStatus,
       ...e,
       durationMinutes: s.durationMinutes,
+      rateMode: s.rateMode as "hourly" | "day",
       costPence,
       costOwner: owner,
     });

@@ -52,6 +52,7 @@ export async function assignShootTalentAction(
       callTime: toDate(formData, "callTime"),
       agreedRatePence: poundsToPence(formData, "rate"),
       durationMinutes: hoursToMinutes(formData, "hours"),
+      rateMode: (str(formData, "rateMode") || "hourly") as "hourly" | "day",
       costOwner: (str(formData, "costOwner") || "client") as "client" | "agency",
       status: (str(formData, "status") || "pencilled") as
         | "pencilled"

@@ -71,7 +71,13 @@ export function CastingSection(props: Props) {
         <ul className="space-y-2">
           {props.kind === "shoot"
             ? props.items.map((c) => {
-                const cost = bookingCostPence(c.agreedRatePence, c.talentRatePence, c.durationMinutes);
+                const cost = bookingCostPence({
+                  mode: c.rateMode,
+                  agreedRatePence: c.agreedRatePence,
+                  talentHourlyPence: c.talentRatePence,
+                  talentDayPence: c.talentDayRatePence,
+                  durationMinutes: c.durationMinutes,
+                });
                 return (
                   <CastingLine
                     key={c.id}
@@ -81,8 +87,11 @@ export function CastingSection(props: Props) {
                     role={c.roleName}
                     meta={[
                       c.callTime ? `call ${timeFmt.format(new Date(c.callTime))}` : null,
-                      c.durationMinutes != null ? `${c.durationMinutes / 60} hr` : null,
-                      rateLabel(c.agreedRatePence, c.talentRatePence),
+                      c.rateMode === "day"
+                        ? "day rate"
+                        : c.durationMinutes != null
+                          ? `${c.durationMinutes / 60} hr`
+                          : null,
                       cost != null ? `= ${gbp.format(cost / 100)}` : null,
                       c.costOwner === "agency" ? "Blanc Script pays" : "billed to client",
                     ]}
@@ -243,14 +252,29 @@ function AssignForm({
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-2">
+                <select name="rateMode" defaultValue="hourly" className={cn(inputCls, "pr-8")}>
+                  <option value="hourly">Charge hourly</option>
+                  <option value="day">Charge as day rate</option>
+                </select>
                 <input
                   type="number"
                   step="0.5"
                   min="0"
                   name="hours"
-                  placeholder="Hours worked"
+                  placeholder="Hours (if hourly)"
                   className={inputCls}
                   aria-label="Hours worked"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  name="rate"
+                  placeholder="Rate £ (optional override)"
+                  className={inputCls}
+                  aria-label="Rate override"
                 />
                 <select name="costOwner" defaultValue="client" className={cn(inputCls, "pr-8")}>
                   <option value="client">Billed to client</option>
@@ -260,7 +284,7 @@ function AssignForm({
             </>
           ) : null}
 
-          {kind === "shoot" || kind === "project" ? (
+          {kind === "project" ? (
             <input
               type="number"
               step="0.01"

@@ -14,9 +14,9 @@ import {
 } from "@/lib/db/schema";
 import { requireUser } from "@/lib/data/clients";
 
-import type { CostOwner } from "@/lib/casting-cost";
+import type { CostOwner, RateMode } from "@/lib/casting-cost";
 export { bookingCostPence } from "@/lib/casting-cost";
-export type { CostOwner } from "@/lib/casting-cost";
+export type { CostOwner, RateMode } from "@/lib/casting-cost";
 
 export type CastingStatus = "pencilled" | "confirmed" | "released";
 
@@ -30,7 +30,9 @@ export type ShootCasting = {
   callTime: Date | null;
   agreedRatePence: number | null;
   talentRatePence: number | null;
+  talentDayRatePence: number | null;
   durationMinutes: number | null;
+  rateMode: RateMode;
   costOwner: CostOwner;
   status: CastingStatus;
 };
@@ -98,7 +100,9 @@ export async function listShootCastings(): Promise<ShootCasting[]> {
       callTime: shootTalent.callTime,
       agreedRatePence: shootTalent.agreedRatePence,
       talentRatePence: talent.ratePerHourPence,
+      talentDayRatePence: talent.dayRatePence,
       durationMinutes: shootTalent.durationMinutes,
+      rateMode: shootTalent.rateMode,
       costOwner: shootTalent.costOwner,
       status: shootTalent.status,
     })
@@ -175,6 +179,7 @@ const shootCastingInput = z.object({
   callTime: z.date().optional().nullable(),
   agreedRatePence: z.number().int().min(0).optional().nullable(),
   durationMinutes: z.number().int().min(0).max(100000).optional().nullable(),
+  rateMode: z.enum(["hourly", "day"]).default("hourly"),
   costOwner: z.enum(["client", "agency"]).default("client"),
   status: castingStatus.default("pencilled"),
 });
@@ -195,6 +200,7 @@ export async function addShootCasting(raw: z.input<typeof shootCastingInput>) {
       callTime: input.callTime ?? null,
       agreedRatePence: input.agreedRatePence ?? null,
       durationMinutes: input.durationMinutes ?? null,
+      rateMode: input.rateMode,
       costOwner: input.costOwner,
       status: input.status,
     })

@@ -205,7 +205,7 @@ export function TalentProfileView({ profile }: { profile: TalentProfile }) {
                         sub={[
                           s.roleName,
                           s.scheduledAt ? dateFmt.format(new Date(s.scheduledAt)) : null,
-                          hoursLabel(s.durationMinutes),
+                          s.rateMode === "day" ? "day rate" : hoursLabel(s.durationMinutes),
                           s.costPence != null
                             ? `${money(s.costPence)} ${s.costOwner === "agency" ? "(Blanc Script)" : "(client)"}`
                             : rateText(s.effectiveRatePence, s.rateIsOverride),
