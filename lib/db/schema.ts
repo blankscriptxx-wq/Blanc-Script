@@ -69,6 +69,18 @@ export const addonCadenceEnum = pgEnum("addon_cadence", [
   "per_job",
   "bespoke",
 ]);
+export const talentStatusEnum = pgEnum("talent_status", [
+  "active",
+  "inactive",
+  "archived",
+]);
+export const invoiceStatusEnum = pgEnum("invoice_status", [
+  "draft",
+  "sent",
+  "approved",
+  "paid",
+  "overdue",
+]);
 
 // ── Tenancy ─────────────────────────────────────────────────────────────────
 export const organisations = pgTable("organisations", {
@@ -205,6 +217,42 @@ export const activityLog = pgTable("activity_log", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ── Talent book (on-camera talent/actors) ─────────────────────────────────
+export const talent = pgTable("talent", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organisations.id),
+  name: text("name").notNull(),
+  email: text("email"),
+  phone: text("phone"),
+  status: talentStatusEnum("status").notNull().default("active"),
+  ratePerHourPence: integer("rate_per_hour_pence"),
+  notes: text("notes"),
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ── Invoices (internal; Xero sync is a later integration) ─────────────────
+export const invoices = pgTable("invoices", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organisations.id),
+  clientId: uuid("client_id").references(() => clients.id),
+  number: text("number"),
+  status: invoiceStatusEnum("status").notNull().default("draft"),
+  amountPence: integer("amount_pence").notNull().default(0),
+  currency: text("currency").notNull().default("GBP"),
+  issuedAt: timestamp("issued_at", { withTimezone: true }),
+  dueAt: timestamp("due_at", { withTimezone: true }),
+  paidAt: timestamp("paid_at", { withTimezone: true }),
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const schema = {
   organisations,
   memberships,
@@ -215,4 +263,6 @@ export const schema = {
   servicePlans,
   addOns,
   activityLog,
+  talent,
+  invoices,
 };
