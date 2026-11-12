@@ -42,3 +42,6 @@ Add each in Vercel → the OS project → Settings → Environment Variables (sc
 
 ## 5. Anything I got stuck on
 See the bottom of `docs/OVERNIGHT_LOG.md` — I'll list any specific questions or blockers there.
+
+## 6. Security hardening (reviewed, with me)
+- [ ] Turn on **DB-enforced Neon RLS** as defence-in-depth (plan in `OVERNIGHT_LOG.md`). Needs a custom DB role, a driver swap for the user-facing layer, and a two-org isolation test. App-level tenancy is already enforced, so this is hardening, not a hole.
