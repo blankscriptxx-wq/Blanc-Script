@@ -221,7 +221,10 @@ export async function syncClientBilling(orgId: string, clientId: string): Promis
 
   let added = 0;
   for (const inv of await listCustomerInvoices(c.stripeCustomerId)) {
-    if (inv.status === "paid" && (await recordStripeInvoice(inv, { notify: false }))) added += 1;
+    // Whichever of this sync and the webhook records a fresh invoice first emails
+    // it, so the client always gets one. Older invoices are backfilled silently.
+    const fresh = Date.now() - inv.created * 1000 < 24 * 60 * 60 * 1000;
+    if (inv.status === "paid" && (await recordStripeInvoice(inv, { notify: fresh }))) added += 1;
   }
   return { invoices: added };
 }
