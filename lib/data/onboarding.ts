@@ -562,7 +562,7 @@ export async function sendOnboardingReminder(orgId: string, clientId: string): P
         ? "Thanks for setting up your account. There's just a little left to do before we can get started:"
         : "We sent you a welcome a few days ago and wanted to make sure it didn't get lost. It only takes about five minutes:",
       steps.map((s, i) => `  ${i + 1}. ${s}`).join("\n"),
-      "If anything doesn't look right, just reply to the person you've been speaking to and we'll sort it.",
+      "If anything doesn't look right, just get in touch with us and we'll sort it.",
     ],
     button: { label: progress.accountReady ? "Finish setting up" : "Set up my account", url: `${appOrigin()}/portal/${token}` },
     kind: "onboarding_reminder",
