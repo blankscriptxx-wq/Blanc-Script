@@ -235,14 +235,31 @@ export async function claimPortalLogin(token: string, name: string, password: st
       );
     }
   }
-  const me = await sessionUser();
-  if (!me || me.email.toLowerCase() !== access.email.toLowerCase()) {
-    throw new Error("We couldn't finish setting up your login. Please try again.");
-  }
+  // The password check above proved they own this email. (The new session
+  // cookie isn't readable until the next request, so look the account up.)
+  const userId = await userIdByEmail(access.email);
+  if (!userId) throw new Error("We couldn't finish setting up your login. Please try again.");
   await getDb()
     .update(portalLinks)
-    .set({ userId: me.id, label: cleanName })
+    .set({ userId, label: cleanName })
     .where(and(eq(portalLinks.token, token), isNull(portalLinks.userId), isNull(portalLinks.revokedAt)));
+}
+
+async function userIdByEmail(email: string): Promise<string | null> {
+  const { rows } = await getDb().execute(
+    sql`select id from neon_auth."user" where lower(email) = ${email.trim().toLowerCase()} limit 1`,
+  );
+  return (rows[0] as { id: string } | undefined)?.id ?? null;
+}
+
+async function portalHomeForUser(userId: string): Promise<string | null> {
+  const [row] = await getDb()
+    .select({ token: portalLinks.token })
+    .from(portalLinks)
+    .where(and(eq(portalLinks.userId, userId), isNull(portalLinks.revokedAt)))
+    .orderBy(desc(portalLinks.lastSeenAt))
+    .limit(1);
+  return row ? `/portal/${row.token}` : null;
 }
 
 /**
@@ -253,20 +270,14 @@ export async function signInToPortal(email: string, password: string): Promise<s
   const mail = z.string().trim().toLowerCase().email("Enter your email address.").parse(email);
   const { error } = await getAuth().signIn.email({ email: mail, password });
   if (error) throw new Error("That email and password don't match. Please try again.");
-  return portalHomeForSession();
+  const userId = await userIdByEmail(mail);
+  return userId ? portalHomeForUser(userId) : null;
 }
 
 /** The signed-in person's portal address, if they have one. */
 export async function portalHomeForSession(): Promise<string | null> {
   const me = await sessionUser();
-  if (!me) return null;
-  const [row] = await getDb()
-    .select({ token: portalLinks.token })
-    .from(portalLinks)
-    .where(and(eq(portalLinks.userId, me.id), isNull(portalLinks.revokedAt)))
-    .orderBy(desc(portalLinks.lastSeenAt))
-    .limit(1);
-  return row ? `/portal/${row.token}` : null;
+  return me ? portalHomeForUser(me.id) : null;
 }
 
 export async function signOutOfPortal(): Promise<void> {
