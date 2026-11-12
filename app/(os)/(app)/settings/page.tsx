@@ -8,7 +8,6 @@ import { AddonsEditor } from "@/components/settings/addons-editor";
 import { AuditLog } from "@/components/settings/audit-log";
 import { Integrations } from "@/components/settings/integrations";
 import { Connections } from "@/components/settings/connections";
-import { DocumentTemplates } from "@/components/settings/document-templates";
 import { listTemplates } from "@/lib/data/documents";
 import { stripeConnectionState } from "@/lib/data/billing";
 import { stripeConfigured, stripeMode } from "@/lib/payments/stripe";
@@ -77,7 +76,6 @@ export default async function SettingsPage() {
   const workspace = hasAccess ? await getWorkspace() : null;
   const plans: ServicePlanRow[] = hasAccess ? await listServicePlans() : [];
   const addons: AddOnRow[] = hasAccess ? await listAddOns() : [];
-  const templates = hasAccess ? await listTemplates().catch(() => []) : [];
   const stripeState =
     hasAccess && user?.orgId ? await stripeConnectionState(user.orgId).catch(() => ({ connected: false })) : { connected: false };
   const followUps = hasAccess && user?.orgId ? await followUpsEnabled(user.orgId).catch(() => true) : true;
@@ -303,18 +301,6 @@ export default async function SettingsPage() {
             email={{ configured: emailConfigured(), from: emailFrom() }}
             followUps={followUps}
           />
-        </section>
-      ) : null}
-
-      {/* Document templates */}
-      {canSettings ? (
-        <section className="mt-6 rounded-md border border-bs-border bg-bs-surface p-5">
-          <h2 className="font-display text-h3">Document templates</h2>
-          <p className="mt-1 text-sm text-bs-muted">
-            Your service agreement and contract schedules. Create a filled-in copy for a
-            client from their page; they read and accept it in their portal.
-          </p>
-          <DocumentTemplates templates={templates.map((t) => ({ id: t.id, name: t.name, body: t.body }))} />
         </section>
       ) : null}
 

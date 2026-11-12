@@ -6,6 +6,7 @@ import { Banknote, Check, Circle, Copy, Loader2, Mail, Plus, Rocket, Send, Trash
 import {
   cancelOnboardingAction,
   markPaidDirectAction,
+  sendBalanceInvoiceAction,
   remindOnboardingAction,
   saveOnboardingAction,
   sendOnboardingAction,
@@ -105,6 +106,8 @@ export function OnboardingCard({
   const [platforms, setPlatforms] = React.useState<string[]>(t0.platforms ?? []);
   const [services, setServices] = React.useState<string[]>(t0.services ?? []);
   const [exclusions, setExclusions] = React.useState(t0.exclusions ?? "");
+  const [deposit, setDeposit] = React.useState(String(t0.depositPercent ?? 50));
+  const [balanceWhen, setBalanceWhen] = React.useState<"on_approval" | "manual">(t0.balanceTrigger ?? "on_approval");
   const toggle = (list: string[], set: (v: string[]) => void, v: string) => set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
   const [busy, setBusy] = React.useState("");
   const [note, setNote] = React.useState<{ ok: boolean; text: string } | null>(null);
@@ -142,6 +145,8 @@ export function OnboardingCard({
         services,
         exclusions: exclusions.trim() || undefined,
         agreement: true,
+        depositPercent: oneOff ? Math.min(100, Math.max(10, Math.round(Number(deposit) || 100))) : undefined,
+        balanceTrigger: oneOff ? balanceWhen : undefined,
       },
     };
   }
@@ -196,6 +201,12 @@ export function OnboardingCard({
   if (onboarding && (onboarding.status === "sent" || onboarding.status === "completed") && !editing) {
     const p = onboarding.progress;
     const done = onboarding.status === "completed";
+    const projectTotal = onboarding.extras.reduce((n, x) => n + x.pricePence, 0);
+    const pct = onboarding.terms?.depositPercent ?? 100;
+    const balanceDue =
+      onboarding.billingType === "one_off" && pct < 100 && !onboarding.terms?.balanceInvoiceId
+        ? projectTotal - Math.round((projectTotal * pct) / 100)
+        : 0;
     const steps = p
       ? [
           { ok: p.accountReady, text: p.accountReady ? "Login set up" : "Login not set up yet" },
@@ -210,7 +221,9 @@ export function OnboardingCard({
                 ? p.paid ? "Paid directly (cash or bank transfer)" : "Paying directly — not received yet"
                 : onboarding.billingType === "subscription"
                   ? p.paid ? "Monthly payment set up" : "Monthly payment not set up yet"
-                  : p.paid ? "Invoice paid" : "Invoice not paid yet",
+                  : pct < 100
+                    ? p.paid ? `Deposit paid (${pct}%)` : `Deposit not paid yet (${pct}%)`
+                    : p.paid ? "Invoice paid" : "Invoice not paid yet",
           },
         ]
       : [];
@@ -243,9 +256,17 @@ export function OnboardingCard({
           </ul>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {done ? (
-              <button type="button" className={ghost} onClick={() => setEditing(true)}>
-                <Plus className="h-3.5 w-3.5" /> Set up something new
-              </button>
+              <>
+                {balanceDue ? (
+                  <button type="button" className={primary} disabled={busy !== ""} onClick={() => run("balance", () => sendBalanceInvoiceAction(clientId))}>
+                    {busy === "balance" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    Send balance invoice ({money(balanceDue)})
+                  </button>
+                ) : null}
+                <button type="button" className={ghost} onClick={() => setEditing(true)}>
+                  <Plus className="h-3.5 w-3.5" /> Set up something new
+                </button>
+              </>
             ) : (
               <>
                 {p && !p.paid && onboarding.invoiceId ? (
@@ -276,6 +297,12 @@ export function OnboardingCard({
                       Paid by bank transfer
                     </button>
                   </>
+                ) : null}
+                {balanceDue ? (
+                  <button type="button" className={ghost} disabled={busy !== ""} onClick={() => run("balance", () => sendBalanceInvoiceAction(clientId))}>
+                    {busy === "balance" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                    Send balance invoice ({money(balanceDue)})
+                  </button>
                 ) : null}
                 <button type="button" className={ghost} disabled={busy !== ""} onClick={() => run("remind", () => remindOnboardingAction(clientId))}>
                   {busy === "remind" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
@@ -429,6 +456,29 @@ export function OnboardingCard({
             )}
           </span>
         </div>
+
+        {oneOff ? (
+          <div className="mb-3 grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className={label} htmlFor="ob-deposit">Deposit taken now (%)</label>
+              <input id="ob-deposit" className={input} inputMode="numeric" value={deposit} onChange={(e) => setDeposit(e.target.value)} placeholder="50" />
+              <p className="mt-1 text-xs text-bs-subtle">
+                {Number(deposit) >= 100
+                  ? "The whole fee is invoiced now."
+                  : `${money(Math.round((oneOffTotal * (Number(deposit) || 0)) / 100))} now, ${money(oneOffTotal - Math.round((oneOffTotal * (Number(deposit) || 0)) / 100))} later. Enter 100 to take it all up front.`}
+              </p>
+            </div>
+            {Number(deposit) < 100 ? (
+              <div>
+                <label className={label} htmlFor="ob-balance">Balance invoice goes out</label>
+                <select id="ob-balance" className={input} value={balanceWhen} onChange={(e) => setBalanceWhen(e.target.value as "on_approval" | "manual")}>
+                  <option value="on_approval">Automatically, when the client approves the work</option>
+                  <option value="manual">Only when I press Send balance invoice</option>
+                </select>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="mb-3">
           <p className={label}>How will they pay?</p>

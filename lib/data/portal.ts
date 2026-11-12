@@ -543,6 +543,11 @@ export async function setPortalDecision(
     entityId: d.id,
     meta: { by: ctx.viewerName, via: "portal" },
   });
+  if (decision === "approved") {
+    // A project that took a deposit: once everything is approved, the balance invoice goes out.
+    const { balanceOnApproval } = await import("@/lib/data/onboarding");
+    await balanceOnApproval(ctx.orgId, ctx.clientId).catch(() => {});
+  }
 }
 
 /** An invoice this client may pay or check: theirs, client-facing, not a draft. */

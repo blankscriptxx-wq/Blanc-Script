@@ -6,6 +6,7 @@ import {
   remindOnboarding,
   saveOnboarding,
   sendOnboarding,
+  sendBalanceInvoiceNow,
   type OnboardingInput,
 } from "@/lib/data/onboarding";
 import { markInvoicePaidDirect, recordDirectPayment, type DirectMethod } from "@/lib/data/cash";
@@ -100,5 +101,16 @@ export async function recordDirectPaymentAction(
     return { ok: true, message: `Recorded. Invoice ${number} created and marked paid.` };
   } catch (e) {
     return fail(e, "Could not record the payment.");
+  }
+}
+
+/** Raise and email the balance invoice for a project that took a deposit. */
+export async function sendBalanceInvoiceAction(clientId: string): Promise<OnboardingResult> {
+  try {
+    const sent = await sendBalanceInvoiceNow(clientId);
+    refresh(clientId);
+    return sent ? { ok: true, message: "Balance invoice sent to the client." } : { ok: false, error: "There's no balance to invoice." };
+  } catch (e) {
+    return fail(e, "Could not send the balance invoice.");
   }
 }

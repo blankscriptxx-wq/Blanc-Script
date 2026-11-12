@@ -287,6 +287,7 @@ async function buildAgreementBody(orgId: string, clientId: string): Promise<stri
     minimumTermMonths: terms.minimumTermMonths ?? null,
     startDate: terms.startDate ? new Date(`${terms.startDate}T12:00:00Z`) : new Date(),
     paymentMethod: ob?.paymentMethod === "cash" ? "cash" : "card",
+    depositPercent: terms.depositPercent ?? 100,
   });
   return body;
 }

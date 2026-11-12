@@ -64,6 +64,9 @@ export const onboardingInput = z.object({
       services: z.array(z.string().max(40)).max(30).optional(),
       exclusions: z.string().trim().max(600).optional(),
       agreement: z.boolean().optional(),
+      depositPercent: z.number().int().min(10).max(100).optional(),
+      balanceTrigger: z.enum(["on_approval", "manual"]).optional(),
+      balanceInvoiceId: z.string().uuid().optional(),
     })
     .default({}),
 });
@@ -487,49 +490,20 @@ export async function sendOnboarding(clientId: string): Promise<{ emailStatus: E
         ...(ob.extras ?? []),
       ].filter((x) => x.pricePence > 0);
       const total = lines.reduce((n, x) => n + x.pricePence, 0);
-      const number = await nextInvoiceNumber(user.orgId);
-      const [inv] = await db
-        .insert(invoices)
-        .values({
-          orgId: user.orgId,
-          clientId,
-          number,
-          status: "sent",
-          amountPence: total,
-          reference: ob.billingType === "one_off" ? ob.projectTitle : "First month",
-          issuedAt: new Date(),
-          dueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        })
-        .returning({ id: invoices.id });
-      invoiceId = inv.id;
-      await db.insert(invoiceLineItems).values(
-        lines.map((x, i) => ({
-          orgId: user.orgId,
-          invoiceId: inv.id,
-          description: x.name,
-          quantity: 1,
-          unitPence: x.pricePence,
-          sortOrder: i,
-        })),
-      );
-      if (!cash && stripeConfigured()) {
-        const link = await createPaymentLink({
-          invoiceId: inv.id,
-          title: `Blanc Script invoice ${number} — ${ob.projectTitle ?? "project"}`,
-          amountPence: total,
-          currency: "GBP",
-          returnUrl: `${appOrigin()}/portal/${token}?paid=1`,
-        });
-        await db
-          .update(invoices)
-          .set({
-            // Pre-fill the payer's email so they only need their card.
-            paymentUrl: `${link.url}?prefilled_email=${encodeURIComponent(ob.contactEmail)}`,
-            stripePaymentLinkId: link.id,
-            stripeLinkAmountPence: total,
-          })
-          .where(eq(invoices.id, inv.id));
-      }
+      // A project can take a deposit now and the balance later.
+      const pct = ob.billingType === "one_off" ? (ob.terms?.depositPercent ?? 100) : 100;
+      const deposit = pct < 100;
+      invoiceId = await raiseInvoice({
+        orgId: user.orgId,
+        clientId,
+        lines: deposit
+          ? [{ name: `Deposit (${pct}%) — ${ob.projectTitle ?? "project"}`, pricePence: Math.round((total * pct) / 100) }]
+          : lines,
+        reference: ob.billingType === "one_off" ? `${ob.projectTitle ?? "Project"}${deposit ? " — deposit" : ""}` : "First month",
+        card: !cash,
+        returnUrl: `${appOrigin()}/portal/${token}?paid=1`,
+        payerEmail: ob.contactEmail,
+      });
     }
 
     await db
@@ -615,6 +589,156 @@ export async function remindOnboarding(clientId: string): Promise<EmailResult | 
   const user = await requireUser();
   requireMoney(user);
   return sendOnboardingReminder(user.orgId, clientId);
+}
+
+/** Raise a client invoice (status "sent"), with a card payment link when wanted. */
+async function raiseInvoice(input: {
+  orgId: string;
+  clientId: string;
+  lines: { name: string; pricePence: number }[];
+  reference: string;
+  card: boolean;
+  returnUrl: string;
+  payerEmail: string | null;
+}): Promise<string> {
+  const db = getDb();
+  const total = input.lines.reduce((n, x) => n + x.pricePence, 0);
+  const number = await nextInvoiceNumber(input.orgId);
+  const [inv] = await db
+    .insert(invoices)
+    .values({
+      orgId: input.orgId,
+      clientId: input.clientId,
+      number,
+      status: "sent",
+      amountPence: total,
+      reference: input.reference,
+      issuedAt: new Date(),
+      dueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    })
+    .returning({ id: invoices.id });
+  await db.insert(invoiceLineItems).values(
+    input.lines.map((x, i) => ({
+      orgId: input.orgId,
+      invoiceId: inv.id,
+      description: x.name,
+      quantity: 1,
+      unitPence: x.pricePence,
+      sortOrder: i,
+    })),
+  );
+  if (input.card && stripeConfigured()) {
+    const link = await createPaymentLink({
+      invoiceId: inv.id,
+      title: `Blanc Script invoice ${number} — ${input.reference}`,
+      amountPence: total,
+      currency: "GBP",
+      returnUrl: input.returnUrl,
+    });
+    await db
+      .update(invoices)
+      .set({
+        // Pre-fill the payer's email so they only need their card.
+        paymentUrl: input.payerEmail ? `${link.url}?prefilled_email=${encodeURIComponent(input.payerEmail)}` : link.url,
+        stripePaymentLinkId: link.id,
+        stripeLinkAmountPence: total,
+      })
+      .where(eq(invoices.id, inv.id));
+  }
+  return inv.id;
+}
+
+/** What is still owed on a project after its deposit (null when nothing is, or it's already invoiced). */
+function balanceOwed(ob: Row): { pct: number; total: number; balance: number } | null {
+  if (ob.billingType !== "one_off" || (ob.status !== "sent" && ob.status !== "completed")) return null;
+  const pct = ob.terms?.depositPercent ?? 100;
+  if (pct >= 100 || ob.terms?.balanceInvoiceId) return null;
+  const total = (ob.extras ?? []).reduce((n, x) => n + x.pricePence, 0);
+  const balance = total - Math.round((total * pct) / 100);
+  return balance > 0 ? { pct, total, balance } : null;
+}
+
+/**
+ * Raise and email the balance invoice for a project that took a deposit.
+ * Runs when staff press the button, or by itself when the client approves the
+ * work (if that was chosen at onboarding). Does nothing if it isn't due.
+ */
+export async function sendBalanceInvoice(orgId: string, clientId: string, actorUserId: string | null): Promise<boolean> {
+  const ob = await latest(orgId, clientId);
+  const owed = ob ? balanceOwed(ob) : null;
+  if (!ob || !owed) return false;
+  const db = getDb();
+  const token = await linkToken(ob.portalLinkId);
+  const lines = [
+    ...(ob.extras ?? []).filter((x) => x.pricePence > 0).map((x) => ({ name: x.name, pricePence: x.pricePence })),
+    { name: `Less deposit paid (${owed.pct}%)`, pricePence: -(owed.total - owed.balance) },
+  ];
+  const invoiceId = await raiseInvoice({
+    orgId,
+    clientId,
+    lines,
+    reference: `${ob.projectTitle ?? "Project"} — balance`,
+    card: ob.paymentMethod !== "cash",
+    returnUrl: token ? `${appOrigin()}/portal/${token}?paid=1` : `${appOrigin()}/pay/thanks`,
+    payerEmail: ob.contactEmail,
+  });
+  // Record it against the onboarding; if another request got there first, withdraw ours.
+  const claimed = await db
+    .update(clientOnboardings)
+    .set({ terms: { ...(ob.terms ?? {}), balanceInvoiceId: invoiceId }, updatedAt: new Date() })
+    .where(and(eq(clientOnboardings.id, ob.id), sql`${clientOnboardings.terms} ->> 'balanceInvoiceId' is null`))
+    .returning({ id: clientOnboardings.id });
+  if (!claimed.length) {
+    await db.update(invoices).set({ archivedAt: new Date() }).where(eq(invoices.id, invoiceId));
+    return false;
+  }
+  await db.insert(activityLog).values({
+    orgId,
+    actorUserId,
+    action: "invoice.balance_sent",
+    entityType: "client",
+    entityId: clientId,
+    meta: { amountPence: owed.balance, automatic: actorUserId === null },
+  });
+  if (ob.contactEmail) {
+    await sendEmail({
+      orgId,
+      to: ob.contactEmail,
+      subject: `Your final invoice — ${ob.projectTitle ?? "your project"}`,
+      heading: `Final invoice: ${gbp(owed.balance)}`,
+      paragraphs: [
+        `Hi ${firstName(ob.contactName)},`,
+        `Thank you — ${ob.projectTitle ?? "your project"} is nearly wrapped. The remaining balance of ${gbp(owed.balance)} is now due (your ${owed.pct}% deposit has been taken off).`,
+        ob.paymentMethod === "cash"
+          ? "You're paying us directly, so we'll mark it as paid as soon as we receive it. Your final files are released once it's settled."
+          : "You can pay securely by card in your portal. Your final files are released once it's settled.",
+      ],
+      button: token ? { label: "View and pay invoice", url: `${appOrigin()}/portal/${token}/invoices/${invoiceId}` } : undefined,
+      kind: "invoice",
+      related: { type: "invoice", id: invoiceId },
+    });
+  }
+  return true;
+}
+
+/** Staff button: send the balance invoice now. */
+export async function sendBalanceInvoiceNow(clientId: string): Promise<boolean> {
+  const user = await requireUser();
+  requireMoney(user);
+  return sendBalanceInvoice(user.orgId, clientId, user.id);
+}
+
+/** The client approved a piece of work: if nothing is left to approve, send the balance invoice. */
+export async function balanceOnApproval(orgId: string, clientId: string): Promise<void> {
+  const ob = await latest(orgId, clientId);
+  if (!ob || !balanceOwed(ob) || (ob.terms?.balanceTrigger ?? "on_approval") !== "on_approval") return;
+  const { rows } = await getDb().execute(sql`
+    select count(*)::int as n from deliverables
+    where org_id = ${orgId} and client_id = ${clientId} and archived_at is null
+      and status in ('editing', 'in_review', 'changes_requested')
+  `);
+  if (Number((rows[0] as { n: number }).n) > 0) return;
+  await sendBalanceInvoice(orgId, clientId, null);
 }
 
 // ── Portal ────────────────────────────────────────────────────────────────

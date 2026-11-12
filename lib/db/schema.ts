@@ -667,6 +667,12 @@ export type OnboardingTerms = {
   platforms?: string[];
   services?: string[];
   exclusions?: string;
+  /** One-off projects: percentage taken up front (100 = the whole fee now). */
+  depositPercent?: number;
+  /** When the balance invoice goes out: when the client approves the work, or only when staff send it. */
+  balanceTrigger?: "on_approval" | "manual";
+  /** Set once the balance invoice has been raised. */
+  balanceInvoiceId?: string;
   /** Generate and send the tailored Service Agreement with the welcome. */
   agreement?: boolean;
 };

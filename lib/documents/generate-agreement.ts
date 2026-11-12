@@ -49,6 +49,8 @@ export type AgreementData = {
   minimumTermMonths: number | null;
   startDate: Date;
   paymentMethod: "card" | "cash";
+  /** Projects: percentage taken up front (100 = paid in full before work starts). */
+  depositPercent: number;
 };
 
 const gbp = (p: number) => new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(p / 100);
@@ -190,7 +192,20 @@ function tailorTerms(text: string, d: AgreementData, fee: string): string {
     "Retainer fees": {
       text: [`The Retainer fee is ${fee}, exclusive of VAT${monthlyExtras ? ", plus the additional services listed in Section 3" : ""}. ${paid}`],
     },
-    "Project fees": { text: [`The Project fee is ${fee}, exclusive of VAT. ${paid}`] },
+    "Project fees": {
+      replace: true,
+      text:
+        d.depositPercent >= 100
+          ? [
+              `The Project fee is ${fee}, exclusive of VAT. ${paid}`,
+              "The Project fee is payable in full before pre-production begins.",
+            ]
+          : [
+              `The Project fee is ${fee}, exclusive of VAT. ${paid}`,
+              `A deposit of ${d.depositPercent}% of the total Fee (${gbp(Math.round((d.feePence * d.depositPercent) / 100))}) is payable before pre-production begins. The remaining balance (${gbp(d.feePence - Math.round((d.feePence * d.depositPercent) / 100))}) is payable prior to release of the final Deliverables.`,
+              "The Studio is under no obligation to release final Deliverables, in any format, until the balance has been received in cleared funds.",
+            ],
+    },
     Term: {
       replace: true,
       text: [
