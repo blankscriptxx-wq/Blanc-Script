@@ -27,12 +27,12 @@ export type NavItem = {
 export const NAV: NavItem[] = [
   { href: "/today", label: "Today", icon: LayoutDashboard, ready: true },
   { href: "/clients", label: "Clients", icon: Users, ready: true },
-  { href: "/projects", label: "Projects", icon: FolderKanban },
-  { href: "/shoots", label: "Shoots", icon: Camera },
+  { href: "/projects", label: "Projects", icon: FolderKanban, ready: true },
+  { href: "/shoots", label: "Shoots", icon: Camera, ready: true },
   { href: "/edits", label: "Edits", icon: Clapperboard },
   { href: "/content", label: "Content", icon: CalendarRange },
   { href: "/finance", label: "Finance", icon: Receipt, requires: "can_see_money" },
-  { href: "/team", label: "Team", icon: UsersRound, requires: "can_manage_users" },
+  { href: "/team", label: "Team", icon: UsersRound, requires: "can_manage_users", ready: true },
   { href: "/talent", label: "Talent", icon: Sparkles },
 ];
 
