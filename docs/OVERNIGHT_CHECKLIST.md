@@ -5,10 +5,30 @@ accounts, approvals, money, or a decision). Tackle in roughly this order.
 Everything I built sits on the `blanc-script-os` branch; nothing touches the live
 marketing site. Progress log: `docs/OVERNIGHT_LOG.md`.
 
+## What I built while you slept (all live on real data)
+All **10 primary modules + Settings** are now built, wired to the Neon database,
+and verified rendering (signed-in Playwright smoke test, no runtime errors). The
+final commit's Vercel preview deploy is **READY** (green).
+
+- **Today** — live KPI counts + your real packages from the DB
+- **Clients** — list, add, record drawer
+- **Projects** — list, add, record drawer
+- **Shoots** — bookings, add, record drawer
+- **Edits** — deliverables review board (Editing → In review → Changes requested → Approved → Published)
+- **Content** — content pipeline board (Idea → Scripting → Filming → Editing → Scheduled → Posted), channel pills
+- **Finance** — invoices + summary tiles (Outstanding / Paid this month / Overdue); gated behind `can_see_money`
+- **Team** — members, roles, capabilities
+- **Talent** — talent book with rates & status
+- **Settings** — appearance (3 themes), workspace rename (gated), full roles × capabilities matrix
+
+Every write is org-scoped through one `requireUser()` gate and audited to `activity_log`.
+I seeded a handful of **demo rows** (talent, invoices, deliverables, content) so the
+boards aren't empty when you look — delete them anytime, or I can clear them for you.
+
 ## 0. First thing — see it running
 - [ ] Open the live preview and sign in: it's linked in `OVERNIGHT_LOG.md` (latest Vercel URL).
   - Your demo login still works: `demo@blancscript.dev`. Create your **own** account via Sign up — then tell me the email and I'll grant it owner (or you keep using the demo one).
-- [ ] Have a click around all three themes (switcher, top-right).
+- [ ] Have a click around all three themes (switcher, top-right) and the new modules (Edits, Content, Finance, Talent, Settings).
 
 ## 1. Infrastructure decision
 - [ ] **Dedicated Vercel project?** Right now the OS builds inside your *marketing* Vercel project (as previews only — safe). Recommended: give it its own project + domain (e.g. `os.blancscript.com`). If yes, tell me and I'll prep it; you'll click "Create project" and point the domain.

@@ -41,4 +41,5 @@ export const SETTINGS_ITEM: NavItem = {
   label: "Settings",
   icon: Settings,
   requires: "can_settings",
+  ready: true,
 };
