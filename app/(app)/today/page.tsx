@@ -70,12 +70,18 @@ export default async function TodayPage() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             {plans.map((p, i) => (
               <Reveal key={p.id} delay={0.1 + i * 0.05}>
-                <Spotlight className="h-full rounded-md border border-bs-border bg-bs-surface p-4">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-display text-h3">{p.name}</h3>
+                <Spotlight
+                  className={
+                    "h-full rounded-md border border-bs-border bg-bs-surface p-4" +
+                    (p.bespoke ? " border-t-2 border-t-bs-gold" : "")
+                  }
+                >
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <h3 className="font-display text-h3 leading-tight">{p.name}</h3>
                     {p.mostPopular ? (
-                      <StatusPill tone="accent">Popular</StatusPill>
+                      <StatusPill tone="gold">★ Popular</StatusPill>
                     ) : null}
+                    {p.bespoke ? <StatusPill tone="gold">Premium</StatusPill> : null}
                   </div>
                   <div className="mt-2 font-display text-h1 text-bs-text">
                     {p.bespoke || p.pricePence == null ? (

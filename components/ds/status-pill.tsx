@@ -1,11 +1,19 @@
 import * as React from "react";
 import { cn } from "@/lib/cn";
 
-type Tone = "info" | "accent" | "success" | "warning" | "danger" | "neutral";
+type Tone =
+  | "info"
+  | "accent"
+  | "gold"
+  | "success"
+  | "warning"
+  | "danger"
+  | "neutral";
 
 const toneClass: Record<Tone, string> = {
   info: "bg-bs-info-soft text-bs-info",
   accent: "bg-bs-accent-soft text-bs-accent",
+  gold: "bg-bs-gold-soft text-bs-gold-ink",
   success: "bg-bs-success-soft text-bs-success",
   warning: "bg-bs-warning-soft text-bs-warning",
   danger: "bg-bs-danger-soft text-bs-danger",

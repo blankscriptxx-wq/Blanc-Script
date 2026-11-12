@@ -36,6 +36,9 @@
   --bs-primary-soft: #fbe1e7;
   --bs-accent: #2c8a8e;        /* brand teal, AA-tuned for text */
   --bs-accent-soft: #dcf0f0;
+  --bs-gold: #efa93a;          /* brand gold — featured/premium accent */
+  --bs-gold-soft: #fbecd3;
+  --bs-gold-ink: #946512;      /* legible gold text on soft */
 
   --bs-success: #2f8f62;  --bs-success-soft: #def1e7;
   --bs-warning: #b9801f;  --bs-warning-soft: #fbefd7;
@@ -79,6 +82,9 @@
   --bs-primary-soft: #3a2429;
   --bs-accent: #4fc6ca;        /* brand teal, lifted */
   --bs-accent-soft: #16302f;
+  --bs-gold: #f0b65a;          /* brand gold, lifted for dark */
+  --bs-gold-soft: #2c2416;
+  --bs-gold-ink: #f0b65a;
 
   --bs-success: #49b883; --bs-success-soft: #15271f;
   --bs-warning: #f0b65a; --bs-warning-soft: #2c2416;
@@ -98,6 +104,7 @@
     --bs-border: #343d3a; --bs-border-strong: #4a544f; --bs-ring: #ff5e7d;
     --bs-primary: #fb5273; --bs-primary-hover: #ff7389; --bs-primary-soft: #3a2429;
     --bs-accent: #4fc6ca; --bs-accent-soft: #16302f;
+    --bs-gold: #f0b65a; --bs-gold-soft: #2c2416; --bs-gold-ink: #f0b65a;
     --bs-success: #49b883; --bs-success-soft: #15271f;
     --bs-warning: #f0b65a; --bs-warning-soft: #2c2416;
     --bs-danger: #ff6b82; --bs-danger-soft: #30191d;
@@ -131,6 +138,9 @@
   --bs-primary-soft: rgba(255, 94, 125, 0.18);
   --bs-accent: #5fd6da;
   --bs-accent-soft: rgba(80, 200, 204, 0.16);
+  --bs-gold: #f5c26c;
+  --bs-gold-soft: rgba(239, 169, 58, 0.18);
+  --bs-gold-ink: #f5c26c;
 
   --bs-success: #5fcf96; --bs-success-soft: rgba(73, 184, 131, 0.16);
   --bs-warning: #f5c26c; --bs-warning-soft: rgba(240, 182, 90, 0.16);
