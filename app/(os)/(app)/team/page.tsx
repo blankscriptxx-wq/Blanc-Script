@@ -4,11 +4,15 @@ import { TeamView } from "@/components/team/team-view";
 import { listMembers } from "@/lib/data/team";
 import { getMemberDetails, listAwaitingUsers } from "@/lib/data/team-admin";
 import { getCurrentUser } from "@/lib/auth/session";
+import { NoAccess } from "@/components/ds/no-access";
 
 export const metadata = { title: "Team" };
 export const dynamic = "force-dynamic";
 
 export default async function TeamPage() {
+  if (!(await getCurrentUser())?.capabilities.has("can_manage_users")) {
+    return <NoAccess what="Team" />;
+  }
   const rows = await listMembers();
   const user = await getCurrentUser();
   const canManage = user?.capabilities.has("can_manage_users") ?? false;

@@ -75,10 +75,10 @@ export async function draftClientSummaryAction(
       `Client: ${c.name}`,
       `Status: ${CLIENT_STATUS_LABEL[c.status] ?? c.status}`,
       `Plan: ${summary.planName ?? "—"}`,
-      `Monthly recurring (ex VAT): ${money(summary.mrrPence)}`,
+      ...(profile.canSeeMoney ? [`Monthly recurring (ex VAT): ${money(summary.mrrPence)}`] : []),
       `Projects: ${summary.projectsCount}${liveProjects.length ? ` (live: ${liveProjects.join(", ")})` : ""}`,
       `Shoots: ${summary.shootsCount}${upcomingShoots.length ? ` (upcoming: ${upcomingShoots.join(", ")})` : ""}`,
-      `Outstanding (awaiting payment): ${money(summary.outstandingPence)}`,
+      ...(profile.canSeeMoney ? [`Outstanding (awaiting payment): ${money(summary.outstandingPence)}`] : []),
       `Recent activity: ${recent.length ? recent.join("; ") : "none logged"}`,
     ].join("\n");
 

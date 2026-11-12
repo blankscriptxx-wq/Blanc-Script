@@ -106,14 +106,16 @@ export function ClientProfileView({
   profile: ClientProfile;
   portalLinks?: PortalLinkView[];
 }) {
-  const { client: c, summary, contacts, projects, shoots, invoices, activity } =
+  const { client: c, summary, contacts, projects, shoots, invoices, activity, canSeeMoney } =
     profile;
   const [addOpen, setAddOpen] = React.useState(false);
 
   const tiles = [
     { label: "Projects", value: String(summary.projectsCount) },
     { label: "Shoots", value: String(summary.shootsCount) },
-    { label: "Outstanding", value: money(summary.outstandingPence), hint: "awaiting payment" },
+    ...(canSeeMoney
+      ? [{ label: "Outstanding", value: money(summary.outstandingPence), hint: "awaiting payment" }]
+      : []),
     { label: "Plan", value: summary.planName ?? "—" },
   ];
 
@@ -142,7 +144,7 @@ export function ClientProfileView({
         </div>
         <div className="mt-3 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
           <Detail label="Plan" value={summary.planName ?? "—"} />
-          <Detail label="Monthly (ex VAT)" value={money(summary.mrrPence)} />
+          {canSeeMoney ? <Detail label="Monthly (ex VAT)" value={money(summary.mrrPence)} /> : null}
           <Detail label="Currency" value={c.currency} />
           <Detail label="Client since" value={dateFmt.format(new Date(c.createdAt))} />
         </div>
@@ -288,6 +290,7 @@ export function ClientProfileView({
       </section>
 
       {/* Invoices */}
+      {canSeeMoney ? (
       <section className="mt-8">
         <div className="mb-2 flex items-center gap-2">
           <Receipt className="h-4 w-4 text-bs-subtle" />
@@ -330,6 +333,7 @@ export function ClientProfileView({
           </div>
         )}
       </section>
+      ) : null}
 
       {/* Recent activity */}
       <section className="mt-8">

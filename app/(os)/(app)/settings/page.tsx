@@ -25,6 +25,7 @@ import {
   type Capability,
   type InternalRole,
 } from "@/lib/auth/roles";
+import { NoAccess } from "@/components/ds/no-access";
 
 export const metadata = { title: "Settings" };
 export const dynamic = "force-dynamic";
@@ -59,6 +60,9 @@ const CAP_LABELS: Record<Capability, string> = {
 };
 
 export default async function SettingsPage() {
+  if (!(await getCurrentUser())?.capabilities.has("can_settings")) {
+    return <NoAccess what="Settings" />;
+  }
   const user = await getCurrentUser();
   const canSettings = user?.capabilities.has("can_settings") ?? false;
   const canViewAudit = user?.capabilities.has("can_view_audit") ?? false;

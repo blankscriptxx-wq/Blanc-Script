@@ -46,6 +46,10 @@ export async function listClients(): Promise<ClientRow[]> {
     .leftJoin(servicePlans, eq(clients.servicePlanId, servicePlans.id))
     .where(and(eq(clients.orgId, user.orgId), isNull(clients.archivedAt)))
     .orderBy(asc(clients.name));
+  // Retainer fees are revenue: hidden without the see-money capability.
+  if (!user.capabilities.has("can_see_money")) {
+    return (rows as ClientRow[]).map((r) => ({ ...r, planPricePence: null, retainerOverridePence: null }));
+  }
   return rows as ClientRow[];
 }
 

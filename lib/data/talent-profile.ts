@@ -344,6 +344,8 @@ export async function getTalentProfile(id: string): Promise<TalentProfile | null
     talent: {
       ...t,
       tags: t.tags ?? [],
+      ratePerHourPence: canSeePay ? t.ratePerHourPence : null,
+      dayRatePence: canSeePay ? t.dayRatePence : null,
       bankAccountName: canSeePay ? t.bankAccountName : null,
       bankSortCode: canSeePay ? t.bankSortCode : null,
       bankAccountNumber: canSeePay ? t.bankAccountNumber : null,
@@ -352,16 +354,16 @@ export async function getTalentProfile(id: string): Promise<TalentProfile | null
     summary: {
       shootsCount: shootRows.length,
       clientsCount: workedClientIds.length,
-      totalCostPence,
-      clientBilledPence,
-      absorbedPence,
-      paidPence,
-      outstandingPence,
+      totalCostPence: canSeePay ? totalCostPence : 0,
+      clientBilledPence: canSeePay ? clientBilledPence : 0,
+      absorbedPence: canSeePay ? absorbedPence : 0,
+      paidPence: canSeePay ? paidPence : 0,
+      outstandingPence: canSeePay ? outstandingPence : 0,
       avgRating,
       ratedCount: ratings.length,
     },
     availability,
-    payments,
-    byClient,
+    payments: canSeePay ? payments : [],
+    byClient: canSeePay ? byClient : [],
   };
 }

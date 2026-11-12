@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { PrintButton } from "@/components/finance/print-button";
 import { getInvoiceForPrint } from "@/lib/data/invoice-print";
+import { NoAccess } from "@/components/ds/no-access";
+import { getCurrentUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +21,9 @@ export default async function InvoicePrintPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  if (!(await getCurrentUser())?.capabilities.has("can_see_money")) {
+    return <NoAccess what="invoices" />;
+  }
   const { id } = await params;
   const data = await getInvoiceForPrint(id).catch(() => null);
   if (!data) notFound();

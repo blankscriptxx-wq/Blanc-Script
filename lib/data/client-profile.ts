@@ -61,6 +61,8 @@ export type ClientProfileActivity = {
 };
 
 export type ClientProfile = {
+  /** False when the viewer lacks see-money: fees, invoices and balances are withheld. */
+  canSeeMoney: boolean;
   client: {
     id: string;
     name: string;
@@ -191,6 +193,14 @@ export async function getClientProfile(id: string): Promise<ClientProfile | null
         .limit(12),
     ]);
 
+  // Fees, invoices and balances are money: hidden without the capability.
+  const canSeeMoney = user.capabilities.has("can_see_money");
+  if (!canSeeMoney) {
+    invoiceRows.length = 0;
+    c.planPricePence = null;
+    c.retainerOverridePence = null;
+  }
+
   const invoiceList: ClientProfileInvoice[] = invoiceRows.map((r) => ({
     id: r.id,
     number: r.number,
@@ -207,6 +217,7 @@ export async function getClientProfile(id: string): Promise<ClientProfile | null
 
   return {
     client: c,
+    canSeeMoney,
     summary: {
       projectsCount: projectRows.length,
       shootsCount: shootRows.length,

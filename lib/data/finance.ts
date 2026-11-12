@@ -34,8 +34,16 @@ export type InvoiceRow = {
   createdAt: Date;
 };
 
+/** Finance records are only readable with the see-money capability. */
+function requireMoneyRead(user: { capabilities: Set<string> }) {
+  if (!user.capabilities.has("can_see_money")) {
+    throw new Error("You do not have permission to view finance records.");
+  }
+}
+
 export async function listInvoices(): Promise<InvoiceRow[]> {
   const user = await requireUser();
+  requireMoneyRead(user);
   const rows = await getDb()
     .select({
       id: invoices.id,
@@ -65,6 +73,7 @@ export type FinanceSummary = {
 
 export async function getFinanceSummary(): Promise<FinanceSummary> {
   const user = await requireUser();
+  requireMoneyRead(user);
   const [agg] = await getDb()
     .select({
       outstandingPence: sql<number>`coalesce(sum(${invoiceGrossPence}) filter (where ${invoices.status} in ('sent','approved','overdue')), 0)`,
@@ -83,6 +92,7 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
 
 export async function getInvoice(id: string) {
   const user = await requireUser();
+  requireMoneyRead(user);
   const [row] = await getDb()
     .select({
       id: invoices.id,

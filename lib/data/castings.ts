@@ -78,6 +78,17 @@ export function effectiveRatePence(
   return agreedRatePence ?? talentRatePence;
 }
 
+/** Strip pay figures from castings for people who can't see talent pay. */
+function withoutPay<T extends object>(rows: T[], user: { capabilities: Set<string> }): T[] {
+  if (user.capabilities.has("can_see_actor_pay")) return rows;
+  const PAY = ["agreedRatePence", "talentRatePence", "talentDayRatePence"];
+  return rows.map((r) => {
+    const copy = { ...r } as Record<string, unknown>;
+    for (const k of PAY) if (k in copy) copy[k] = null;
+    return copy as T;
+  });
+}
+
 // ── Pickers ─────────────────────────────────────────────────────────────────
 export async function listTalentPickerOptions(): Promise<TalentPickerOption[]> {
   const user = await requireUser();
@@ -90,6 +101,9 @@ export async function listTalentPickerOptions(): Promise<TalentPickerOption[]> {
     .from(talent)
     .where(and(eq(talent.orgId, user.orgId), eq(talent.status, "active")))
     .orderBy(asc(talent.name));
+  if (!user.capabilities.has("can_see_actor_pay")) {
+    return rows.map((r) => ({ ...r, ratePerHourPence: null }));
+  }
   return rows;
 }
 
@@ -140,7 +154,7 @@ export async function listShootCastings(): Promise<ShootCasting[]> {
     .innerJoin(talent, eq(shootTalent.talentId, talent.id))
     .where(eq(shootTalent.orgId, user.orgId))
     .orderBy(asc(talent.name));
-  return rows as ShootCasting[];
+  return withoutPay(rows as ShootCasting[], user);
 }
 
 export async function listProjectCastings(): Promise<ProjectCasting[]> {
@@ -161,7 +175,7 @@ export async function listProjectCastings(): Promise<ProjectCasting[]> {
     .innerJoin(talent, eq(projectTalent.talentId, talent.id))
     .where(eq(projectTalent.orgId, user.orgId))
     .orderBy(asc(talent.name));
-  return rows as ProjectCasting[];
+  return withoutPay(rows as ProjectCasting[], user);
 }
 
 export async function listContentCastings(): Promise<ContentCasting[]> {
@@ -180,7 +194,7 @@ export async function listContentCastings(): Promise<ContentCasting[]> {
     .innerJoin(talent, eq(contentTalent.talentId, talent.id))
     .where(eq(contentTalent.orgId, user.orgId))
     .orderBy(asc(talent.name));
-  return rows as ContentCasting[];
+  return withoutPay(rows as ContentCasting[], user);
 }
 
 // ── Guards ───────────────────────────────────────────────────────────────────

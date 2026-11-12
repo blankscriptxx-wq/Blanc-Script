@@ -61,10 +61,14 @@ export function TalentProfileView({ profile }: { profile: TalentProfile }) {
   const tiles = [
     { label: "Shoots", value: String(summary.shootsCount) },
     { label: "Clients", value: String(summary.clientsCount) },
-    { label: "Billed to clients", value: money(summary.clientBilledPence), hint: "re-billed talent cost" },
-    { label: "Blanc Script covers", value: money(summary.absorbedPence), hint: "absorbed cost" },
-    { label: "Paid to date", value: money(summary.paidPence) },
-    { label: "Outstanding", value: money(summary.outstandingPence), hint: "owed to them" },
+    ...(canSeePay
+      ? [
+          { label: "Billed to clients", value: money(summary.clientBilledPence), hint: "re-billed talent cost" },
+          { label: "Blanc Script covers", value: money(summary.absorbedPence), hint: "absorbed cost" },
+          { label: "Paid to date", value: money(summary.paidPence) },
+          { label: "Outstanding", value: money(summary.outstandingPence), hint: "owed to them" },
+        ]
+      : []),
   ];
 
   return (

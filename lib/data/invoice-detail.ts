@@ -68,6 +68,9 @@ function requireMoney(user: Awaited<ReturnType<typeof requireUser>>) {
 
 export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null> {
   const user = await requireUser();
+  if (!user.capabilities.has("can_see_money")) {
+    throw new Error("You do not have permission to view finance records.");
+  }
   const db = getDb();
 
   const [inv] = await db

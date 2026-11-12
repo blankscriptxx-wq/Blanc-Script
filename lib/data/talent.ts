@@ -48,6 +48,10 @@ export async function listTalent(): Promise<TalentRow[]> {
       ),
     )
     .orderBy(asc(talent.name));
+  // Rates are talent pay: hidden without the see-talent-pay capability.
+  if (!user.capabilities.has("can_see_actor_pay")) {
+    return (rows as TalentRow[]).map((r) => ({ ...r, ratePerHourPence: null, dayRatePence: null }));
+  }
   return rows.map((r) => ({ ...r, tags: r.tags ?? [] })) as TalentRow[];
 }
 
