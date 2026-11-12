@@ -26,7 +26,7 @@ export type NavItem = {
 /** Primary navigation — the 10 product systems (Foundation §5). */
 export const NAV: NavItem[] = [
   { href: "/today", label: "Today", icon: LayoutDashboard, ready: true },
-  { href: "/clients", label: "Clients", icon: Users },
+  { href: "/clients", label: "Clients", icon: Users, ready: true },
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/shoots", label: "Shoots", icon: Camera },
   { href: "/edits", label: "Edits", icon: Clapperboard },
