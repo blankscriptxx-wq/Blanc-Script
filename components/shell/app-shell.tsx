@@ -3,10 +3,22 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, PanelLeft, Search, Sparkles } from "lucide-react";
+import {
+  Bell,
+  PanelLeft,
+  Search,
+  Sparkles,
+  Camera,
+  UserPlus,
+  Receipt,
+  SquarePen,
+  CornerDownLeft,
+  type LucideIcon,
+} from "lucide-react";
 import { motion } from "framer-motion";
 import { NAV, SETTINGS_ITEM, type NavItem } from "@/lib/nav";
 import { ThemeSwitcher } from "@/components/ds/theme-switcher";
+import { AIPanel } from "@/components/shell/ai-panel";
 import { cn } from "@/lib/cn";
 
 export type ShellUser = {
@@ -30,6 +42,7 @@ export function AppShell({
   const showSettings = allowed.has(SETTINGS_ITEM.href);
   const [collapsed, setCollapsed] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
+  const [aiOpen, setAiOpen] = React.useState(false);
 
   React.useEffect(() => {
     try {
@@ -73,6 +86,7 @@ export function AppShell({
         <Topbar
           onToggleSidebar={toggleCollapsed}
           onOpenPalette={() => setPaletteOpen(true)}
+          onOpenAI={() => setAiOpen(true)}
         />
         <main className="flex-1 px-4 py-6 md:px-6">{children}</main>
       </div>
@@ -80,8 +94,13 @@ export function AppShell({
         <CommandPalette
           items={[...nav, ...(showSettings ? [SETTINGS_ITEM] : [])]}
           onClose={() => setPaletteOpen(false)}
+          onOpenAI={() => {
+            setPaletteOpen(false);
+            setAiOpen(true);
+          }}
         />
       ) : null}
+      <AIPanel open={aiOpen} onClose={() => setAiOpen(false)} />
     </div>
   );
 }
@@ -198,9 +217,11 @@ function NavLink({
 function Topbar({
   onToggleSidebar,
   onOpenPalette,
+  onOpenAI,
 }: {
   onToggleSidebar: () => void;
   onOpenPalette: () => void;
+  onOpenAI: () => void;
 }) {
   return (
     <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-bs-border bg-bs-surface/90 px-3 backdrop-blur md:px-4">
@@ -230,41 +251,80 @@ function Topbar({
           <Bell className="h-[18px] w-[18px]" />
         </button>
         <button
+          onClick={onOpenAI}
           aria-label="Blanc Script AI"
-          className="grid h-9 w-9 place-items-center rounded-sm text-bs-muted hover:bg-bs-surface-2"
+          className="group grid h-9 w-9 place-items-center rounded-sm text-bs-primary transition-colors hover:bg-bs-primary-soft"
         >
-          <Sparkles className="h-[18px] w-[18px]" />
+          <Sparkles className="h-[18px] w-[18px] transition-transform group-hover:scale-110" />
         </button>
       </div>
     </header>
   );
 }
 
+type Command = {
+  id: string;
+  label: string;
+  group: "Navigate" | "Actions" | "Assistant";
+  icon: LucideIcon;
+  run: () => void;
+};
+
 function CommandPalette({
   items,
   onClose,
+  onOpenAI,
 }: {
   items: NavItem[];
   onClose: () => void;
+  onOpenAI: () => void;
 }) {
   const router = useRouter();
   const [q, setQ] = React.useState("");
-  const filtered = items.filter((i) =>
-    i.label.toLowerCase().includes(q.toLowerCase()),
-  );
+  const [active, setActive] = React.useState(0);
   const go = (href: string) => {
     onClose();
     router.push(href);
   };
+
+  const commands: Command[] = React.useMemo(
+    () => [
+      ...items.map((i) => ({
+        id: `nav:${i.href}`,
+        label: i.label,
+        group: "Navigate" as const,
+        icon: i.icon,
+        run: () => go(i.href),
+      })),
+      { id: "act:shoot", label: "Book a shoot", group: "Actions", icon: Camera, run: () => go("/shoots") },
+      { id: "act:client", label: "Add a client", group: "Actions", icon: UserPlus, run: () => go("/clients") },
+      { id: "act:task", label: "Add a task", group: "Actions", icon: SquarePen, run: () => go("/projects") },
+      { id: "act:chase", label: "Draft a chase for overdue invoices", group: "Actions", icon: Receipt, run: () => go("/finance") },
+      { id: "ai", label: "Ask Blanc Script AI", group: "Assistant", icon: Sparkles, run: () => onOpenAI() },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [items],
+  );
+
+  const filtered = commands.filter((c) =>
+    c.label.toLowerCase().includes(q.toLowerCase()),
+  );
+  React.useEffect(() => setActive(0), [q]);
+
+  const groups = ["Navigate", "Actions", "Assistant"] as const;
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 p-4 pt-[12vh]"
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 p-4 pt-[12vh] backdrop-blur-sm"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-label="Command palette"
     >
-      <div
+      <motion.div
+        initial={{ opacity: 0, y: -8, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
         className="w-full max-w-lg overflow-hidden rounded-lg border border-bs-border bg-bs-overlay shadow-elev-3"
         onClick={(e) => e.stopPropagation()}
       >
@@ -276,35 +336,64 @@ function CommandPalette({
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Escape") onClose();
-              if (e.key === "Enter" && filtered[0]) go(filtered[0].href);
+              else if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setActive((a) => Math.min(a + 1, filtered.length - 1));
+              } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setActive((a) => Math.max(a - 1, 0));
+              } else if (e.key === "Enter" && filtered[active]) {
+                e.preventDefault();
+                filtered[active].run();
+              }
             }}
-            placeholder="Search or jump anywhere…"
+            placeholder="Search, jump, or run an action…"
             className="h-12 flex-1 bg-transparent text-body outline-none placeholder:text-bs-subtle"
           />
+          <kbd className="hidden items-center gap-1 rounded-xs border border-bs-border px-1.5 py-0.5 font-mono text-[10px] text-bs-subtle sm:flex">
+            <CornerDownLeft className="h-3 w-3" /> to run
+          </kbd>
         </div>
-        <ul className="max-h-80 overflow-y-auto p-2">
+        <div className="max-h-80 overflow-y-auto p-2">
           {filtered.length === 0 ? (
-            <li className="px-3 py-6 text-center text-sm text-bs-subtle">
+            <div className="px-3 py-6 text-center text-sm text-bs-subtle">
               Nothing matches “{q}”.
-            </li>
+            </div>
           ) : (
-            filtered.map((i) => {
-              const Icon = i.icon;
+            groups.map((g) => {
+              const inGroup = filtered.filter((c) => c.group === g);
+              if (inGroup.length === 0) return null;
               return (
-                <li key={i.href}>
-                  <button
-                    onClick={() => go(i.href)}
-                    className="flex w-full items-center gap-3 rounded-sm px-3 py-2 text-left text-body hover:bg-bs-surface-2"
-                  >
-                    <Icon className="h-[18px] w-[18px] text-bs-muted" />
-                    <span>{i.label}</span>
-                  </button>
-                </li>
+                <div key={g} className="mb-1">
+                  <div className="px-2 py-1 text-eyebrow uppercase text-bs-subtle">{g}</div>
+                  <ul>
+                    {inGroup.map((c) => {
+                      const idx = filtered.indexOf(c);
+                      const isActive = idx === active;
+                      const Icon = c.icon;
+                      return (
+                        <li key={c.id}>
+                          <button
+                            onMouseEnter={() => setActive(idx)}
+                            onClick={() => c.run()}
+                            className={cn(
+                              "flex w-full items-center gap-3 rounded-sm px-3 py-2 text-left text-body",
+                              isActive ? "bg-bs-surface-2 text-bs-text" : "text-bs-muted",
+                            )}
+                          >
+                            <Icon className={cn("h-[18px] w-[18px]", c.group === "Assistant" && "text-bs-primary")} />
+                            <span>{c.label}</span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
               );
             })
           )}
-        </ul>
-      </div>
+        </div>
+      </motion.div>
     </div>
   );
 }

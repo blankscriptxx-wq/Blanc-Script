@@ -233,3 +233,16 @@
   pointer-events: none;
 }
 .bs-spotlight:hover::after { opacity: 1; }
+
+/* ── Animated theme-switch reveal (View Transitions API) ───────────── */
+::view-transition-old(root) { animation: none; }
+::view-transition-new(root) {
+  animation: bsThemeReveal 0.55s var(--bs-ease);
+}
+@keyframes bsThemeReveal {
+  from { clip-path: circle(0% at var(--vt-x, 50%) var(--vt-y, 50%)); }
+  to { clip-path: circle(160% at var(--vt-x, 50%) var(--vt-y, 50%)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-new(root) { animation: none; }
+}

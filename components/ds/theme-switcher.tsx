@@ -18,18 +18,33 @@ function systemTheme(): Theme {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-function useTheme(): [Theme, (t: Theme) => void] {
+function useTheme(): [Theme, (t: Theme, origin?: { x: number; y: number }) => void] {
   const [theme, setThemeState] = React.useState<Theme>("light");
   React.useEffect(() => {
     const attr = document.documentElement.getAttribute("data-theme") as Theme | null;
     setThemeState(attr ?? systemTheme());
   }, []);
-  const setTheme = (t: Theme) => {
-    document.documentElement.setAttribute("data-theme", t);
-    try {
-      localStorage.setItem("bs-theme", t);
-    } catch {}
-    setThemeState(t);
+  const setTheme = (t: Theme, origin?: { x: number; y: number }) => {
+    const apply = () => {
+      document.documentElement.setAttribute("data-theme", t);
+      try {
+        localStorage.setItem("bs-theme", t);
+      } catch {}
+      setThemeState(t);
+    };
+    const reduce =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const doc = document as Document & {
+      startViewTransition?: (cb: () => void) => void;
+    };
+    if (origin && doc.startViewTransition && !reduce) {
+      document.documentElement.style.setProperty("--vt-x", `${origin.x}px`);
+      document.documentElement.style.setProperty("--vt-y", `${origin.y}px`);
+      doc.startViewTransition(apply);
+    } else {
+      apply();
+    }
   };
   return [theme, setTheme];
 }
@@ -65,7 +80,9 @@ export function ThemeSwitcher({
             aria-checked={active}
             aria-label={opt.label}
             title={opt.label}
-            onClick={() => setTheme(opt.value)}
+            onClick={(e) =>
+              setTheme(opt.value, { x: e.clientX, y: e.clientY })
+            }
             className={cn(
               "relative inline-flex items-center gap-1.5 rounded-pill px-2.5 text-xs font-medium transition-colors",
               dim,

@@ -12,29 +12,50 @@ export function Spotlight({
   as: As = "div",
   className,
   lift = true,
+  tilt = true,
   children,
   ...rest
 }: {
   as?: React.ElementType;
   className?: string;
   lift?: boolean;
+  tilt?: boolean;
   children: React.ReactNode;
 } & React.HTMLAttributes<HTMLElement>) {
   const ref = React.useRef<HTMLElement>(null);
+  const reduce = React.useRef(false);
+  React.useEffect(() => {
+    reduce.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }, []);
+
   const onMove = (e: React.PointerEvent) => {
     const el = ref.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    el.style.setProperty("--bs-spot-x", `${e.clientX - r.left}px`);
-    el.style.setProperty("--bs-spot-y", `${e.clientY - r.top}px`);
+    const px = e.clientX - r.left;
+    const py = e.clientY - r.top;
+    el.style.setProperty("--bs-spot-x", `${px}px`);
+    el.style.setProperty("--bs-spot-y", `${py}px`);
+    if (tilt && !reduce.current) {
+      const rx = (0.5 - py / r.height) * 6; // max ~3deg
+      const ry = (px / r.width - 0.5) * 6;
+      el.style.transform = `perspective(900px) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg) translateY(${lift ? -2 : 0}px)`;
+    }
   };
+  const onLeave = () => {
+    const el = ref.current;
+    if (el) el.style.transform = "";
+  };
+
   return (
     <As
       ref={ref}
       onPointerMove={onMove}
+      onPointerLeave={onLeave}
       className={cn(
-        "bs-spotlight transition-[transform,box-shadow] duration-200 ease-editorial",
-        lift && "hover:-translate-y-0.5 hover:shadow-elev-2",
+        "bs-spotlight transition-[transform,box-shadow] duration-200 ease-editorial will-change-transform",
+        lift && !tilt && "hover:-translate-y-0.5",
+        lift && "hover:shadow-elev-2",
         className,
       )}
       {...rest}
