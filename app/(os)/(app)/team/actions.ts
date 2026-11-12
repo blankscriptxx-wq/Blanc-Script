@@ -84,3 +84,18 @@ export async function setMemberStatusAction(
     return { error: err instanceof Error ? err.message : "Could not change access." };
   }
 }
+
+/** Reserve owner access for an email and send the branded sign-up invitation. */
+export async function inviteOwnerAction(email: string): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
+  try {
+    const { inviteOwnerByEmail } = await import("@/lib/data/team-admin");
+    const status = await inviteOwnerByEmail(email);
+    revalidatePath("/team");
+    return status === "sent"
+      ? { ok: true, message: `Invitation emailed to ${email.trim().toLowerCase()}.` }
+      : { ok: false, error: status === "not_configured" ? "Their owner access is reserved, but email isn't connected so nothing was sent." : "Their owner access is reserved, but the email failed to send." };
+  } catch (e) {
+    if (e && typeof e === "object" && "issues" in e) return { ok: false, error: (e as { issues: { message: string }[] }).issues[0]?.message ?? "Check the email address." };
+    return { ok: false, error: e instanceof Error ? e.message : "Could not send the invitation." };
+  }
+}

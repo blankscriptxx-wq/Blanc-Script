@@ -3,6 +3,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db/client";
 import { memberships, activityLog, organisations } from "@/lib/db/schema";
+import { appOrigin, sendEmail, type EmailResult } from "@/lib/email/send";
 import { requireUser } from "@/lib/data/clients";
 import {
   INTERNAL_ROLES,
@@ -339,4 +340,59 @@ export async function setMemberStatus(
     entityId: id,
     meta: { userId: member.userId },
   });
+}
+
+// ── Inviting an owner by email ────────────────────────────────────────────
+
+/** Emails reserved as owners that haven't signed up yet. */
+export async function listReservedOwners(): Promise<string[]> {
+  const user = await requireUser();
+  if (user.role !== "owner") return [];
+  const [org] = await getDb().select({ settings: organisations.settings }).from(organisations).where(eq(organisations.id, user.orgId)).limit(1);
+  return ((org?.settings as { ownerEmails?: string[] } | null)?.ownerEmails ?? []).slice();
+}
+
+/**
+ * Reserve owner access for an email (if it isn't already) and send that
+ * person a branded invitation with the sign-up link. They choose their own
+ * password; access is granted the moment they sign up with that email.
+ */
+export async function inviteOwnerByEmail(email: string): Promise<EmailResult["status"]> {
+  const user = await requireUser();
+  if (user.role !== "owner") throw new Error("Only an owner can invite another owner.");
+  const mail = z.string().trim().toLowerCase().email("Enter a valid email address.").parse(email);
+  const db = getDb();
+  const { rows } = await db.execute(sql`
+    select count(*)::int as n from neon_auth."user" u join memberships m on m.user_id = u.id where lower(u.email) = ${mail}
+  `);
+  if (Number((rows[0] as { n: number }).n) > 0) throw new Error("That person already has access.");
+  const [org] = await db.select({ settings: organisations.settings, name: organisations.name }).from(organisations).where(eq(organisations.id, user.orgId)).limit(1);
+  const settings = { ...((org?.settings ?? {}) as Record<string, unknown>) } as Record<string, unknown> & { ownerEmails?: string[] };
+  if (!(settings.ownerEmails ?? []).includes(mail)) {
+    settings.ownerEmails = [...(settings.ownerEmails ?? []), mail];
+    await db.update(organisations).set({ settings }).where(eq(organisations.id, user.orgId));
+    await db.insert(activityLog).values({
+      orgId: user.orgId,
+      actorUserId: user.id,
+      action: "member.owner_invited",
+      entityType: "organisation",
+      entityId: user.orgId,
+      meta: { email: mail },
+    });
+  }
+  const res = await sendEmail({
+    orgId: user.orgId,
+    to: mail,
+    subject: "You've been invited to Blanc Script Studio",
+    heading: "You're invited to the studio",
+    paragraphs: [
+      "Hi,",
+      `${user.name} has added you as an owner of the Blanc Script Studio — the workspace where we run clients, projects, shoots, edits, invoices and agreements.`,
+      `To get in, create your account using this email address (${mail}) and choose your own password. You'll land straight in the workspace with full owner access.`,
+      "The invitation is tied to this email address, so please use it when you sign up.",
+    ],
+    button: { label: "Create my account", url: `${appOrigin()}/auth/sign-up` },
+    kind: "owner_invite",
+  });
+  return res.status;
 }

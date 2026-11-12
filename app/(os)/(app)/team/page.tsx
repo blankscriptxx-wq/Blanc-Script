@@ -2,7 +2,8 @@ import { PageHeader } from "@/components/ds/page-header";
 import { EmptyState } from "@/components/ds/empty-state";
 import { TeamView } from "@/components/team/team-view";
 import { listMembers } from "@/lib/data/team";
-import { getMemberDetails, listAwaitingUsers } from "@/lib/data/team-admin";
+import { getMemberDetails, listAwaitingUsers, listReservedOwners } from "@/lib/data/team-admin";
+import { InviteOwner } from "@/components/team/invite-owner";
 import { getCurrentUser } from "@/lib/auth/session";
 import { NoAccess } from "@/components/ds/no-access";
 
@@ -19,6 +20,7 @@ export default async function TeamPage() {
   // Only load the editable detail (membership ids, overrides) for managers.
   const details = canManage ? await getMemberDetails() : [];
   const awaiting = canManage ? await listAwaitingUsers().catch(() => []) : [];
+  const reserved = user?.role === "owner" ? await listReservedOwners().catch(() => []) : [];
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -31,6 +33,7 @@ export default async function TeamPage() {
       ) : (
         <TeamView rows={rows} canManage={canManage} details={details} awaiting={awaiting} />
       )}
+      {user?.role === "owner" ? <InviteOwner reserved={reserved} /> : null}
     </div>
   );
 }

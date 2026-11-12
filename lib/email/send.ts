@@ -45,15 +45,27 @@ function transport() {
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-/** Brand wrapper: plain paragraphs, one optional button. */
+/**
+ * Blanc Script's email design: cream page, the logo and teal brush stroke,
+ * ink text, a red button and a dark footer. Table-based with inline styles so
+ * it holds up in Outlook, Gmail and Apple Mail; images come from the studio
+ * site and the layout still reads well if a mail app blocks them.
+ */
 function renderHtml(input: { heading: string; paragraphs: string[]; button?: { label: string; url: string } }): string {
+  const site = (process.env.APP_ORIGIN?.trim() || "https://studio.blancscript.com").replace(/\/$/, "");
+  const font = "'Poppins','Helvetica Neue',Helvetica,Arial,sans-serif";
   const paras = input.paragraphs
-    .map((p) => `<p style="margin:0 0 14px;line-height:1.6;color:#343D3A;font-size:15px">${esc(p).replace(/\n/g, "<br>")}</p>`)
+    .map((p) => `<p style="margin:0 0 16px;line-height:1.65;color:#3A3B45;font-size:15px;font-family:${font}">${esc(p).replace(/\n/g, "<br>")}</p>`)
     .join("");
   const button = input.button
-    ? `<p style="margin:22px 0 8px"><a href="${esc(input.button.url)}" style="display:inline-block;background:#E8375B;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 20px;border-radius:8px">${esc(input.button.label)}</a></p><p style="margin:0 0 14px;font-size:12px;color:#6b7370;word-break:break-all">${esc(input.button.url)}</p>`
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:26px 0 10px"><tr><td style="border-radius:40px;background:#EE3A5F"><a href="${esc(input.button.url)}" style="display:inline-block;padding:14px 30px;font-family:${font};font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:40px">${esc(input.button.label)}</a></td></tr></table><p style="margin:0 0 6px;font-size:12px;line-height:1.5;color:#8A8A90;font-family:${font}">Or paste this into your browser:<br><a href="${esc(input.button.url)}" style="color:#2AA6A8;word-break:break-all">${esc(input.button.url)}</a></p>`
     : "";
-  return `<!doctype html><html><body style="margin:0;background:#F1E7DE;font-family:Inter,Arial,Helvetica,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:28px 16px"><table role="presentation" width="100%" style="max-width:560px;background:#ffffff;border-radius:14px"><tr><td style="padding:26px 28px 6px"><div style="font-weight:800;font-size:18px;letter-spacing:-.3px;text-transform:uppercase;color:#343D3A">Blanc<span style="color:#E8375B">Script</span><span style="color:#40B6BA">.</span></div></td></tr><tr><td style="padding:14px 28px 26px"><h1 style="margin:0 0 14px;font-size:20px;line-height:1.3;color:#22292A">${esc(input.heading)}</h1>${paras}${button}</td></tr></table><p style="margin:14px 0 0;font-size:12px;color:#6b7370">Sent by Blanc Script · blancscript.com</p></td></tr></table></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light only"><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet"></head><body style="margin:0;padding:0;background:#F7EDE2"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F7EDE2"><tr><td align="center" style="padding:32px 16px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:580px"><tr><td style="padding:0 6px 22px"><img src="${site}/brand/logo-dark.png" width="132" alt="Blanc Script" style="display:block;border:0;width:132px;height:auto;font-family:${font};font-size:20px;font-weight:700;color:#26272E"></td></tr><tr><td style="background:#FDF7F0;border:1px solid #E6D9CA;border-radius:18px;padding:36px 34px 30px"><h1 style="margin:0;font-family:${font};font-size:26px;line-height:1.2;font-weight:700;letter-spacing:-.4px;color:#26272E">${esc(input.heading)}</h1><img src="${site}/brand/squiggle.png" width="110" alt="" style="display:block;border:0;width:110px;height:auto;margin:10px 0 22px">${paras}${button}</td></tr><tr><td style="padding:22px 6px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#26272E;border-radius:14px"><tr><td align="center" style="padding:22px 20px;font-family:${font}"><div style="font-size:11px;letter-spacing:3px;color:#F7EDE2;font-weight:600">CONTENT &nbsp;·&nbsp; CREATIVITY &nbsp;·&nbsp; IMPACT</div><div style="margin-top:10px;font-size:12px;line-height:1.6;color:#9a9aa2">Blanc Script &nbsp;·&nbsp; 84 Walsall Street, Wednesbury, WS10 9EN<br><a href="mailto:hello@blancscript.com" style="color:#9a9aa2;text-decoration:none">hello@blancscript.com</a> &nbsp;·&nbsp; <a href="https://www.blancscript.com" style="color:#9a9aa2;text-decoration:none">blancscript.com</a></div></td></tr></table></td></tr></table></td></tr></table></body></html>`;
+}
+
+/** The email as it will look, for previews and tests. */
+export function previewEmailHtml(input: { heading: string; paragraphs: string[]; button?: { label: string; url: string } }): string {
+  return renderHtml(input);
 }
 
 export type EmailInput = {
