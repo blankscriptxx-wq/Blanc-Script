@@ -39,10 +39,13 @@ export function BillingPanel({
   token,
   billing,
   justSubscribed,
+  direct,
 }: {
   token: string;
   billing: PortalBilling;
   justSubscribed: boolean;
+  /** The client pays by cash or bank transfer rather than by card. */
+  direct?: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = React.useState("");
@@ -124,7 +127,7 @@ export function BillingPanel({
               ) : null}
             </>
           ) : (
-            <p className="text-bs-muted">Monthly payment not set up yet</p>
+            <p className="text-bs-muted">{direct ? "Paid to us directly each month" : "Monthly payment not set up yet"}</p>
           )}
         </div>
       </div>

@@ -8,10 +8,16 @@ export function DocumentPaper({ body }: { body: string }) {
   const lines = body.replace(/\r/g, "").split("\n");
   const first = lines.findIndex((l) => l.trim());
   const blocks: React.ReactNode[] = [];
-  let list: { ordered: boolean; items: string[] } | null = null;
+  // Ordered items keep the number written in the document, so a clause list
+  // that is interrupted by an inserted bullet list carries on at 3, not 1.
+  let list: { ordered: boolean; items: { n: number; text: string }[] } | null = null;
   const flush = () => {
     if (!list) return;
-    const items = list.items.map((t, i) => <li key={i}>{t}</li>);
+    const items = list.items.map((t, i) => (
+      <li key={i} value={list!.ordered ? t.n : undefined}>
+        {t.text}
+      </li>
+    ));
     blocks.push(
       list.ordered ? (
         <ol key={blocks.length} className="my-2 list-decimal space-y-1.5 pl-6">{items}</ol>
@@ -56,7 +62,7 @@ export function DocumentPaper({ body }: { body: string }) {
         flush();
         list = { ordered, items: [] };
       }
-      list.items.push(line.replace(ordered ? /^\d{1,2}\.\s+/ : /^[-•]\s+/, ""));
+      list.items.push({ n: ordered ? Number(line.match(/^\d+/)![0]) : 0, text: line.replace(ordered ? /^\d{1,2}\.\s+/ : /^[-•]\s+/, "") });
       return;
     }
     flush();

@@ -180,7 +180,7 @@ export default async function PortalHomePage({
 
       {billing && (billing.planName || onboarding?.billingType !== "one_off") ? (
         <Section icon={<Package className="h-5 w-5 text-bs-primary" />} title="Your package">
-          <BillingPanel token={token} billing={billing} justSubscribed={subscribed === "1"} />
+          <BillingPanel token={token} billing={billing} justSubscribed={subscribed === "1"} direct={onboarding?.paymentMethod === "cash"} />
         </Section>
       ) : null}
 

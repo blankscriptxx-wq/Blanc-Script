@@ -175,10 +175,17 @@ export async function createClientDocument(clientId: string, templateId: string)
   const extras = ob?.extras ?? [];
   const oneOff = ob?.billingType === "one_off";
   const body = mergeTemplate(tpl.body, {
-    add_ons: oneOff
-      ? ""
-      : extras.map((x) => `${x.name} — ${gbp(x.pricePence)}${x.cadence === "monthly" ? " a month" : " (one-off)"}`).join("\n"),
-    deliverables: ob?.deliverables ?? "",
+    add_ons:
+      oneOff || !extras.length
+        ? "- None"
+        : extras.map((x) => `- ${x.name} — ${gbp(x.pricePence)}${x.cadence === "monthly" ? " a month" : " (one-off)"}`).join("\n"),
+    deliverables:
+      (ob?.deliverables ?? "")
+        .split("\n")
+        .map((l) => l.trim().replace(/^[-•]\s*/, ""))
+        .filter(Boolean)
+        .map((l) => `- ${l}`)
+        .join("\n") || "- As set out in your package",
     project_name: oneOff ? (ob?.projectTitle ?? "") : "",
     project_fee: oneOff ? gbp(extras.reduce((n, x) => n + x.pricePence, 0)) : "",
     client_name: c.name,
