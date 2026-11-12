@@ -132,7 +132,9 @@ export async function createProposal(clientId: string): Promise<{ id: string }> 
     content.investment.body = "A fixed price for the project, covering everything listed below.";
     content.investment.includes = extras.map((x) => x.name).slice(0, 10);
   } else {
-    const monthly = ob?.monthlyPence ?? client.override ?? client.planPrice;
+    // A draft onboarding is the newest thinking; otherwise use what the client is on now.
+    const current = client.override ?? client.planPrice;
+    const monthly = ob?.status === "draft" ? (ob.monthlyPence ?? current) : (current ?? ob?.monthlyPence);
     if (monthly) {
       content.investment.price = gbp(monthly);
       content.investment.priceNote = `a month${client.planName ? ` — ${client.planName}` : ""}`;
