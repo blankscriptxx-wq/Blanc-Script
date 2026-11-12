@@ -7,16 +7,10 @@ import { Spotlight, CountUp, PulseDot, Reveal } from "@/components/ds/motion";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db/client";
 import { servicePlans } from "@/lib/db/schema";
+import { getTodayStats } from "@/lib/data/today";
 
 export const metadata = { title: "Today" };
 export const dynamic = "force-dynamic";
-
-const KPIS = [
-  { label: "Footage due", hint: "Shoots awaiting handover" },
-  { label: "My edits", hint: "Assigned to you" },
-  { label: "Overdue", hint: "Invoices past due" },
-  { label: "Approvals", hint: "Waiting on a client" },
-];
 
 export default async function TodayPage() {
   const user = await getCurrentUser();
@@ -29,13 +23,23 @@ export default async function TodayPage() {
     timeZone: "Europe/London",
   }).format(new Date());
 
-  const plans = user.orgId
-    ? await getDb()
-        .select()
-        .from(servicePlans)
-        .where(eq(servicePlans.orgId, user.orgId))
-        .orderBy(asc(servicePlans.sortOrder))
-    : [];
+  const [plans, stats] = await Promise.all([
+    user.orgId
+      ? getDb()
+          .select()
+          .from(servicePlans)
+          .where(eq(servicePlans.orgId, user.orgId))
+          .orderBy(asc(servicePlans.sortOrder))
+      : Promise.resolve([]),
+    getTodayStats(),
+  ]);
+
+  const kpis = [
+    { label: "Clients", value: stats.clients, hint: "On the books" },
+    { label: "Active projects", value: stats.activeProjects, hint: "In delivery" },
+    { label: "Upcoming shoots", value: stats.upcomingShoots, hint: "Booked / on site" },
+    { label: "Open tasks", value: stats.openTasks, hint: "Still to do" },
+  ];
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -46,11 +50,13 @@ export default async function TodayPage() {
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {KPIS.map((k, i) => (
+        {kpis.map((k, i) => (
           <Reveal key={k.label} delay={i * 0.05}>
             <Spotlight className="rounded-md border border-bs-border bg-bs-surface p-4">
               <div className="text-eyebrow uppercase text-bs-subtle">{k.label}</div>
-              <div className="mt-1 text-sm text-bs-subtle">—</div>
+              <div className="mt-1 font-display text-h1 text-bs-text">
+                <CountUp value={k.value} />
+              </div>
               <div className="mt-1 text-xs text-bs-muted">{k.hint}</div>
             </Spotlight>
           </Reveal>

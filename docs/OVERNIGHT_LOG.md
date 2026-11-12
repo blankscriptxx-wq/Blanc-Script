@@ -32,3 +32,6 @@ Why deferred: it needs the Neon Auth JWT surfaced from the session, a driver swa
 
 ## Module build (parallel agents)
 - Launched 3 build agents (Projects, Shoots, Team). Integrating each as it lands (mark nav live, build green, commit).
+- **Projects, Shoots, Team modules — DONE** (built by 3 parallel agents, integrated + verified: team lists the owner, project create persists). Nav live for Clients/Projects/Shoots/Team.
+- **Command Centre (Today) — wired to real counts**: Clients, Active projects, Upcoming shoots, Open tasks (live, org-scoped, count-up animated).
+- Next: expanding schema for Talent + Finance, then agents build those.
