@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { EmptyState } from "@/components/ds/empty-state";
 import { PageHeader } from "@/components/ds/page-header";
 import { NewMenu } from "@/components/today/new-menu";
@@ -34,7 +34,8 @@ export default async function TodayPage() {
       ? getDb()
           .select()
           .from(servicePlans)
-          .where(eq(servicePlans.orgId, user.orgId))
+          // Removed (archived) packages stay out of the list.
+          .where(and(eq(servicePlans.orgId, user.orgId), isNull(servicePlans.archivedAt)))
           .orderBy(asc(servicePlans.sortOrder))
       : Promise.resolve([]),
     getTodayStats(),
