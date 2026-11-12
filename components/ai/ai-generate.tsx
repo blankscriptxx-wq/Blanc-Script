@@ -2,6 +2,7 @@
 import * as React from "react";
 import { Sparkles, Loader2, Copy, Check } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { AiText } from "@/components/ai/markdown";
 
 export type AiResult = { ok: true; text: string } | { ok: false; error: string };
 
@@ -64,7 +65,7 @@ export function AiGenerate({
       {error ? <p className="text-xs text-bs-danger">{error}</p> : null}
       {result ? (
         <div className="rounded-sm border border-bs-border bg-bs-surface-2 p-3">
-          <p className="whitespace-pre-wrap text-sm text-bs-text">{result}</p>
+          <AiText text={result} className="text-sm text-bs-text" />
           <button
             type="button"
             onClick={() => {

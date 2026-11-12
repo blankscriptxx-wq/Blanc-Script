@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Sparkles, X, ArrowUp, Loader2 } from "lucide-react";
 import { askAssistantAction } from "@/app/(os)/(app)/ai/actions";
 import { cn } from "@/lib/cn";
+import { AiText } from "@/components/ai/markdown";
 
 const QUICK_ACTIONS = [
   "What needs me today?",
@@ -114,7 +115,11 @@ export function AIPanel({ open, onClose }: { open: boolean; onClose: () => void 
                             : "mr-6 bg-bs-surface text-bs-text",
                       )}
                     >
-                      <p className="whitespace-pre-wrap leading-relaxed">{m.text}</p>
+                      {m.role === "assistant" ? (
+                        <AiText text={m.text} />
+                      ) : (
+                        <p className="whitespace-pre-wrap leading-relaxed">{m.text}</p>
+                      )}
                     </div>
                   ))}
                   {pending ? (

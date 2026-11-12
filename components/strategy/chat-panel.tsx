@@ -11,6 +11,7 @@ import {
 import type { ThreadRow } from "@/lib/data/client-chat";
 import type { ChatMessage } from "@/lib/ai/claude";
 import { cn } from "@/lib/cn";
+import { AiText } from "@/components/ai/markdown";
 
 type Bubble = { role: "user" | "assistant" | "error"; text: string };
 
@@ -300,7 +301,11 @@ function ChatBubble({
             : "mr-10 bg-bs-surface-2 text-bs-text",
       )}
     >
-      <p className="whitespace-pre-wrap leading-relaxed">{text}</p>
+      {role === "assistant" ? (
+        <AiText text={text} />
+      ) : (
+        <p className="whitespace-pre-wrap leading-relaxed">{text}</p>
+      )}
       {role === "assistant" ? (
         <button
           type="button"

@@ -46,6 +46,7 @@ export async function researchClientAction(clientId: string): Promise<AiResult> 
       prompt: `Client: ${profile.clientName}. ${profile.brandSummary ? `What we know: ${profile.brandSummary}` : ""} ${profile.notes ?? ""}`.trim(),
       maxTokens: 2500,
     });
+    if (!report.trim()) return { ok: false, error: "Research came back empty. Please try again." };
 
     // Structure the report into a draft profile + proposals.
     const structured = await runJson<{
@@ -59,7 +60,8 @@ export async function researchClientAction(clientId: string): Promise<AiResult> 
       system:
         "Extract a strategy brief from this research as JSON with keys: brandSummary, audience, tone, pillars (array), competitors (array of {name, insight}), opportunities (array of {title, detail}).",
       prompt: report,
-      maxTokens: 1500,
+      // Generous: a truncated reply is unparseable and would lose everything.
+      maxTokens: 4000,
     }).catch(() => ({}) as Record<string, never>);
 
     // Seed profile fields only where currently empty (a draft to refine).
@@ -89,6 +91,19 @@ export async function researchClientAction(clientId: string): Promise<AiResult> 
         content: o.detail ?? "",
         source: "research",
       }).catch(() => {});
+
+    // Never lose a finished report: if it couldn't be broken into findings,
+    // propose the report itself so it can still be approved into the brain.
+    const found = (structured.competitors?.length ?? 0) + (structured.opportunities?.length ?? 0);
+    if (!found) {
+      await proposeKnowledge({
+        clientId,
+        kind: "insight",
+        title: "Research report",
+        content: report.slice(0, 4000),
+        source: "research",
+      }).catch(() => {});
+    }
 
     revalidatePath(path(clientId));
     return { ok: true, text: report };
