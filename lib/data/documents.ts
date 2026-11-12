@@ -201,6 +201,9 @@ export async function createClientDocument(clientId: string, templateId: string)
     agency_name: org?.name ?? "Blanc Script",
     agency_address: org?.addressText ?? "",
     agency_email: org?.billingEmail ?? "",
+    agency_legal_name: String((org?.settings as Record<string, unknown> | null)?.legalName ?? org?.name ?? ""),
+    agency_company_number: String((org?.settings as Record<string, unknown> | null)?.companyNumber ?? ""),
+    agency_phone: String((org?.settings as Record<string, unknown> | null)?.phone ?? ""),
   });
   const [row] = await db
     .insert(clientDocuments)

@@ -20,6 +20,9 @@ export const MERGE_FIELDS = [
   { key: "agency_name", label: "Your business name" },
   { key: "agency_address", label: "Your address (Settings)" },
   { key: "agency_email", label: "Your billing email (Settings)" },
+  { key: "agency_legal_name", label: "Your registered company name" },
+  { key: "agency_company_number", label: "Your company number" },
+  { key: "agency_phone", label: "Your telephone" },
 ] as const;
 
 export type MergeKey = (typeof MERGE_FIELDS)[number]["key"];
