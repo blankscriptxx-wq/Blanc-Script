@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { signOutAction } from "@/app/(os)/auth/sign-out/actions";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Bell,
@@ -14,6 +15,7 @@ import {
   SquarePen,
   CornerDownLeft,
   type LucideIcon,
+  LogOut,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { NAV, SETTINGS_ITEM, type NavItem } from "@/lib/nav";
@@ -165,6 +167,18 @@ function Sidebar({
             <div className="truncate text-sm font-medium">{user.name}</div>
             <div className="truncate text-xs text-bs-subtle">{user.orgName}</div>
           </div>
+        ) : null}
+        {!collapsed ? (
+          <form action={signOutAction} className="ml-auto">
+            <button
+              type="submit"
+              aria-label="Sign out"
+              title="Sign out"
+              className="grid h-8 w-8 place-items-center rounded-sm text-bs-muted transition-colors hover:bg-bs-surface-2 hover:text-bs-text"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </form>
         ) : null}
       </div>
     </aside>

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { getCurrentUser } from "@/lib/auth/session";
 import { NAV, SETTINGS_ITEM } from "@/lib/nav";
+import { signOutAction } from "@/app/(os)/auth/sign-out/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,7 @@ export default async function AppGroupLayout({
           linked to a workspace yet. An owner needs to grant you access before the
           dashboard opens.
         </p>
-        <form action="/api/auth/sign-out" method="post" className="mt-6">
+        <form action={signOutAction} className="mt-6">
           <button className="text-sm text-bs-primary hover:underline">Sign out</button>
         </form>
       </div>
