@@ -22,11 +22,13 @@ export default async function AppGroupLayout({
     if (portal) redirect(portal);
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center bg-bs-canvas px-6 text-center text-bs-text">
+        {/* Re-check every few seconds, so access granted a moment later opens the studio by itself. */}
+        <meta httpEquiv="refresh" content="5" />
         <p className="font-serif text-h1 italic">You're signed in.</p>
         <p className="mt-2 max-w-md text-sm text-bs-muted">
           Your account (<span className="font-medium">{user.email}</span>) isn't
           linked to a workspace yet. An owner needs to grant you access before the
-          dashboard opens.
+          dashboard opens. This page checks again by itself every few seconds.
         </p>
         <form action={signOutAction} className="mt-6">
           <button className="text-sm text-bs-primary hover:underline">Sign out</button>
