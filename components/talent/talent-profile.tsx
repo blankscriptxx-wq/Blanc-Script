@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, Camera, FolderKanban, CalendarRange, Receipt, Star } from "lucide-react";
 import { StatusPill } from "@/components/ds/status-pill";
 import { AvailabilityPanel } from "@/components/talent/availability-panel";
+import { DraftBioButton, DraftOutreachButton } from "@/components/talent/talent-ai";
 import type {
   TalentProfile,
   TalentProfileInvoice,
@@ -104,6 +105,9 @@ export function TalentProfileView({ profile }: { profile: TalentProfile }) {
             ))}
           </div>
         ) : null}
+        <div className="mt-3">
+          <DraftBioButton talentId={t.id} />
+        </div>
         <div className="mt-3 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
           <Detail label="Email" value={t.email ?? "—"} />
           <Detail label="Phone" value={t.phone ?? "—"} />
@@ -125,6 +129,9 @@ export function TalentProfileView({ profile }: { profile: TalentProfile }) {
           <Detail label="Height" value={t.heightCm != null ? `${t.heightCm} cm` : "—"} />
           <Detail label="Wardrobe / sizes" value={t.wardrobeNotes ?? "—"} />
           <Detail label="On book since" value={dateFmt.format(new Date(t.createdAt))} />
+        </div>
+        <div className="mt-3">
+          <DraftOutreachButton talentId={t.id} />
         </div>
         {canSeePay && hasBank ? (
           <div className="mt-3 border-t border-bs-border pt-3">

@@ -17,6 +17,8 @@ import type { ShootCasting, TalentPickerOption } from "@/lib/data/castings";
 import { Uploader } from "@/components/uploads/uploader";
 import { FileList } from "@/components/uploads/file-list";
 import type { MediaAssetRow } from "@/lib/data/media";
+import { AiGenerate } from "@/components/ai/ai-generate";
+import { draftCallSheetAction, draftShotListAction } from "@/app/(app)/shoots/ai-actions";
 import { cn } from "@/lib/cn";
 
 const dateFmt = new Intl.DateTimeFormat("en-GB", {
@@ -171,6 +173,19 @@ export function ShootsView({
                 <Uploader context={{ shootId: selected.id }} configured={storageReady} label="Upload" />
               </div>
               <FileList rows={media.filter((m) => m.shootId === selected.id)} />
+            </div>
+            <div className="border-t border-bs-border pt-4">
+              <h3 className="mb-2 text-sm font-medium text-bs-text">Assistant</h3>
+              <div className="space-y-3">
+                <AiGenerate
+                  label="Draft call sheet"
+                  action={() => draftCallSheetAction(selected.id)}
+                />
+                <AiGenerate
+                  label="Draft shot list"
+                  action={() => draftShotListAction(selected.id)}
+                />
+              </div>
             </div>
           </div>
         ) : null}

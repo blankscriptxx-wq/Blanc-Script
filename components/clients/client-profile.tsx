@@ -19,6 +19,7 @@ import { StatusPill } from "@/components/ds/status-pill";
 import { Button } from "@/components/ds/button";
 import { Dialog } from "@/components/ds/dialog";
 import { addContactAction } from "@/app/(app)/clients/[id]/actions";
+import { DraftSummaryButton, DraftEmailButton } from "@/components/clients/client-ai";
 import type {
   ClientProfile,
   ClientProfileProjectStatus,
@@ -131,6 +132,9 @@ export function ClientProfileView({ profile }: { profile: ClientProfile }) {
           <Detail label="Currency" value={c.currency} />
           <Detail label="Client since" value={dateFmt.format(new Date(c.createdAt))} />
         </div>
+        <div className="mt-4 border-t border-bs-border pt-4">
+          <DraftSummaryButton clientId={c.id} />
+        </div>
       </div>
 
       {/* Summary tiles */}
@@ -151,9 +155,12 @@ export function ClientProfileView({ profile }: { profile: ClientProfile }) {
             <Users className="h-4 w-4 text-bs-subtle" />
             <h2 className="font-display text-h3">Contacts</h2>
           </div>
-          <Button size="sm" onClick={() => setAddOpen(true)}>
-            <Plus className="h-4 w-4" /> Add contact
-          </Button>
+          <div className="flex items-center gap-2">
+            <DraftEmailButton clientId={c.id} />
+            <Button size="sm" onClick={() => setAddOpen(true)}>
+              <Plus className="h-4 w-4" /> Add contact
+            </Button>
+          </div>
         </div>
         {contacts.length === 0 ? (
           <p className="rounded-md border border-dashed border-bs-border bg-bs-surface px-4 py-6 text-sm text-bs-subtle">
