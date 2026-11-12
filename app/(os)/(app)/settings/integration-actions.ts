@@ -6,6 +6,7 @@ import { connectStripeWebhook } from "@/lib/data/billing";
 import { archiveTemplate, saveTemplate } from "@/lib/data/documents";
 import { emailConfigured, sendEmail } from "@/lib/email/send";
 import { stripeConfigured } from "@/lib/payments/stripe";
+import { setFollowUpsEnabled } from "@/lib/data/followups";
 
 export type SettingsResult = { ok: true; message: string } | { ok: false; error: string };
 
@@ -69,5 +70,17 @@ export async function archiveTemplateAction(id: string): Promise<SettingsResult>
     return { ok: true, message: "Template removed." };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Could not remove the template." };
+  }
+}
+
+/** Switch the daily follow-up emails on or off for this workspace. */
+export async function setFollowUpsAction(on: boolean): Promise<SettingsResult> {
+  try {
+    const user = await settingsUser();
+    await setFollowUpsEnabled(user.orgId, on);
+    revalidatePath("/settings");
+    return { ok: true, message: on ? "Follow-up emails are on." : "Follow-up emails are off." };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not change the setting." };
   }
 }

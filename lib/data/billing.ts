@@ -1,9 +1,10 @@
 import "server-only";
-import { and, asc, desc, eq, gt, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import {
   activityLog,
   clientContacts,
+  clientOnboardings,
   clients,
   invoiceLineItems,
   invoices,
@@ -142,18 +143,37 @@ export async function startSubscriptionCheckout(
   if (subscriptionIsLive(c.subscriptionStatus)) throw new Error("This client already has a subscription.");
   const plan = await loadPlan(orgId, c.servicePlanId);
   const amount = c.retainerOverridePence ?? plan.pricePence;
-  if (plan.bespoke || !amount || amount < 50) {
+  if (!amount || amount < 50) {
     throw new Error("This package has no monthly price, so it can't be billed by subscription.");
   }
   const [customerId, priceId] = await Promise.all([
     ensureStripeCustomer(orgId, clientId),
     ensurePlanPrice(orgId, plan.id, amount, c.currency),
   ]);
+  // Add-ons agreed at onboarding ride along: monthly ones recur, one-offs bill once.
+  const [ob] = await getDb()
+    .select({ extras: clientOnboardings.extras })
+    .from(clientOnboardings)
+    .where(
+      and(
+        eq(clientOnboardings.orgId, orgId),
+        eq(clientOnboardings.clientId, clientId),
+        eq(clientOnboardings.billingType, "subscription"),
+        inArray(clientOnboardings.status, ["sent", "completed"]),
+      ),
+    )
+    .orderBy(desc(clientOnboardings.createdAt))
+    .limit(1);
+  const extras = (ob?.extras ?? [])
+    .filter((x) => x.pricePence >= 1)
+    .map((x) => ({ name: x.name, amountPence: x.pricePence, recurring: x.cadence === "monthly" }));
   const base = appOrigin();
   const sep = returnPath.includes("?") ? "&" : "?";
   const session = await createSubscriptionCheckout({
     customerId,
     priceId,
+    extras,
+    currency: c.currency,
     clientId,
     planId: plan.id,
     successUrl: `${base}${returnPath}${sep}subscribed=1`,
@@ -163,6 +183,11 @@ export async function startSubscriptionCheckout(
 }
 
 // ── Keeping the OS in step with Stripe ────────────────────────────────────
+
+/** The subscription line that is the package itself (add-ons are other lines). */
+function planItem(sub: StripeSubscription) {
+  return sub.items.data.find((i) => i.price.metadata?.plan_id) ?? sub.items.data[0];
+}
 
 /** Apply a Stripe subscription's state to its client (status, renewal date, package). */
 async function applySubscription(sub: StripeSubscription): Promise<string | null> {
@@ -180,7 +205,7 @@ async function applySubscription(sub: StripeSubscription): Promise<string | null
   if (!c) return null;
 
   // Which package is this price? (list prices are stored on the plan)
-  const priceId = sub.items.data[0]?.price.id;
+  const priceId = planItem(sub)?.price.id;
   let planId: string | null = null;
   if (priceId) {
     const [byPrice] = await db
@@ -271,7 +296,7 @@ export async function upgradeSubscription(
   if (!target) throw new Error("That package isn't available as an upgrade.");
 
   const sub = await getSubscription(c.stripeSubscriptionId);
-  const item = sub.items.data[0];
+  const item = planItem(sub);
   if (!item) throw new Error("The subscription has no package attached in Stripe.");
   const priceId = await ensurePlanPrice(orgId, target.id, target.pricePence, c.currency);
   const updated = await changeSubscriptionPrice({
@@ -308,7 +333,7 @@ export async function billingPortalUrl(orgId: string, clientId: string, returnPa
 
 // ── Stripe invoice → OS invoice ───────────────────────────────────────────
 
-async function nextInvoiceNumber(orgId: string): Promise<string> {
+export async function nextInvoiceNumber(orgId: string): Promise<string> {
   const { rows } = await getDb().execute(sql`
     select coalesce(max((substring(number from '^BS-([0-9]+)$'))::int), 1000) as n
     from invoices where org_id = ${orgId}
@@ -456,6 +481,8 @@ export async function handleBillingEvent(event: StripeEvent): Promise<string> {
         entityId: c.id,
         meta: { via: "stripe" },
       });
+      const { sendPaymentFailedEmail } = await import("@/lib/data/followups");
+      await sendPaymentFailedEmail(c.orgId, c.id).catch(() => {});
       return "payment_failed_logged";
     }
     default:

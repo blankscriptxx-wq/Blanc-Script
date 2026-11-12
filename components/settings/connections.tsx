@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import {
   connectStripeAction,
+  setFollowUpsAction,
   sendTestEmailAction,
   type SettingsResult,
 } from "@/app/(os)/(app)/settings/integration-actions";
@@ -13,9 +14,11 @@ import {
 export function Connections({
   stripe,
   email,
+  followUps,
 }: {
   stripe: { configured: boolean; mode: "test" | "live" | null; connected: boolean };
   email: { configured: boolean; from: string };
+  followUps: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = React.useState("");
@@ -84,6 +87,28 @@ export function Connections({
           Send me a test email
         </button>
         {note?.key === "email" ? (
+          <p className={`mt-2 text-xs ${note.ok ? "text-bs-success" : "text-bs-danger"}`}>{note.text}</p>
+        ) : null}
+      </div>
+
+      <div className="rounded-md border border-bs-border p-4">
+        <p className="text-sm font-medium text-bs-text">Automatic follow-up emails</p>
+        <p className="mt-0.5 text-sm text-bs-muted">
+          {followUps ? "On." : "Off."} Once a day the OS politely chases clients who haven&rsquo;t finished setting up
+          (login, documents, payment), documents waiting to be accepted, overdue invoices and cuts waiting for review.
+          Each is chased a few times, days apart, then left alone.
+          {email.configured ? "" : " Nothing is sent until email is connected."}
+        </p>
+        <button
+          type="button"
+          className={`${btn} mt-2`}
+          disabled={busy !== ""}
+          onClick={() => run("followups", () => setFollowUpsAction(!followUps))}
+        >
+          {busy === "followups" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+          {followUps ? "Turn follow-ups off" : "Turn follow-ups on"}
+        </button>
+        {note?.key === "followups" ? (
           <p className={`mt-2 text-xs ${note.ok ? "text-bs-success" : "text-bs-danger"}`}>{note.text}</p>
         ) : null}
       </div>

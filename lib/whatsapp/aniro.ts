@@ -5,7 +5,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
  * Aniro WhatsApp gateway — the OS side of the contract described in
  * docs/aniro-whatsapp-brief.md.
  *
- *   ANIRO_API_URL         base URL of Aniro's API, e.g. https://api.aniro.ai
+ *   ANIRO_API_URL         base URL of Aniro's API, https://www.aniro.ai (the bare domain redirects)
  *   ANIRO_API_KEY         bearer key the OS uses to send
  *   ANIRO_WEBHOOK_SECRET  shared secret Aniro signs its webhooks with
  *
@@ -29,7 +29,7 @@ export function normalisePhone(raw: string | null | undefined): string | null {
 
 export type SendResult =
   | { ok: true; externalId: string | null; status: string }
-  | { ok: false; error: string };
+  | { ok: false; error: string; externalId?: string | null };
 
 /** Send one text message. `reference` is the OS message id (idempotency key). */
 export async function sendWhatsApp(input: {
@@ -37,7 +37,10 @@ export async function sendWhatsApp(input: {
   text: string;
   reference: string;
 }): Promise<SendResult> {
-  const base = process.env.ANIRO_API_URL?.trim().replace(/\/$/, "");
+  // Aniro only answers on www; the bare domain redirects and drops the POST body.
+  const base = process.env.ANIRO_API_URL?.trim()
+    .replace(/\/$/, "")
+    .replace(/^https?:\/\/aniro\.ai/i, "https://www.aniro.ai");
   const key = process.env.ANIRO_API_KEY?.trim();
   if (!base || !key) return { ok: false, error: "WhatsApp isn't connected yet." };
   try {
@@ -59,7 +62,7 @@ export async function sendWhatsApp(input: {
     };
     if (!res.ok) {
       const message = typeof json.error === "string" ? json.error : json.error?.message;
-      return { ok: false, error: message || `Aniro returned ${res.status}.` };
+      return { ok: false, error: message || `Aniro returned ${res.status}.`, externalId: json.id ?? null };
     }
     return { ok: true, externalId: json.id ?? null, status: json.status ?? "queued" };
   } catch (e) {

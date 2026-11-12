@@ -6,6 +6,7 @@ import {
   activityLog,
   clientContacts,
   clientDocuments,
+  clientOnboardings,
   clients,
   documentTemplates,
   organisations,
@@ -144,11 +145,33 @@ export async function createClientDocument(clientId: string, templateId: string)
     .limit(1);
 
   const fee = c.retainerOverridePence ?? c.planPricePence;
+  const gbp = (p: number) => new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(p / 100);
+  // What was agreed at onboarding (add-ons, deliverables, a one-off project).
+  const [ob] = await db
+    .select()
+    .from(clientOnboardings)
+    .where(
+      and(
+        eq(clientOnboardings.orgId, user.orgId),
+        eq(clientOnboardings.clientId, clientId),
+        inArray(clientOnboardings.status, ["draft", "sent", "completed"]),
+      ),
+    )
+    .orderBy(desc(clientOnboardings.createdAt))
+    .limit(1);
+  const extras = ob?.extras ?? [];
+  const oneOff = ob?.billingType === "one_off";
   const body = mergeTemplate(tpl.body, {
+    add_ons: oneOff
+      ? ""
+      : extras.map((x) => `${x.name} — ${gbp(x.pricePence)}${x.cadence === "monthly" ? " a month" : " (one-off)"}`).join("\n"),
+    deliverables: ob?.deliverables ?? "",
+    project_name: oneOff ? (ob?.projectTitle ?? "") : "",
+    project_fee: oneOff ? gbp(extras.reduce((n, x) => n + x.pricePence, 0)) : "",
     client_name: c.name,
     contact_name: contact?.name ?? "",
     contact_email: contact?.email ?? "",
-    package_name: c.planName ?? "",
+    package_name: oneOff ? "" : (c.planName ?? ""),
     monthly_fee:
       fee != null ? new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(fee / 100) : "",
     start_date: new Intl.DateTimeFormat("en-GB", { dateStyle: "long", timeZone: "Europe/London" }).format(new Date()),

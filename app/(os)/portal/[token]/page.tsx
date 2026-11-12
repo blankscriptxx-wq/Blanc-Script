@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowRight, CalendarRange, Camera, Clapperboard, FileText, Package, Receipt, Upload } from "lucide-react";
+import { ArrowRight, CalendarRange, Camera, Clapperboard, FileText, Handshake, Package, Receipt, Rocket, Upload } from "lucide-react";
 import { StatusPill } from "@/components/ds/status-pill";
 import { PayButton } from "@/components/portal/pay-button";
 import { BillingPanel } from "@/components/portal/billing-panel";
 import { UploadPanel } from "@/components/portal/upload-panel";
+import { OnboardingSteps } from "@/components/portal/onboarding-steps";
+import { getPortalOnboarding } from "@/lib/data/onboarding";
 import { getBillingSummary } from "@/lib/data/billing";
 import { listPortalDocuments } from "@/lib/data/documents";
 import { listPortalUploads } from "@/lib/data/client-uploads";
@@ -87,6 +89,8 @@ export default async function PortalHomePage({
   const { subscribed } = await searchParams;
   const ctx = await resolvePortal(token);
   if (!ctx) redirect(`/portal/enter?t=${encodeURIComponent(token)}`);
+  // First, so a payment just made (or a finished onboarding) shows in what follows.
+  const onboarding = await getPortalOnboarding(ctx).catch(() => null);
   const [home, billingRaw, documents, uploads] = await Promise.all([
     getPortalHome(ctx),
     getBillingSummary(ctx.orgId, ctx.clientId).catch(() => null),
@@ -94,7 +98,7 @@ export default async function PortalHomePage({
     listPortalUploads(ctx).catch(() => []),
   ]);
   const billing = billingRaw
-    ? { ...billingRaw, canStart: billingRaw.canStart && stripeConfigured(), upgrades: stripeConfigured() ? billingRaw.upgrades : [] }
+    ? { ...billingRaw, canStart: billingRaw.canStart && stripeConfigured() && onboarding?.status !== "sent", upgrades: stripeConfigured() ? billingRaw.upgrades : [] }
     : null;
   const waiting = home.deliverables.filter((d) => d.status === "in_review").length;
   const toAccept = documents.filter((d) => d.status === "sent").length;
@@ -114,7 +118,66 @@ export default async function PortalHomePage({
           : ""}
       </p>
 
-      {billing ? (
+      {onboarding?.status === "sent" ? (
+        <Section icon={<Rocket className="h-5 w-5 text-bs-primary" />} title="Getting started">
+          <OnboardingSteps
+            token={token}
+            ob={{
+              status: onboarding.status,
+              billingType: onboarding.billingType,
+              progress: onboarding.progress,
+              nextDocumentId: onboarding.nextDocumentId,
+              invoice: onboarding.invoice,
+              canPayByCard: stripeConfigured(),
+            }}
+          />
+        </Section>
+      ) : null}
+
+      {onboarding ? (
+        <Section icon={<Handshake className="h-5 w-5 text-bs-primary" />} title="What we've agreed">
+          <div className="rounded-md border border-bs-border bg-bs-surface p-5 text-sm">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <p className="font-display text-h3">
+                {onboarding.billingType === "subscription"
+                  ? (onboarding.planName ?? "Your package")
+                  : (onboarding.projectTitle ?? "Your project")}
+              </p>
+              <p className="tabular-nums text-bs-text">
+                {onboarding.billingType === "subscription"
+                  ? `${money(onboarding.monthlyPence ?? 0)} a month`
+                  : `${money(onboarding.extras.reduce((n, x) => n + x.pricePence, 0))} in total`}
+              </p>
+            </div>
+            {onboarding.extras.length ? (
+              <ul className="mt-3 divide-y divide-bs-border border-t border-bs-border">
+                {onboarding.extras.map((x, i) => (
+                  <li key={i} className="flex items-baseline justify-between gap-3 py-2">
+                    <span className="text-bs-text">{x.name}</span>
+                    <span className="shrink-0 tabular-nums text-bs-muted">
+                      {money(x.pricePence)}
+                      {onboarding.billingType === "subscription" ? (x.cadence === "monthly" ? " a month" : " one-off") : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {onboarding.deliverables.length ? (
+              <>
+                <p className="mt-4 text-eyebrow uppercase text-bs-subtle">What you&rsquo;ll get</p>
+                <ul className="mt-1.5 list-disc space-y-1 pl-5 text-bs-text">
+                  {onboarding.deliverables.map((d, i) => (
+                    <li key={i}>{d}</li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
+            <p className="mt-3 text-xs text-bs-subtle">Prices exclude VAT; no VAT is charged.</p>
+          </div>
+        </Section>
+      ) : null}
+
+      {billing && (billing.planName || onboarding?.billingType !== "one_off") ? (
         <Section icon={<Package className="h-5 w-5 text-bs-primary" />} title="Your package">
           <BillingPanel token={token} billing={billing} justSubscribed={subscribed === "1"} />
         </Section>

@@ -653,6 +653,41 @@ export const clientDocuments = pgTable("client_documents", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ── Onboarding: what was agreed with a new client, and how far they've got ─
+export type OnboardingExtra = { name: string; pricePence: number; cadence: "monthly" | "one_off" };
+
+export const clientOnboardings = pgTable("client_onboardings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organisations.id),
+  clientId: uuid("client_id")
+    .notNull()
+    .references(() => clients.id),
+  status: text("status").notNull().default("draft"), // draft | sent | completed | cancelled
+  /** subscription = a monthly package; one_off = a single project invoice. */
+  billingType: text("billing_type").notNull().default("subscription"),
+  servicePlanId: uuid("service_plan_id"),
+  /** The agreed monthly price for the package (may differ from its list price). */
+  monthlyPence: integer("monthly_pence"),
+  projectTitle: text("project_title"),
+  /** Add-ons (subscription) or the invoice lines (one-off project). */
+  extras: jsonb("extras").$type<OnboardingExtra[]>().notNull().default([]),
+  /** Agreed deliverables, one per line — shown to the client and merged into documents. */
+  deliverables: text("deliverables"),
+  templateIds: jsonb("template_ids").$type<string[]>().notNull().default([]),
+  contactName: text("contact_name"),
+  contactEmail: text("contact_email"),
+  welcomeNote: text("welcome_note"),
+  portalLinkId: uuid("portal_link_id"),
+  invoiceId: uuid("invoice_id"),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  createdByUserId: uuid("created_by_user_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // ── Client portal: unguessable share links, one per person given access ───
 export const portalLinks = pgTable("portal_links", {
   id: uuid("id").primaryKey().defaultRandom(),

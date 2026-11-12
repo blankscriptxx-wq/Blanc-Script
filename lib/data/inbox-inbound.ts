@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { clientContacts, organisations, waConversations, waMessages } from "@/lib/db/schema";
 import { normalisePhone } from "@/lib/whatsapp/aniro";
@@ -98,6 +98,10 @@ export async function recordDeliveryStatus(
         ? eq(waMessages.externalId, input.externalId)
         : null;
   if (!match) return false;
+  // Receipts only move forward: a late "delivered" never overwrites "read".
+  const earlier = { queued: ["stored", "queued"], sent: ["stored", "queued"], delivered: ["stored", "queued", "sent"] }[
+    input.status as "queued" | "sent" | "delivered"
+  ];
   const rows = await getDb()
     .update(waMessages)
     .set({
@@ -105,7 +109,14 @@ export async function recordDeliveryStatus(
       deliveryError: input.status === "failed" ? (input.error ?? "Delivery failed").slice(0, 500) : null,
       ...(input.externalId ? { externalId: input.externalId } : {}),
     })
-    .where(and(eq(waMessages.orgId, orgId), eq(waMessages.direction, "outbound"), match))
+    .where(
+      and(
+        eq(waMessages.orgId, orgId),
+        eq(waMessages.direction, "outbound"),
+        match,
+        earlier ? inArray(waMessages.deliveryStatus, earlier) : undefined,
+      ),
+    )
     .returning({ id: waMessages.id });
   return rows.length > 0;
 }

@@ -11,11 +11,11 @@ type AniroEvent = {
     reference?: string;
     chat_id?: string;
     from?: string;
-    from_name?: string;
+    from_name?: string | null;
     text?: string;
     timestamp?: string;
     status?: string;
-    error?: string;
+    error?: string | null;
   };
 };
 

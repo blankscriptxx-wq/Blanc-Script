@@ -214,7 +214,11 @@ export async function sendMessage(conversationId: string, body: string) {
       .set(
         result.ok
           ? { deliveryStatus: result.status, externalId: result.externalId }
-          : { deliveryStatus: "failed", deliveryError: result.error.slice(0, 500) },
+          : {
+              deliveryStatus: "failed",
+              deliveryError: result.error.slice(0, 500),
+              ...("externalId" in result && result.externalId ? { externalId: result.externalId } : {}),
+            },
       )
       .where(eq(waMessages.id, row.id));
   }

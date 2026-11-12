@@ -106,6 +106,8 @@ export async function markInvoicePaidFromStripe(
     entityId: row.id,
     meta: { via: "stripe", source },
   });
+  const { sendInvoicePaidEmail } = await import("@/lib/data/followups");
+  await sendInvoicePaidEmail(row.orgId, row.id).catch(() => {});
   return true;
 }
 

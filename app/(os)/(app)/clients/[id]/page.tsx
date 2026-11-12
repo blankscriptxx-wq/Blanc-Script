@@ -10,6 +10,11 @@ import { listClientDocuments, listTemplates } from "@/lib/data/documents";
 import { listClientUploads, uploadAssignOptions } from "@/lib/data/client-uploads";
 import { stripeConfigured } from "@/lib/payments/stripe";
 import { getCurrentUser } from "@/lib/auth/session";
+import { OnboardingCard } from "@/components/clients/onboarding-card";
+import { getOnboarding } from "@/lib/data/onboarding";
+import { listPlanOptions } from "@/lib/data/clients";
+import { listAddOns } from "@/lib/data/addons";
+import { emailConfigured } from "@/lib/email/send";
 
 export const dynamic = "force-dynamic";
 
@@ -36,13 +41,16 @@ export default async function ClientProfilePage({
   const canDocs =
     (user?.capabilities.has("can_contract") || user?.capabilities.has("can_settings")) ?? false;
 
-  const [portalLinks, billing, documents, templates, uploads, assignOptions] = await Promise.all([
+  const [portalLinks, billing, documents, templates, uploads, assignOptions, onboarding, plans, addOns] = await Promise.all([
     listPortalLinks(id).catch(() => []),
     canMoney && user?.orgId ? getBillingSummary(user.orgId, id).catch(() => null) : null,
     canDocs ? listClientDocuments(id).catch(() => []) : [],
     canDocs ? listTemplates().catch(() => []) : [],
     listClientUploads(id).catch(() => []),
     uploadAssignOptions(id).catch(() => ({ shoots: [], scripts: [] })),
+    canMoney ? getOnboarding(id).catch(() => null) : null,
+    canMoney ? listPlanOptions().catch(() => []) : [],
+    canMoney ? listAddOns().catch(() => []) : [],
   ]);
 
   return (
@@ -51,6 +59,19 @@ export default async function ClientProfilePage({
       portalLinks={portalLinks}
       sections={
         <>
+          {canMoney ? (
+            <OnboardingCard
+              key={`${onboarding?.status ?? "none"}-${onboarding?.sentAt?.toString() ?? ""}`}
+              clientId={id}
+              onboarding={onboarding}
+              plans={plans}
+              addOns={addOns.map((a) => ({ id: a.id, name: a.name, pricePence: a.pricePence, cadence: a.cadence }))}
+              templates={templates.map((t) => ({ id: t.id, name: t.name }))}
+              contacts={profile.contacts.map((c) => ({ name: c.name, email: c.email }))}
+              emailReady={emailConfigured()}
+              stripeReady={stripeConfigured()}
+            />
+          ) : null}
           {billing ? (
             <SubscriptionCard clientId={id} billing={billing} stripeReady={stripeConfigured()} />
           ) : null}

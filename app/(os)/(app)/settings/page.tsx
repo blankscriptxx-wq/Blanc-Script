@@ -32,6 +32,7 @@ import {
   type InternalRole,
 } from "@/lib/auth/roles";
 import { NoAccess } from "@/components/ds/no-access";
+import { followUpsEnabled } from "@/lib/data/followups";
 
 export const metadata = { title: "Settings" };
 export const dynamic = "force-dynamic";
@@ -79,6 +80,7 @@ export default async function SettingsPage() {
   const templates = hasAccess ? await listTemplates().catch(() => []) : [];
   const stripeState =
     hasAccess && user?.orgId ? await stripeConnectionState(user.orgId).catch(() => ({ connected: false })) : { connected: false };
+  const followUps = hasAccess && user?.orgId ? await followUpsEnabled(user.orgId).catch(() => true) : true;
   const activity: ActivityRow[] =
     hasAccess && canViewAudit ? await listRecentActivity(50) : [];
 
@@ -299,6 +301,7 @@ export default async function SettingsPage() {
           <Connections
             stripe={{ configured: stripeConfigured(), mode: stripeMode(), connected: stripeState.connected }}
             email={{ configured: emailConfigured(), from: emailFrom() }}
+            followUps={followUps}
           />
         </section>
       ) : null}

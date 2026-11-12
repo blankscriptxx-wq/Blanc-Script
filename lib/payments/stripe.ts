@@ -136,7 +136,13 @@ export type StripeSubscription = {
   cancel_at_period_end?: boolean;
   current_period_end?: number;
   metadata?: Record<string, string>;
-  items: { data: { id: string; current_period_end?: number; price: { id: string; unit_amount: number | null } }[] };
+  items: {
+    data: {
+      id: string;
+      current_period_end?: number;
+      price: { id: string; unit_amount: number | null; metadata?: Record<string, string> | null };
+    }[];
+  };
 };
 
 export type StripeInvoice = {
@@ -203,12 +209,25 @@ export async function createSubscriptionCheckout(input: {
   planId: string;
   successUrl: string;
   cancelUrl: string;
+  /** Add-ons: monthly ones join the subscription, one-off ones go on the first invoice. */
+  extras?: { name: string; amountPence: number; recurring: boolean }[];
+  currency?: string;
 }): Promise<{ id: string; url: string }> {
+  const extras: Record<string, string | number> = {};
+  (input.extras ?? []).forEach((x, n) => {
+    const i = n + 1;
+    extras[`line_items[${i}][quantity]`] = 1;
+    extras[`line_items[${i}][price_data][currency]`] = (input.currency ?? "gbp").toLowerCase();
+    extras[`line_items[${i}][price_data][unit_amount]`] = x.amountPence;
+    extras[`line_items[${i}][price_data][product_data][name]`] = x.name.slice(0, 200);
+    if (x.recurring) extras[`line_items[${i}][price_data][recurring][interval]`] = "month";
+  });
   return call("POST", "/checkout/sessions", {
     mode: "subscription",
     customer: input.customerId,
     "line_items[0][price]": input.priceId,
     "line_items[0][quantity]": 1,
+    ...extras,
     "metadata[client_id]": input.clientId,
     "subscription_data[metadata][client_id]": input.clientId,
     "subscription_data[metadata][plan_id]": input.planId,
