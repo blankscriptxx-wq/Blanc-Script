@@ -1,0 +1,274 @@
+"use client";
+import * as React from "react";
+import { useActionState } from "react";
+import { Plus, X } from "lucide-react";
+import { StatusPill } from "@/components/ds/status-pill";
+import { cn } from "@/lib/cn";
+import {
+  assignContentTalentAction,
+  assignProjectTalentAction,
+  assignShootTalentAction,
+  removeCastingAction,
+  type CastingActionState,
+} from "@/app/(app)/castings/actions";
+import type {
+  CastingStatus,
+  ContentCasting,
+  ProjectCasting,
+  ShootCasting,
+  TalentPickerOption,
+} from "@/lib/data/castings";
+
+const gbp = new Intl.NumberFormat("en-GB", {
+  style: "currency",
+  currency: "GBP",
+  maximumFractionDigits: 0,
+});
+const timeFmt = new Intl.DateTimeFormat("en-GB", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "Europe/London",
+});
+
+const CAST_STATUS: Record<CastingStatus, { label: string; tone: React.ComponentProps<typeof StatusPill>["tone"] }> = {
+  pencilled: { label: "Pencilled", tone: "warning" },
+  confirmed: { label: "Confirmed", tone: "success" },
+  released: { label: "Released", tone: "neutral" },
+};
+
+const inputCls =
+  "h-9 w-full rounded-sm border border-bs-border-strong bg-bs-surface px-3 text-sm text-bs-text outline-none placeholder:text-bs-subtle";
+
+type Props =
+  | { kind: "shoot"; parentId: string; items: ShootCasting[]; talentOptions: TalentPickerOption[] }
+  | { kind: "project"; parentId: string; items: ProjectCasting[]; talentOptions: TalentPickerOption[] }
+  | { kind: "content"; parentId: string; items: ContentCasting[]; talentOptions: TalentPickerOption[] };
+
+export function CastingSection(props: Props) {
+  const { kind, parentId, talentOptions } = props;
+  const [open, setOpen] = React.useState(false);
+  const count = props.items.length;
+
+  return (
+    <div className="border-t border-bs-border pt-4">
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-sm font-medium text-bs-text">
+          Talent{count ? ` · ${count}` : ""}
+        </h3>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="inline-flex items-center gap-1 text-xs text-bs-subtle transition-colors hover:text-bs-text"
+        >
+          <Plus className="h-3.5 w-3.5" /> Assign
+        </button>
+      </div>
+
+      {count === 0 ? (
+        <p className="text-xs text-bs-subtle">No talent attached yet.</p>
+      ) : (
+        <ul className="space-y-2">
+          {props.kind === "shoot"
+            ? props.items.map((c) => (
+                <CastingLine
+                  key={c.id}
+                  id={c.id}
+                  kind="shoot"
+                  name={c.talentName}
+                  role={c.roleName}
+                  meta={[
+                    c.callTime ? `call ${timeFmt.format(new Date(c.callTime))}` : null,
+                    rateLabel(c.agreedRatePence, c.talentRatePence),
+                  ]}
+                  pill={CAST_STATUS[c.status]}
+                />
+              ))
+            : props.kind === "project"
+              ? props.items.map((c) => (
+                  <CastingLine
+                    key={c.id}
+                    id={c.id}
+                    kind="project"
+                    name={c.talentName}
+                    role={c.roleName}
+                    meta={[rateLabel(c.agreedRatePence, c.talentRatePence)]}
+                  />
+                ))
+              : props.items.map((c) => (
+                  <CastingLine
+                    key={c.id}
+                    id={c.id}
+                    kind="content"
+                    name={c.talentName}
+                    role={c.roleName}
+                    meta={[]}
+                  />
+                ))}
+        </ul>
+      )}
+
+      {open ? (
+        <AssignForm
+          kind={kind}
+          parentId={parentId}
+          talentOptions={talentOptions}
+          onDone={() => setOpen(false)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function rateLabel(agreed: number | null, talentRate: number | null): string | null {
+  const eff = agreed ?? talentRate;
+  if (eff == null) return null;
+  return `${gbp.format(eff / 100)}/hr${agreed == null ? " (default)" : ""}`;
+}
+
+function CastingLine({
+  id,
+  kind,
+  name,
+  role,
+  meta,
+  pill,
+}: {
+  id: string;
+  kind: "shoot" | "project" | "content";
+  name: string;
+  role: string | null;
+  meta: (string | null)[];
+  pill?: { label: string; tone: React.ComponentProps<typeof StatusPill>["tone"] };
+}) {
+  const bits = meta.filter(Boolean) as string[];
+  return (
+    <li className="flex items-start justify-between gap-3 rounded-sm bg-bs-surface-2 px-3 py-2">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="text-sm font-medium text-bs-text">{name}</span>
+          {role ? <span className="text-xs text-bs-muted">{role}</span> : null}
+          {pill ? <StatusPill tone={pill.tone}>{pill.label}</StatusPill> : null}
+        </div>
+        {bits.length ? (
+          <div className="mt-0.5 text-xs text-bs-subtle">{bits.join(" · ")}</div>
+        ) : null}
+      </div>
+      <form action={removeCastingAction}>
+        <input type="hidden" name="kind" value={kind} />
+        <input type="hidden" name="id" value={id} />
+        <button
+          type="submit"
+          aria-label={`Remove ${name}`}
+          className="rounded-sm p-1 text-bs-subtle transition-colors hover:bg-bs-surface hover:text-bs-danger"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </form>
+    </li>
+  );
+}
+
+function AssignForm({
+  kind,
+  parentId,
+  talentOptions,
+  onDone,
+}: {
+  kind: "shoot" | "project" | "content";
+  parentId: string;
+  talentOptions: TalentPickerOption[];
+  onDone: () => void;
+}) {
+  const action =
+    kind === "shoot"
+      ? assignShootTalentAction
+      : kind === "project"
+        ? assignProjectTalentAction
+        : assignContentTalentAction;
+  const [state, formAction, pending] = useActionState<CastingActionState, FormData>(
+    action,
+    {},
+  );
+  const formRef = React.useRef<HTMLFormElement>(null);
+  React.useEffect(() => {
+    if (state?.ok) formRef.current?.reset();
+  }, [state]);
+
+  const parentField =
+    kind === "shoot" ? "shootId" : kind === "project" ? "projectId" : "contentItemId";
+
+  return (
+    <form
+      ref={formRef}
+      action={formAction}
+      className="mt-3 space-y-2 rounded-sm border border-dashed border-bs-border p-3"
+    >
+      <input type="hidden" name={parentField} value={parentId} />
+      {talentOptions.length === 0 ? (
+        <p className="text-xs text-bs-subtle">
+          No active talent yet — add people in the Talent screen first.
+        </p>
+      ) : (
+        <>
+          <select name="talentId" required defaultValue="" className={cn(inputCls, "pr-8")}>
+            <option value="" disabled>
+              Choose talent…
+            </option>
+            {talentOptions.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+                {t.ratePerHourPence != null
+                  ? ` · ${gbp.format(t.ratePerHourPence / 100)}/hr`
+                  : ""}
+              </option>
+            ))}
+          </select>
+          <input name="roleName" placeholder="Role / character (optional)" className={inputCls} />
+
+          {kind === "shoot" ? (
+            <div className="grid grid-cols-2 gap-2">
+              <input type="datetime-local" name="callTime" className={inputCls} aria-label="Call time" />
+              <select name="status" defaultValue="pencilled" className={cn(inputCls, "pr-8")}>
+                <option value="pencilled">Pencilled</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="released">Released</option>
+              </select>
+            </div>
+          ) : null}
+
+          {kind === "shoot" || kind === "project" ? (
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              name="rate"
+              placeholder="Rate £/hr (optional — defaults to talent's rate)"
+              className={inputCls}
+            />
+          ) : null}
+
+          {state?.error ? (
+            <p className="text-xs text-bs-danger">{state.error}</p>
+          ) : null}
+
+          <div className="flex justify-end gap-2 pt-0.5">
+            <button
+              type="button"
+              onClick={onDone}
+              className="text-xs text-bs-subtle transition-colors hover:text-bs-text"
+            >
+              Close
+            </button>
+            <button
+              type="submit"
+              disabled={pending}
+              className="rounded-sm bg-bs-text px-3 py-1.5 text-xs font-medium text-bs-surface transition-opacity hover:opacity-90 disabled:opacity-60"
+            >
+              {pending ? "Assigning…" : "Assign talent"}
+            </button>
+          </div>
+        </>
+      )}
+    </form>
+  );
+}

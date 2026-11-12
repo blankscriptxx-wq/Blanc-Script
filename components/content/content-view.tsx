@@ -11,6 +11,8 @@ import { Sheet } from "@/components/ds/sheet";
 import { EmptyState } from "@/components/ds/empty-state";
 import { createContentAction } from "@/app/(app)/content/actions";
 import type { ContentRow, ContentChannel, ContentStatus } from "@/lib/data/content";
+import { CastingSection } from "@/components/castings/casting-section";
+import type { ContentCasting, TalentPickerOption } from "@/lib/data/castings";
 import { cn } from "@/lib/cn";
 
 type Tone = React.ComponentProps<typeof StatusPill>["tone"];
@@ -67,9 +69,13 @@ const dateTimeFmt = new Intl.DateTimeFormat("en-GB", {
 export function ContentView({
   rows,
   clientOptions,
+  castings = [],
+  talentOptions = [],
 }: {
   rows: ContentRow[];
   clientOptions: { id: string; name: string }[];
+  castings?: ContentCasting[];
+  talentOptions?: TalentPickerOption[];
 }) {
   const router = useRouter();
   const [addOpen, setAddOpen] = React.useState(false);
@@ -201,6 +207,12 @@ export function ContentView({
                 {selected.notes?.trim() ? selected.notes : "—"}
               </p>
             </div>
+            <CastingSection
+              kind="content"
+              parentId={selected.id}
+              items={castings.filter((c) => c.contentItemId === selected.id)}
+              talentOptions={talentOptions}
+            />
           </div>
         ) : null}
       </Sheet>

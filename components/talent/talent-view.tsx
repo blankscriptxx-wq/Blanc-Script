@@ -11,6 +11,12 @@ import { Sheet } from "@/components/ds/sheet";
 import { EmptyState } from "@/components/ds/empty-state";
 import { createTalentAction } from "@/app/(app)/talent/actions";
 import type { TalentRow } from "@/lib/data/talent";
+import { TalentAppearances } from "@/components/castings/talent-appearances";
+import type {
+  ContentCasting,
+  ProjectCasting,
+  ShootCasting,
+} from "@/lib/data/castings";
 import { cn } from "@/lib/cn";
 
 const gbp = new Intl.NumberFormat("en-GB", {
@@ -35,7 +41,17 @@ function rate(r: TalentRow): string {
     : `${gbp.format(r.ratePerHourPence / 100)} / hr`;
 }
 
-export function TalentView({ rows }: { rows: TalentRow[] }) {
+export function TalentView({
+  rows,
+  shootCastings = [],
+  projectCastings = [],
+  contentCastings = [],
+}: {
+  rows: TalentRow[];
+  shootCastings?: ShootCasting[];
+  projectCastings?: ProjectCasting[];
+  contentCastings?: ContentCasting[];
+}) {
   const router = useRouter();
   const [addOpen, setAddOpen] = React.useState(false);
   const [selected, setSelected] = React.useState<TalentRow | null>(null);
@@ -126,9 +142,11 @@ export function TalentView({ rows }: { rows: TalentRow[] }) {
                 {selected.notes ?? "—"}
               </p>
             </div>
-            <p className="pt-2 text-xs text-bs-subtle">
-              Shoot casting and availability attach here as those modules come online.
-            </p>
+            <TalentAppearances
+              shoots={shootCastings.filter((c) => c.talentId === selected.id)}
+              projects={projectCastings.filter((c) => c.talentId === selected.id)}
+              content={contentCastings.filter((c) => c.talentId === selected.id)}
+            />
           </div>
         ) : null}
       </Sheet>

@@ -12,6 +12,8 @@ import { EmptyState } from "@/components/ds/empty-state";
 import { PulseDot } from "@/components/ds/motion";
 import { createShootAction } from "@/app/(app)/shoots/actions";
 import type { ShootRow } from "@/lib/data/shoots";
+import { CastingSection } from "@/components/castings/casting-section";
+import type { ShootCasting, TalentPickerOption } from "@/lib/data/castings";
 import { cn } from "@/lib/cn";
 
 const dateFmt = new Intl.DateTimeFormat("en-GB", {
@@ -52,9 +54,13 @@ function ShootStatus({ status }: { status: ShootRow["status"] }) {
 export function ShootsView({
   rows,
   clientOptions,
+  castings = [],
+  talentOptions = [],
 }: {
   rows: ShootRow[];
   clientOptions: { id: string; name: string }[];
+  castings?: ShootCasting[];
+  talentOptions?: TalentPickerOption[];
 }) {
   const router = useRouter();
   const [addOpen, setAddOpen] = React.useState(false);
@@ -139,6 +145,12 @@ export function ShootsView({
             <Row label="Booked">
               <span className="tabular-nums">{formatDate(selected.createdAt)}</span>
             </Row>
+            <CastingSection
+              kind="shoot"
+              parentId={selected.id}
+              items={castings.filter((c) => c.shootId === selected.id)}
+              talentOptions={talentOptions}
+            />
             <p className="pt-2 text-xs text-bs-subtle">
               Call sheets, crew, edits and deliverables attach here as those
               modules come online.

@@ -11,6 +11,8 @@ import { Sheet } from "@/components/ds/sheet";
 import { EmptyState } from "@/components/ds/empty-state";
 import { createProjectAction } from "@/app/(app)/projects/actions";
 import type { ProjectRow } from "@/lib/data/projects";
+import { CastingSection } from "@/components/castings/casting-section";
+import type { ProjectCasting, TalentPickerOption } from "@/lib/data/castings";
 import { cn } from "@/lib/cn";
 
 const STATUS_TONE: Record<
@@ -37,9 +39,13 @@ const dateFmt = new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" });
 export function ProjectsView({
   rows,
   clientOptions,
+  castings = [],
+  talentOptions = [],
 }: {
   rows: ProjectRow[];
   clientOptions: { id: string; name: string }[];
+  castings?: ProjectCasting[];
+  talentOptions?: TalentPickerOption[];
 }) {
   const router = useRouter();
   const [addOpen, setAddOpen] = React.useState(false);
@@ -127,6 +133,12 @@ export function ProjectsView({
             <Row label="Updated">
               {dateFmt.format(new Date(selected.updatedAt))}
             </Row>
+            <CastingSection
+              kind="project"
+              parentId={selected.id}
+              items={castings.filter((c) => c.projectId === selected.id)}
+              talentOptions={talentOptions}
+            />
             <p className="pt-2 text-xs text-bs-subtle">
               Tasks, shoots and deliverables attach here as those modules come
               online.

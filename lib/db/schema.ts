@@ -103,6 +103,11 @@ export const contentStatusEnum = pgEnum("content_status", [
   "scheduled",
   "posted",
 ]);
+export const castingStatusEnum = pgEnum("casting_status", [
+  "pencilled",
+  "confirmed",
+  "released",
+]);
 
 // ── Tenancy ─────────────────────────────────────────────────────────────────
 export const organisations = pgTable("organisations", {
@@ -311,6 +316,62 @@ export const contentItems = pgTable("content_items", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ── Castings: talent linked to shoots / projects / content ────────────────
+// Join tables. `agreed_rate_pence` is a per-booking override; when null the
+// talent's standing `rate_per_hour_pence` applies (resolved in the data layer).
+
+export const shootTalent = pgTable("shoot_talent", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organisations.id),
+  shootId: uuid("shoot_id")
+    .notNull()
+    .references(() => shoots.id),
+  talentId: uuid("talent_id")
+    .notNull()
+    .references(() => talent.id),
+  roleName: text("role_name"), // character / role on the day
+  callTime: timestamp("call_time", { withTimezone: true }),
+  agreedRatePence: integer("agreed_rate_pence"), // null = use talent hourly rate
+  status: castingStatusEnum("status").notNull().default("pencilled"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const projectTalent = pgTable("project_talent", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organisations.id),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id),
+  talentId: uuid("talent_id")
+    .notNull()
+    .references(() => talent.id),
+  roleName: text("role_name"),
+  agreedRatePence: integer("agreed_rate_pence"), // null = use talent hourly rate
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const contentTalent = pgTable("content_talent", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organisations.id),
+  contentItemId: uuid("content_item_id")
+    .notNull()
+    .references(() => contentItems.id),
+  talentId: uuid("talent_id")
+    .notNull()
+    .references(() => talent.id),
+  roleName: text("role_name"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const schema = {
   organisations,
   memberships,
@@ -325,4 +386,7 @@ export const schema = {
   invoices,
   deliverables,
   contentItems,
+  shootTalent,
+  projectTalent,
+  contentTalent,
 };
