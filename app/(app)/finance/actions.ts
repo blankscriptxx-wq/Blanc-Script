@@ -9,6 +9,7 @@ export async function createInvoiceAction(
 ) {
   try {
     const clientId = (formData.get("clientId") as string) || "";
+    const talentId = (formData.get("talentId") as string) || "";
     const number = ((formData.get("number") as string) || "").trim();
     const dueAt = (formData.get("dueAt") as string) || "";
     const amountPounds = Number.parseFloat((formData.get("amount") as string) || "");
@@ -17,6 +18,7 @@ export async function createInvoiceAction(
     }
     await createInvoice({
       clientId: clientId ? clientId : null,
+      talentId: talentId ? talentId : null,
       number: number ? number : null,
       amountPence: Math.round(amountPounds * 100),
       status: ((formData.get("status") as string) || "draft") as
@@ -28,6 +30,7 @@ export async function createInvoiceAction(
       dueAt: dueAt ? new Date(dueAt) : null,
     });
     revalidatePath("/finance");
+    revalidatePath("/talent");
     return { ok: true, error: "" };
   } catch (e) {
     return { ok: false, error: (e as Error).message || "Could not create invoice." };

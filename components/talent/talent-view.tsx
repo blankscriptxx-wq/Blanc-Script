@@ -3,7 +3,8 @@
 import * as React from "react";
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import Link from "next/link";
+import { Plus, ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ds/button";
 import { StatusPill } from "@/components/ds/status-pill";
 import { Dialog } from "@/components/ds/dialog";
@@ -123,6 +124,13 @@ export function TalentView({
       >
         {selected ? (
           <div className="space-y-4">
+            <Link
+              href={`/talent/${selected.id}`}
+              className="flex items-center justify-between rounded-sm border border-bs-border bg-bs-surface-2 px-3 py-2.5 text-sm font-medium text-bs-text transition-colors hover:bg-bs-surface"
+            >
+              View full profile
+              <ArrowUpRight className="h-4 w-4 text-bs-subtle" />
+            </Link>
             <Row label="Status">
               <StatusPill tone={STATUS_TONE[selected.status]}>{cap(selected.status)}</StatusPill>
             </Row>

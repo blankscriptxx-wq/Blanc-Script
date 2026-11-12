@@ -2,7 +2,7 @@ import "server-only";
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db/client";
-import { invoices, clients, activityLog } from "@/lib/db/schema";
+import { invoices, clients, activityLog, talent } from "@/lib/db/schema";
 import { requireUser } from "@/lib/data/clients";
 
 /**
@@ -17,6 +17,8 @@ export type InvoiceRow = {
   id: string;
   number: string | null;
   clientName: string | null;
+  talentId: string | null;
+  talentName: string | null;
   amountPence: number;
   status: InvoiceStatus;
   currency: string;
@@ -31,6 +33,8 @@ export async function listInvoices(): Promise<InvoiceRow[]> {
       id: invoices.id,
       number: invoices.number,
       clientName: clients.name,
+      talentId: invoices.talentId,
+      talentName: talent.name,
       amountPence: invoices.amountPence,
       status: invoices.status,
       currency: invoices.currency,
@@ -39,6 +43,7 @@ export async function listInvoices(): Promise<InvoiceRow[]> {
     })
     .from(invoices)
     .leftJoin(clients, eq(invoices.clientId, clients.id))
+    .leftJoin(talent, eq(invoices.talentId, talent.id))
     .where(and(eq(invoices.orgId, user.orgId), isNull(invoices.archivedAt)))
     .orderBy(desc(invoices.createdAt));
   return rows as InvoiceRow[];
@@ -99,8 +104,18 @@ export async function listClientOptions() {
     .orderBy(asc(clients.name));
 }
 
+export async function listTalentOptions() {
+  const user = await requireUser();
+  return getDb()
+    .select({ id: talent.id, name: talent.name })
+    .from(talent)
+    .where(and(eq(talent.orgId, user.orgId), isNull(talent.archivedAt)))
+    .orderBy(asc(talent.name));
+}
+
 export const invoiceInput = z.object({
   clientId: z.string().uuid().nullable().optional(),
+  talentId: z.string().uuid().nullable().optional(),
   number: z.string().trim().max(80).nullable().optional(),
   amountPence: z.number().int().nonnegative(),
   status: z.enum(["draft", "sent", "approved", "paid", "overdue"]).default("draft"),
@@ -111,11 +126,21 @@ export type InvoiceInput = z.infer<typeof invoiceInput>;
 export async function createInvoice(input: InvoiceInput) {
   const user = await requireUser();
   const data = invoiceInput.parse(input);
+  // Guard: a talent payment must reference a talent in this workspace.
+  if (data.talentId) {
+    const [t] = await getDb()
+      .select({ id: talent.id })
+      .from(talent)
+      .where(and(eq(talent.id, data.talentId), eq(talent.orgId, user.orgId)))
+      .limit(1);
+    if (!t) throw new Error("That talent was not found in your workspace.");
+  }
   const [row] = await getDb()
     .insert(invoices)
     .values({
       orgId: user.orgId,
       clientId: data.clientId ?? null,
+      talentId: data.talentId ?? null,
       number: data.number ? data.number : null,
       amountPence: data.amountPence,
       status: data.status,
@@ -128,7 +153,12 @@ export async function createInvoice(input: InvoiceInput) {
     action: "invoice.created",
     entityType: "invoice",
     entityId: row.id,
-    meta: { number: data.number ?? null, amountPence: data.amountPence, status: data.status },
+    meta: {
+      number: data.number ?? null,
+      amountPence: data.amountPence,
+      status: data.status,
+      talentId: data.talentId ?? null,
+    },
   });
   return row;
 }

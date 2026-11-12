@@ -1,8 +1,8 @@
 import "server-only";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db/client";
-import { shoots, clients, activityLog } from "@/lib/db/schema";
+import { shoots, clients, activityLog, shootTalent, talent } from "@/lib/db/schema";
 import { requireUser } from "@/lib/data/clients";
 
 /**
@@ -76,8 +76,20 @@ export const shootInput = z.object({
   clientId: z.string().uuid().nullable().optional(),
   scheduledAt: z.string().trim().min(1).nullable().optional(),
   locationName: z.string().trim().max(200).nullable().optional(),
+  /** Talent to pencil onto the shoot at booking time. */
+  talentIds: z.array(z.string().uuid()).optional(),
 });
 export type ShootInput = z.infer<typeof shootInput>;
+
+/** Talent for the booking picker (active talent only). */
+export async function listTalentOptions() {
+  const user = await requireUser();
+  return getDb()
+    .select({ id: talent.id, name: talent.name, ratePerHourPence: talent.ratePerHourPence })
+    .from(talent)
+    .where(and(eq(talent.orgId, user.orgId), eq(talent.status, "active")))
+    .orderBy(asc(talent.name));
+}
 
 export async function createShoot(input: ShootInput) {
   const user = await requireUser();
@@ -99,13 +111,32 @@ export async function createShoot(input: ShootInput) {
       locationName: data.locationName ?? null,
     })
     .returning({ id: shoots.id });
+
+  // Pencil on any talent chosen during booking (org-scoped guard on ids).
+  if (data.talentIds && data.talentIds.length) {
+    const owned = await getDb()
+      .select({ id: talent.id })
+      .from(talent)
+      .where(and(eq(talent.orgId, user.orgId), inArray(talent.id, data.talentIds)));
+    const validIds = new Set(owned.map((t) => t.id));
+    const toInsert = data.talentIds
+      .filter((id) => validIds.has(id))
+      .map((talentId) => ({
+        orgId: user.orgId,
+        shootId: row.id,
+        talentId,
+        status: "pencilled" as const,
+      }));
+    if (toInsert.length) await getDb().insert(shootTalent).values(toInsert);
+  }
+
   await getDb().insert(activityLog).values({
     orgId: user.orgId,
     actorUserId: user.id,
     action: "shoot.created",
     entityType: "shoot",
     entityId: row.id,
-    meta: { title: data.title },
+    meta: { title: data.title, talentCount: data.talentIds?.length ?? 0 },
   });
   return row;
 }

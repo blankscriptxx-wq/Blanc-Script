@@ -268,6 +268,8 @@ export const invoices = pgTable("invoices", {
     .notNull()
     .references(() => organisations.id),
   clientId: uuid("client_id").references(() => clients.id),
+  /** When set, this invoice is a talent payment (money out) rather than a client bill. */
+  talentId: uuid("talent_id").references(() => talent.id),
   number: text("number"),
   status: invoiceStatusEnum("status").notNull().default("draft"),
   amountPence: integer("amount_pence").notNull().default(0),

@@ -42,10 +42,12 @@ export function FinanceView({
   rows,
   summary,
   clientOptions,
+  talentOptions = [],
 }: {
   rows: InvoiceRow[];
   summary: FinanceSummary;
   clientOptions: { id: string; name: string }[];
+  talentOptions?: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const [addOpen, setAddOpen] = React.useState(false);
@@ -86,7 +88,7 @@ export function FinanceView({
             <thead className="border-b border-bs-border bg-bs-surface-2 text-xs uppercase tracking-wide text-bs-subtle">
               <tr>
                 <th className="px-4 py-2.5 font-medium">Number</th>
-                <th className="px-4 py-2.5 font-medium">Client</th>
+                <th className="px-4 py-2.5 font-medium">Client / payee</th>
                 <th className="px-4 py-2.5 text-right font-medium">Amount</th>
                 <th className="px-4 py-2.5 font-medium">Status</th>
                 <th className="px-4 py-2.5 font-medium">Due</th>
@@ -100,7 +102,16 @@ export function FinanceView({
                   className="cursor-pointer border-b border-bs-border last:border-0 transition-colors hover:bg-bs-surface-2"
                 >
                   <td className="px-4 py-3 font-medium text-bs-text">{r.number ?? "—"}</td>
-                  <td className="px-4 py-3 text-bs-muted">{r.clientName ?? "—"}</td>
+                  <td className="px-4 py-3 text-bs-muted">
+                    {r.talentName ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        {r.talentName}
+                        <StatusPill tone="gold">Talent pay</StatusPill>
+                      </span>
+                    ) : (
+                      (r.clientName ?? "—")
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-right tabular-nums">
                     {gbp.format(r.amountPence / 100)}
                   </td>
@@ -119,6 +130,7 @@ export function FinanceView({
         open={addOpen}
         onClose={() => setAddOpen(false)}
         clientOptions={clientOptions}
+        talentOptions={talentOptions}
         onCreated={() => {
           setAddOpen(false);
           router.refresh();
@@ -138,7 +150,9 @@ export function FinanceView({
                 {titleCase(selected.status)}
               </StatusPill>
             </Row>
-            <Row label="Client">{selected.clientName ?? "—"}</Row>
+            <Row label={selected.talentName ? "Pay to talent" : "Client"}>
+              {selected.talentName ?? selected.clientName ?? "—"}
+            </Row>
             <Row label="Amount">
               <span className="tabular-nums">{gbp.format(selected.amountPence / 100)}</span>
             </Row>
@@ -177,11 +191,13 @@ function NewInvoiceDialog({
   open,
   onClose,
   clientOptions,
+  talentOptions,
   onCreated,
 }: {
   open: boolean;
   onClose: () => void;
   clientOptions: { id: string; name: string }[];
+  talentOptions: { id: string; name: string }[];
   onCreated: () => void;
 }) {
   const [state, action, pending] = useActionState(createInvoiceAction, null);
@@ -236,6 +252,18 @@ function NewInvoiceDialog({
         <Field label="Due date (optional)">
           <input name="dueAt" type="date" className={inputCls} />
         </Field>
+        {talentOptions.length > 0 ? (
+          <Field label="Pay to talent (optional)">
+            <select name="talentId" defaultValue="" className={cn(inputCls, "pr-8")}>
+              <option value="">— This is a client invoice —</option>
+              {talentOptions.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        ) : null}
         {state && !state.ok ? <p className="text-sm text-bs-danger">{state.error}</p> : null}
         <div className="flex justify-end gap-2 pt-1">
           <Button type="button" variant="ghost" onClick={onClose}>

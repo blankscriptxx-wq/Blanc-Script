@@ -22,6 +22,12 @@ const dateFmt = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Europe/London",
 });
 
+const gbp = new Intl.NumberFormat("en-GB", {
+  style: "currency",
+  currency: "GBP",
+  maximumFractionDigits: 0,
+});
+
 const STATUS_TONE: Record<ShootRow["status"], React.ComponentProps<typeof StatusPill>["tone"]> = {
   booked: "info",
   on_site: "accent",
@@ -120,6 +126,7 @@ export function ShootsView({
         open={addOpen}
         onClose={() => setAddOpen(false)}
         clientOptions={clientOptions}
+        talentOptions={talentOptions}
         onCreated={() => {
           setAddOpen(false);
           router.refresh();
@@ -175,11 +182,13 @@ function BookShootDialog({
   open,
   onClose,
   clientOptions,
+  talentOptions,
   onCreated,
 }: {
   open: boolean;
   onClose: () => void;
   clientOptions: { id: string; name: string }[];
+  talentOptions: TalentPickerOption[];
   onCreated: () => void;
 }) {
   const [state, action, pending] = useActionState(createShootAction, null);
@@ -225,6 +234,37 @@ function BookShootDialog({
             className={inputCls}
           />
         </Field>
+        {talentOptions.length > 0 ? (
+          <div className="space-y-1.5">
+            <span className="block text-sm font-medium text-bs-text">
+              Attach talent (optional)
+            </span>
+            <div className="max-h-40 space-y-1 overflow-y-auto rounded-sm border border-bs-border-strong p-2">
+              {talentOptions.map((t) => (
+                <label
+                  key={t.id}
+                  className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-bs-text transition-colors hover:bg-bs-surface-2"
+                >
+                  <input
+                    type="checkbox"
+                    name="talentIds"
+                    value={t.id}
+                    className="h-4 w-4 accent-bs-accent"
+                  />
+                  <span>{t.name}</span>
+                  {t.ratePerHourPence != null ? (
+                    <span className="ml-auto text-xs text-bs-subtle">
+                      {gbp.format(t.ratePerHourPence / 100)}/hr
+                    </span>
+                  ) : null}
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-bs-subtle">
+              Pencilled onto the shoot — set call times &amp; rates after booking.
+            </p>
+          </div>
+        ) : null}
         {state && !state.ok ? (
           <p className="text-sm text-bs-danger">{state.error}</p>
         ) : null}
