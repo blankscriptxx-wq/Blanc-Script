@@ -1,5 +1,6 @@
 import * as React from "react";
 import { cn } from "@/lib/cn";
+import { ThemeSwitcher } from "@/components/ds/theme-switcher";
 
 export function AuthCard({
   title,
@@ -22,6 +23,9 @@ export function AuthCard({
           <span className="font-display text-h2 font-semibold text-bs-text">
             Blanc Script OS
           </span>
+          <div className="ml-auto">
+            <ThemeSwitcher size="sm" />
+          </div>
         </div>
         <div className="rounded-lg border border-bs-border bg-bs-surface p-6 shadow-elev-2">
           <h1 className="font-display text-h1 text-bs-text">{title}</h1>

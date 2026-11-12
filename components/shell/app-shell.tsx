@@ -3,15 +3,10 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import {
-  Bell,
-  Moon,
-  PanelLeft,
-  Search,
-  Sparkles,
-  Sun,
-} from "lucide-react";
+import { Bell, PanelLeft, Search, Sparkles } from "lucide-react";
+import { motion } from "framer-motion";
 import { NAV, SETTINGS_ITEM, type NavItem } from "@/lib/nav";
+import { ThemeSwitcher } from "@/components/ds/theme-switcher";
 import { cn } from "@/lib/cn";
 
 export type ShellUser = {
@@ -174,13 +169,22 @@ function NavLink({
       title={collapsed ? item.label : undefined}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex items-center gap-3 rounded-sm px-2.5 py-2 text-body transition-colors",
+        "relative flex items-center gap-3 rounded-sm px-2.5 py-2 text-body transition-colors",
         collapsed && "justify-center",
         active
-          ? "bg-bs-accent-soft font-medium text-bs-accent"
+          ? "font-medium text-bs-accent"
           : "text-bs-muted hover:bg-bs-surface-2 hover:text-bs-text",
       )}
     >
+      {active ? (
+        <motion.span
+          layoutId="nav-active"
+          transition={{ type: "spring", stiffness: 400, damping: 32 }}
+          className="absolute inset-0 -z-10 rounded-sm bg-bs-accent-soft"
+        >
+          <span className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-pill bg-bs-accent" />
+        </motion.span>
+      ) : null}
       {children}
       {!collapsed && item.ready === undefined ? (
         <span className="ml-auto text-[10px] uppercase tracking-wide text-bs-subtle">
@@ -217,8 +221,8 @@ function Topbar({
           ⌘K
         </kbd>
       </button>
-      <div className="ml-auto flex items-center gap-1">
-        <ThemeToggle />
+      <div className="ml-auto flex items-center gap-2">
+        <ThemeSwitcher size="sm" />
         <button
           aria-label="Notifications"
           className="grid h-9 w-9 place-items-center rounded-sm text-bs-muted hover:bg-bs-surface-2"
@@ -233,30 +237,6 @@ function Topbar({
         </button>
       </div>
     </header>
-  );
-}
-
-function ThemeToggle() {
-  const [dark, setDark] = React.useState(false);
-  React.useEffect(() => {
-    setDark(document.documentElement.getAttribute("data-theme") === "dark");
-  }, []);
-  const toggle = () => {
-    const next = dark ? "light" : "dark";
-    document.documentElement.setAttribute("data-theme", next);
-    try {
-      localStorage.setItem("bs-theme", next);
-    } catch {}
-    setDark(!dark);
-  };
-  return (
-    <button
-      onClick={toggle}
-      aria-label="Toggle theme"
-      className="grid h-9 w-9 place-items-center rounded-sm text-bs-muted hover:bg-bs-surface-2"
-    >
-      {dark ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
-    </button>
   );
 }
 

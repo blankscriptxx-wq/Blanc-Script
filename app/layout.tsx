@@ -28,6 +28,11 @@ export default function RootLayout({
   return (
     <html lang="en-GB" suppressHydrationWarning>
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('bs-theme');if(t){document.documentElement.setAttribute('data-theme',t);}}catch(e){}})();`,
+          }}
+        />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link
