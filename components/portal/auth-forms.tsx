@@ -53,6 +53,10 @@ export function PortalClaimForm({ token, email, name }: { token: string; email: 
         />
       </label>
       <label className="block space-y-1.5">
+        <span className="block text-sm font-medium">Contact number</span>
+        <input name="phone" type="tel" required autoComplete="tel" placeholder="e.g. 07700 900123" className={inputCls} />
+      </label>
+      <label className="block space-y-1.5">
         <span className="block text-sm font-medium">Choose a password</span>
         <input
           name="password"

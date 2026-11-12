@@ -388,10 +388,10 @@ export async function inviteOwnerByEmail(email: string): Promise<EmailResult["st
     paragraphs: [
       "Hi,",
       `${user.name} has added you as an owner of the Blanc Script Studio — the workspace where we run clients, projects, shoots, edits, invoices and agreements.`,
-      `To get in, create your account using this email address (${mail}) and choose your own password. You'll land straight in the workspace with full owner access.`,
+      `To get in, press the button below — your email (${mail}) is already filled in. Add your name, choose your own password, and you'll land straight in the workspace with full owner access.`,
       "The invitation is tied to this email address, so please use it when you sign up.",
     ],
-    button: { label: "Create my account", url: `${appOrigin()}/auth/sign-up` },
+    button: { label: "Create my account", url: `${appOrigin()}/auth/sign-up?email=${encodeURIComponent(mail)}` },
     kind: "owner_invite",
   });
   return res.status;

@@ -86,6 +86,9 @@ export function Connections({
           {busy === "email" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
           Send me a test email
         </button>
+        <a href="/settings/emails" className="ml-3 text-sm font-medium text-bs-primary hover:underline">
+          View email log
+        </a>
         {note?.key === "email" ? (
           <p className={`mt-2 text-xs ${note.ok ? "text-bs-success" : "text-bs-danger"}`}>{note.text}</p>
         ) : null}

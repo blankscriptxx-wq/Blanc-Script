@@ -5,6 +5,7 @@ import { z } from "zod";
 import { getDb } from "@/lib/db/client";
 import {
   activityLog,
+  clientContacts,
   clients,
   contentItems,
   deliverableVersions,
@@ -218,7 +219,7 @@ export async function resolvePortal(token: string): Promise<PortalContext | null
  * email and their chosen password, and tie this portal access to it. If that
  * email already has an account, the password must match it.
  */
-export async function claimPortalLogin(token: string, name: string, password: string): Promise<void> {
+export async function claimPortalLogin(token: string, name: string, password: string, phone = ""): Promise<void> {
   const access = await resolvePortalAccess(token);
   if (access.state !== "claim") throw new Error("This invite has already been used. Please sign in.");
   const cleanName = z.string().trim().min(1, "Enter your name.").max(120).parse(name);
@@ -239,10 +240,57 @@ export async function claimPortalLogin(token: string, name: string, password: st
   // cookie isn't readable until the next request, so look the account up.)
   const userId = await userIdByEmail(access.email);
   if (!userId) throw new Error("We couldn't finish setting up your login. Please try again.");
-  await getDb()
+  const claimed = await getDb()
     .update(portalLinks)
     .set({ userId, label: cleanName })
-    .where(and(eq(portalLinks.token, token), isNull(portalLinks.userId), isNull(portalLinks.revokedAt)));
+    .where(and(eq(portalLinks.token, token), isNull(portalLinks.userId), isNull(portalLinks.revokedAt)))
+    .returning({ orgId: portalLinks.orgId, clientId: portalLinks.clientId });
+  const link = claimed[0];
+  if (!link) return;
+
+  // Keep the contact number they gave against their contact record.
+  const number = phone.trim().slice(0, 40);
+  if (number) {
+    const updated = await getDb()
+      .update(clientContacts)
+      .set({ phone: number, name: cleanName })
+      .where(
+        and(
+          eq(clientContacts.orgId, link.orgId),
+          eq(clientContacts.clientId, link.clientId),
+          sql`lower(${clientContacts.email}) = ${access.email.toLowerCase()}`,
+        ),
+      )
+      .returning({ id: clientContacts.id });
+    if (!updated.length) {
+      await getDb()
+        .insert(clientContacts)
+        .values({ orgId: link.orgId, clientId: link.clientId, name: cleanName, email: access.email, phone: number });
+    }
+  }
+  await getDb().insert(activityLog).values({
+    orgId: link.orgId,
+    actorUserId: null,
+    action: "portal.login_created",
+    entityType: "client",
+    entityId: link.clientId,
+    meta: { by: cleanName },
+  });
+  // Second email of the pair: the invitation came first, this confirms the account.
+  await sendEmail({
+    orgId: link.orgId,
+    to: access.email,
+    subject: "Your Blanc Script account is ready",
+    heading: `Thanks, ${cleanName.split(" ")[0]} — your account is set up`,
+    paragraphs: [
+      `Your login for the ${access.clientName} portal has been created.`,
+      "It's where you'll review and approve work, read and accept your agreement, see your invoices and package, and send us footage.",
+      "Sign in any time with this email address and the password you chose.",
+    ],
+    button: { label: "Open my portal", url: `${appOrigin()}/portal/${token}` },
+    kind: "account_created",
+    related: { type: "client", id: link.clientId },
+  }).catch(() => {});
 }
 
 async function userIdByEmail(email: string): Promise<string | null> {

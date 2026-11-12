@@ -118,7 +118,33 @@ async function claimReservedOwner(userId: string, email: string): Promise<boolea
     select id, ${userId}::uuid, 'owner', 'active' from taken
     returning id
   `);
-  return rows.length > 0 || (await hasMembership());
+  if (rows.length > 0) {
+    // Second email of the pair: the invitation came first, this confirms the account.
+    const [org] = await db
+      .select({ id: organisations.id })
+      .from(organisations)
+      .innerJoin(memberships, eq(memberships.orgId, organisations.id))
+      .where(eq(memberships.userId, userId))
+      .limit(1);
+    if (org) {
+      const { appOrigin, sendEmail } = await import("@/lib/email/send");
+      await sendEmail({
+        orgId: org.id,
+        to: mail,
+        subject: "Your Blanc Script Studio account is ready",
+        heading: "You're in",
+        paragraphs: [
+          "Hi,",
+          "Thanks for creating your account. You now have owner access to the Blanc Script Studio.",
+          "Sign in any time with this email address and the password you chose.",
+        ],
+        button: { label: "Open the studio", url: `${appOrigin()}/today` },
+        kind: "account_created",
+      }).catch(() => {});
+    }
+    return true;
+  }
+  return hasMembership();
 }
 
 export function can(user: CurrentUser, capability: Capability): boolean {

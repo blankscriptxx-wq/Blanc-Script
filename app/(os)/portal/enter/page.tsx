@@ -24,7 +24,7 @@ export default async function PortalEnterPage({
     return (
       <PortalShell
         title={`Welcome to your ${access.clientName} portal`}
-        intro="Set a password to create your login. You'll use it to sign in from now on."
+        intro="Your details are already filled in. Add a contact number and choose a password to create your login."
       >
         <PortalClaimForm token={t} email={access.email} name={access.label} />
       </PortalShell>

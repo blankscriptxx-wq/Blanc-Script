@@ -48,12 +48,14 @@ export function Field({
   type = "text",
   autoComplete,
   placeholder,
+  defaultValue,
 }: {
   label: string;
   name: string;
   type?: string;
   autoComplete?: string;
   placeholder?: string;
+  defaultValue?: string;
 }) {
   return (
     <div className="space-y-1.5">
@@ -67,6 +69,8 @@ export function Field({
         required
         autoComplete={autoComplete}
         placeholder={placeholder}
+        defaultValue={defaultValue}
+        key={defaultValue ?? ""}
         className={cn(
           "h-9 w-full rounded-sm border border-bs-border-strong bg-bs-surface px-3 text-body text-bs-text outline-none placeholder:text-bs-subtle",
         )}

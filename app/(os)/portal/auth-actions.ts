@@ -10,7 +10,7 @@ export async function portalClaimAction(_prev: PortalAuthState, formData: FormDa
   const token = String(formData.get("token") ?? "");
   const name = String(formData.get("name") ?? "");
   try {
-    await claimPortalLogin(token, name, String(formData.get("password") ?? ""));
+    await claimPortalLogin(token, name, String(formData.get("password") ?? ""), String(formData.get("phone") ?? ""));
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Could not set up your login.", name };
   }
