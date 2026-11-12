@@ -89,8 +89,6 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   };
 }
 
-type OwnerSettings = { ownerEmails?: string[]; masterEmail?: string; masterUserId?: string };
-
 /**
  * Give a newly signed-up person the owner access reserved for their email.
  * Only for an account with no membership anywhere; each reservation is used
@@ -100,26 +98,27 @@ async function claimReservedOwner(userId: string, email: string): Promise<boolea
   const mail = email.trim().toLowerCase();
   if (!mail) return false;
   const db = getDb();
-  const [existing] = await db.select({ id: memberships.id }).from(memberships).where(eq(memberships.userId, userId)).limit(1);
-  if (existing) return false;
-  const [org] = await db
-    .select({ id: organisations.id, settings: organisations.settings })
-    .from(organisations)
-    .where(sql`${organisations.settings} -> 'ownerEmails' ? ${mail}`)
-    .limit(1);
-  if (!org) return false;
-  const settings = { ...((org.settings ?? {}) as Record<string, unknown>) } as Record<string, unknown> & OwnerSettings;
-  settings.ownerEmails = (settings.ownerEmails ?? []).filter((e) => e !== mail);
-  if (settings.masterEmail === mail) settings.masterUserId = userId;
-  // Take the reservation first, so two sign-ins can't both claim it.
-  const taken = await db
-    .update(organisations)
-    .set({ settings })
-    .where(and(eq(organisations.id, org.id), sql`${organisations.settings} -> 'ownerEmails' ? ${mail}`))
-    .returning({ id: organisations.id });
-  if (!taken.length) return false;
-  await db.insert(memberships).values({ orgId: org.id, userId, role: "owner", status: "active" });
-  return true;
+  const hasMembership = async () =>
+    (await db.select({ id: memberships.id }).from(memberships).where(eq(memberships.userId, userId)).limit(1)).length > 0;
+  if (await hasMembership()) return false;
+  // One statement, so the reservation is used and the membership created
+  // together. Several parts of a page resolve the user at once; whichever
+  // loses the race finds the membership already there (checked below) rather
+  // than seeing a moment of "no access".
+  const { rows } = await db.execute(sql`
+    with taken as (
+      update organisations
+      set settings =
+        jsonb_set(settings, '{ownerEmails}', (settings -> 'ownerEmails') - ${mail}::text)
+        || case when settings ->> 'masterEmail' = ${mail} then jsonb_build_object('masterUserId', ${userId}::text) else '{}'::jsonb end
+      where settings -> 'ownerEmails' ? ${mail}
+      returning id
+    )
+    insert into memberships (org_id, user_id, role, status)
+    select id, ${userId}::uuid, 'owner', 'active' from taken
+    returning id
+  `);
+  return rows.length > 0 || (await hasMembership());
 }
 
 export function can(user: CurrentUser, capability: Capability): boolean {
