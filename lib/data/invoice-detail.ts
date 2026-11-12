@@ -37,6 +37,14 @@ export type InvoiceDetailHeader = {
   talentId: string | null;
   /** Payee name when this invoice is a talent payment (money out). */
   talentName: string | null;
+  /** VAT / tax rate as a whole-number percent (e.g. 20), or null when untaxed. */
+  taxRatePct: number | null;
+  /** Online payment link (Stripe etc.), when set. */
+  paymentUrl: string | null;
+  /** PO number / client reference. */
+  reference: string | null;
+  /** Free-text payment terms. */
+  terms: string | null;
 };
 
 export type InvoiceDetail = {
@@ -44,6 +52,10 @@ export type InvoiceDetail = {
   lineItems: InvoiceLineItem[];
   /** Sum of quantity × unitPence across all line items. */
   lineTotalPence: number;
+  /** Tax on the line-item total at the invoice's tax rate (rounded to the nearest penny). */
+  taxPence: number;
+  /** lineTotalPence + taxPence. */
+  grandTotalPence: number;
 };
 
 function requireMoney(user: Awaited<ReturnType<typeof requireUser>>) {
@@ -71,6 +83,10 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
       clientName: clients.name,
       talentId: invoices.talentId,
       talentName: talent.name,
+      taxRatePct: invoices.taxRatePct,
+      paymentUrl: invoices.paymentUrl,
+      reference: invoices.reference,
+      terms: invoices.terms,
     })
     .from(invoices)
     .leftJoin(clients, eq(invoices.clientId, clients.id))
@@ -105,6 +121,9 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
     lineTotalPence: r.quantity * r.unitPence,
   }));
   const lineTotalPence = lineItems.reduce((s, l) => s + l.lineTotalPence, 0);
+  const taxRatePct = inv.taxRatePct ?? 0;
+  const taxPence = Math.round((lineTotalPence * taxRatePct) / 100);
+  const grandTotalPence = lineTotalPence + taxPence;
 
   return {
     invoice: {
@@ -121,9 +140,15 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
       clientName: inv.clientName ?? "Blanc Script",
       talentId: inv.talentId,
       talentName: inv.talentName,
+      taxRatePct: inv.taxRatePct,
+      paymentUrl: inv.paymentUrl,
+      reference: inv.reference,
+      terms: inv.terms,
     },
     lineItems,
     lineTotalPence,
+    taxPence,
+    grandTotalPence,
   };
 }
 
@@ -264,4 +289,106 @@ export async function syncInvoiceAmountToLines(invoiceId: string) {
     .set({ amountPence: total, updatedAt: sql`now()` })
     .where(and(eq(invoices.id, invoiceId), eq(invoices.orgId, user.orgId)));
   return total;
+}
+
+export const updateInvoiceInput = z.object({
+  number: z.string().trim().max(80).nullable().optional(),
+  clientId: z.string().uuid().nullable().optional(),
+  talentId: z.string().uuid().nullable().optional(),
+  status: z.enum(["draft", "sent", "approved", "paid", "overdue"]).optional(),
+  issuedAt: z.coerce.date().nullable().optional(),
+  dueAt: z.coerce.date().nullable().optional(),
+  taxRatePct: z.number().int().min(0).max(100).nullable().optional(),
+  paymentUrl: z.string().trim().url("Enter a valid URL.").max(2000).nullable().optional(),
+  reference: z.string().trim().max(200).nullable().optional(),
+  terms: z.string().trim().max(2000).nullable().optional(),
+});
+export type UpdateInvoiceInput = z.infer<typeof updateInvoiceInput>;
+
+/**
+ * Patch an invoice's header fields. Only keys present in `input` are written, so
+ * callers can update a subset. Org-scoped, requires can_see_money, and verifies
+ * the invoice (and any referenced client/talent) belong to the caller's workspace.
+ */
+export async function updateInvoice(id: string, input: UpdateInvoiceInput) {
+  const user = await requireUser();
+  requireMoney(user);
+  const data = updateInvoiceInput.parse(input);
+  await requireInvoiceInOrg(id, user.orgId);
+
+  // A client / talent reference must live in this workspace.
+  if (data.clientId) {
+    const [c] = await getDb()
+      .select({ id: clients.id })
+      .from(clients)
+      .where(and(eq(clients.id, data.clientId), eq(clients.orgId, user.orgId)))
+      .limit(1);
+    if (!c) throw new Error("That client was not found in your workspace.");
+  }
+  if (data.talentId) {
+    const [t] = await getDb()
+      .select({ id: talent.id })
+      .from(talent)
+      .where(and(eq(talent.id, data.talentId), eq(talent.orgId, user.orgId)))
+      .limit(1);
+    if (!t) throw new Error("That talent was not found in your workspace.");
+  }
+
+  const set: Record<string, unknown> = { updatedAt: sql`now()` };
+  if (data.number !== undefined) set.number = data.number ? data.number : null;
+  if (data.clientId !== undefined) set.clientId = data.clientId ?? null;
+  if (data.talentId !== undefined) set.talentId = data.talentId ?? null;
+  if (data.issuedAt !== undefined) set.issuedAt = data.issuedAt ?? null;
+  if (data.dueAt !== undefined) set.dueAt = data.dueAt ?? null;
+  if (data.taxRatePct !== undefined) set.taxRatePct = data.taxRatePct ?? null;
+  if (data.paymentUrl !== undefined) set.paymentUrl = data.paymentUrl ? data.paymentUrl : null;
+  if (data.reference !== undefined) set.reference = data.reference ? data.reference : null;
+  if (data.terms !== undefined) set.terms = data.terms ? data.terms : null;
+  if (data.status !== undefined) {
+    set.status = data.status;
+    // Keep paidAt consistent with the status, mirroring setInvoiceStatus.
+    set.paidAt = data.status === "paid" ? sql`now()` : null;
+  }
+
+  await getDb()
+    .update(invoices)
+    .set(set)
+    .where(and(eq(invoices.id, id), eq(invoices.orgId, user.orgId)));
+
+  await getDb().insert(activityLog).values({
+    orgId: user.orgId,
+    actorUserId: user.id,
+    action: "invoice.updated",
+    entityType: "invoice",
+    entityId: id,
+    meta: {
+      fields: Object.keys(set).filter((k) => k !== "updatedAt"),
+      status: data.status ?? null,
+    },
+  });
+}
+
+/**
+ * Void an invoice by archiving it. listInvoices already excludes archived rows,
+ * so this removes it from the working set. (The invoice_status enum has no
+ * "void" member, so the status column is left untouched.)
+ */
+export async function archiveInvoice(id: string) {
+  const user = await requireUser();
+  requireMoney(user);
+  await requireInvoiceInOrg(id, user.orgId);
+
+  await getDb()
+    .update(invoices)
+    .set({ archivedAt: sql`now()`, updatedAt: sql`now()` })
+    .where(and(eq(invoices.id, id), eq(invoices.orgId, user.orgId)));
+
+  await getDb().insert(activityLog).values({
+    orgId: user.orgId,
+    actorUserId: user.id,
+    action: "invoice.voided",
+    entityType: "invoice",
+    entityId: id,
+    meta: {},
+  });
 }

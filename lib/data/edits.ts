@@ -1,8 +1,8 @@
 import "server-only";
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db/client";
-import { deliverables, projects, clients, activityLog } from "@/lib/db/schema";
+import { deliverables, projects, clients, shoots, activityLog } from "@/lib/db/schema";
 import { requireUser } from "@/lib/data/clients";
 
 /**
@@ -104,6 +104,35 @@ export async function listClientOptions() {
     .orderBy(asc(clients.name));
 }
 
+/** Shoots for the deliverable picker (active, non-archived). */
+export async function listShootOptions() {
+  const user = await requireUser();
+  return getDb()
+    .select({ id: shoots.id, title: shoots.title })
+    .from(shoots)
+    .where(and(eq(shoots.orgId, user.orgId), isNull(shoots.archivedAt)))
+    .orderBy(asc(shoots.title));
+}
+
+/**
+ * Org members for the reviewer picker. Resolves the membership's user_id to a
+ * name via Neon Auth's `neon_auth."user"` table (outside our Drizzle model —
+ * joined via raw SQL, as in the Team module).
+ */
+export async function listReviewerOptions(): Promise<
+  { id: string; name: string | null }[]
+> {
+  const user = await requireUser();
+  const { rows } = await getDb().execute(sql`
+    select m.user_id as "id", u.name as "name"
+    from memberships m
+    join neon_auth."user" u on u.id = m.user_id
+    where m.org_id = ${user.orgId} and m.status = 'active'
+    order by u.name
+  `);
+  return rows as { id: string; name: string | null }[];
+}
+
 export const deliverableInput = z.object({
   title: z.string().trim().min(1, "Title is required").max(200),
   status: z
@@ -142,4 +171,81 @@ export async function createDeliverable(input: DeliverableInput) {
     meta: { title: data.title, status: data.status },
   });
   return row;
+}
+
+/** Confirm the deliverable exists and belongs to the caller's org; returns its id or null. */
+async function assertDeliverableInOrg(id: string, orgId: string): Promise<string | null> {
+  const [row] = await getDb()
+    .select({ id: deliverables.id })
+    .from(deliverables)
+    .where(and(eq(deliverables.id, id), eq(deliverables.orgId, orgId)))
+    .limit(1);
+  return row?.id ?? null;
+}
+
+export const updateDeliverableInput = z.object({
+  title: z.string().trim().min(1, "Title is required").max(200).optional(),
+  dueAt: z.coerce.date().nullable().optional(),
+  projectId: z.string().uuid().nullable().optional(),
+  clientId: z.string().uuid().nullable().optional(),
+  shootId: z.string().uuid().nullable().optional(),
+  versionLabel: z.string().trim().max(40).nullable().optional(),
+  reviewerUserId: z.string().uuid().nullable().optional(),
+  reviewDueAt: z.coerce.date().nullable().optional(),
+});
+export type UpdateDeliverableInput = z.infer<typeof updateDeliverableInput>;
+
+/** Edit a deliverable's details. Org-scoped + ownership guard; only provided fields change. */
+export async function updateDeliverable(id: string, input: UpdateDeliverableInput) {
+  const user = await requireUser();
+  const data = updateDeliverableInput.parse(input);
+  const owned = await assertDeliverableInOrg(id, user.orgId);
+  if (!owned) throw new Error("Deliverable not found.");
+
+  const set: Partial<typeof deliverables.$inferInsert> = { updatedAt: new Date() };
+  if (data.title !== undefined) set.title = data.title;
+  if (data.dueAt !== undefined) set.dueAt = data.dueAt;
+  if (data.projectId !== undefined) set.projectId = data.projectId;
+  if (data.clientId !== undefined) set.clientId = data.clientId;
+  if (data.shootId !== undefined) set.shootId = data.shootId;
+  if (data.versionLabel !== undefined) set.versionLabel = data.versionLabel;
+  if (data.reviewerUserId !== undefined) set.reviewerUserId = data.reviewerUserId;
+  if (data.reviewDueAt !== undefined) set.reviewDueAt = data.reviewDueAt;
+
+  await getDb()
+    .update(deliverables)
+    .set(set)
+    .where(and(eq(deliverables.id, id), eq(deliverables.orgId, user.orgId)));
+
+  await getDb().insert(activityLog).values({
+    orgId: user.orgId,
+    actorUserId: user.id,
+    action: "deliverable.updated",
+    entityType: "deliverable",
+    entityId: id,
+    meta: {},
+  });
+  return { id };
+}
+
+/** Archive a deliverable (soft delete — drops it from the queue). */
+export async function archiveDeliverable(id: string) {
+  const user = await requireUser();
+  const owned = await assertDeliverableInOrg(id, user.orgId);
+  if (!owned) throw new Error("Deliverable not found.");
+
+  await getDb()
+    .update(deliverables)
+    .set({ archivedAt: new Date(), updatedAt: new Date() })
+    .where(and(eq(deliverables.id, id), eq(deliverables.orgId, user.orgId)));
+
+  await getDb().insert(activityLog).values({
+    orgId: user.orgId,
+    actorUserId: user.id,
+    action: "deliverable.archived",
+    entityType: "deliverable",
+    entityId: id,
+    meta: {},
+  });
+  return { id };
 }

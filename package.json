@@ -15,6 +15,7 @@
   "dependencies": {
     "@neon/auth": "^0.8.2",
     "@neondatabase/serverless": "^0.10.4",
+    "aws4fetch": "^1.0.20",
     "class-variance-authority": "0.7.0",
     "clsx": "2.1.1",
     "drizzle-orm": "0.36.4",

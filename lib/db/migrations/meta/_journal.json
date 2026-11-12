@@ -64,6 +64,13 @@
       "when": 1794467675250,
       "tag": "0008_spooky_titanium_man",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794478918119,
+      "tag": "0009_overjoyed_ghost_rider",
+      "breakpoints": true
     }
   ]
 }

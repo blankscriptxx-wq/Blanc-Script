@@ -116,12 +116,31 @@ export const availabilityKindEnum = pgEnum("availability_kind", [
 export const costOwnerEnum = pgEnum("cost_owner", ["client", "agency"]);
 /** How a talent booking is charged: by the hour, or a flat day rate. */
 export const rateModeEnum = pgEnum("rate_mode", ["hourly", "day"]);
+export const mediaKindEnum = pgEnum("media_kind", [
+  "video",
+  "image",
+  "document",
+  "audio",
+  "other",
+]);
+export const mediaStatusEnum = pgEnum("media_status", [
+  "pending", // row created, awaiting upload
+  "uploaded", // bytes in the bucket
+  "ready", // processed / usable
+  "failed",
+]);
 
 // ── Tenancy ─────────────────────────────────────────────────────────────────
 export const organisations = pgTable("organisations", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
+  /** Branding + billing details (used on invoices). */
+  logoUrl: text("logo_url"),
+  vatNumber: text("vat_number"),
+  addressText: text("address_text"),
+  billingEmail: text("billing_email"),
+  defaultCurrency: text("default_currency").notNull().default("GBP"),
   settings: jsonb("settings").$type<Record<string, unknown>>().default({}),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -311,6 +330,12 @@ export const invoices = pgTable("invoices", {
   number: text("number"),
   status: invoiceStatusEnum("status").notNull().default("draft"),
   amountPence: integer("amount_pence").notNull().default(0),
+  /** VAT / tax rate as a whole-number percent (e.g. 20). */
+  taxRatePct: integer("tax_rate_pct"),
+  /** Online payment link (Stripe etc.). */
+  paymentUrl: text("payment_url"),
+  reference: text("reference"), // PO number / client ref
+  terms: text("terms"),
   currency: text("currency").notNull().default("GBP"),
   issuedAt: timestamp("issued_at", { withTimezone: true }),
   dueAt: timestamp("due_at", { withTimezone: true }),
@@ -328,10 +353,13 @@ export const deliverables = pgTable("deliverables", {
     .references(() => organisations.id),
   projectId: uuid("project_id").references(() => projects.id),
   clientId: uuid("client_id").references(() => clients.id),
+  shootId: uuid("shoot_id").references(() => shoots.id),
   title: text("title").notNull(),
   status: deliverableStatusEnum("status").notNull().default("editing"),
   versionLabel: text("version_label"), // e.g. "v1", "v2"
   previewUrl: text("preview_url"),
+  reviewerUserId: uuid("reviewer_user_id"),
+  reviewDueAt: timestamp("review_due_at", { withTimezone: true }),
   notes: text("notes"),
   dueAt: timestamp("due_at", { withTimezone: true }),
   archivedAt: timestamp("archived_at", { withTimezone: true }),
@@ -350,6 +378,10 @@ export const contentItems = pgTable("content_items", {
   channel: contentChannelEnum("channel").notNull().default("instagram"),
   status: contentStatusEnum("status").notNull().default("idea"),
   scheduledFor: timestamp("scheduled_for", { withTimezone: true }),
+  /** Post copy / caption, hashtags and link for scheduling. */
+  body: text("body"),
+  hashtags: text("hashtags"),
+  link: text("link"),
   notes: text("notes"),
   archivedAt: timestamp("archived_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -459,6 +491,11 @@ export const reviewComments = pgTable("review_comments", {
     .references(() => deliverables.id),
   authorUserId: uuid("author_user_id"),
   body: text("body").notNull(),
+  /** Optional self-reference for replies. */
+  parentId: uuid("parent_id"),
+  /** Optional video timecode (seconds) for frame-anchored notes. */
+  timecodeSeconds: integer("timecode_seconds"),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -476,6 +513,33 @@ export const invoiceLineItems = pgTable("invoice_line_items", {
   unitPence: integer("unit_pence").notNull().default(0),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ── Media assets (uploaded files, auto-assignable to shoots/projects) ─────
+export const mediaAssets = pgTable("media_assets", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organisations.id),
+  uploaderUserId: uuid("uploader_user_id"),
+  kind: mediaKindEnum("kind").notNull().default("other"),
+  fileName: text("file_name").notNull(),
+  mimeType: text("mime_type"),
+  sizeBytes: integer("size_bytes"),
+  storageProvider: text("storage_provider").notNull().default("r2"),
+  storageKey: text("storage_key").notNull(), // path/key within the bucket
+  status: mediaStatusEnum("status").notNull().default("pending"),
+  durationSeconds: integer("duration_seconds"),
+  width: integer("width"),
+  height: integer("height"),
+  // Where this asset belongs — auto-assigned on upload.
+  shootId: uuid("shoot_id").references(() => shoots.id),
+  projectId: uuid("project_id").references(() => projects.id),
+  clientId: uuid("client_id").references(() => clients.id),
+  deliverableId: uuid("deliverable_id").references(() => deliverables.id),
+  contentItemId: uuid("content_item_id").references(() => contentItems.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const schema = {
@@ -500,4 +564,5 @@ export const schema = {
   shootTalent,
   projectTalent,
   contentTalent,
+  mediaAssets,
 };

@@ -32,24 +32,32 @@ export type ContentRow = {
   clientId: string | null;
   clientName: string | null;
   scheduledFor: Date | null;
+  body: string | null;
+  hashtags: string | null;
+  link: string | null;
   notes: string | null;
   createdAt: Date;
 };
 
+const contentColumns = {
+  id: contentItems.id,
+  title: contentItems.title,
+  channel: contentItems.channel,
+  status: contentItems.status,
+  clientId: contentItems.clientId,
+  clientName: clients.name,
+  scheduledFor: contentItems.scheduledFor,
+  body: contentItems.body,
+  hashtags: contentItems.hashtags,
+  link: contentItems.link,
+  notes: contentItems.notes,
+  createdAt: contentItems.createdAt,
+} as const;
+
 export async function listContent(): Promise<ContentRow[]> {
   const user = await requireUser();
   const rows = await getDb()
-    .select({
-      id: contentItems.id,
-      title: contentItems.title,
-      channel: contentItems.channel,
-      status: contentItems.status,
-      clientId: contentItems.clientId,
-      clientName: clients.name,
-      scheduledFor: contentItems.scheduledFor,
-      notes: contentItems.notes,
-      createdAt: contentItems.createdAt,
-    })
+    .select(contentColumns)
     .from(contentItems)
     .leftJoin(clients, eq(contentItems.clientId, clients.id))
     .where(and(eq(contentItems.orgId, user.orgId), isNull(contentItems.archivedAt)))
@@ -63,17 +71,7 @@ export async function listContent(): Promise<ContentRow[]> {
 export async function getContentItem(id: string) {
   const user = await requireUser();
   const [row] = await getDb()
-    .select({
-      id: contentItems.id,
-      title: contentItems.title,
-      channel: contentItems.channel,
-      status: contentItems.status,
-      clientId: contentItems.clientId,
-      clientName: clients.name,
-      scheduledFor: contentItems.scheduledFor,
-      notes: contentItems.notes,
-      createdAt: contentItems.createdAt,
-    })
+    .select(contentColumns)
     .from(contentItems)
     .leftJoin(clients, eq(contentItems.clientId, clients.id))
     .where(and(eq(contentItems.id, id), eq(contentItems.orgId, user.orgId)))
@@ -126,4 +124,55 @@ export async function createContentItem(input: ContentInput) {
     meta: { title: data.title, channel: data.channel },
   });
   return row;
+}
+
+export const updateContentInput = z.object({
+  title: z.string().trim().min(1, "Title is required").max(200).optional(),
+  clientId: z.string().uuid().nullable().optional(),
+  channel: z
+    .enum(["instagram", "tiktok", "youtube", "linkedin", "other"])
+    .optional(),
+  status: z
+    .enum(["idea", "scripting", "filming", "editing", "scheduled", "posted"])
+    .optional(),
+  scheduledFor: z.date().nullable().optional(),
+  body: z.string().max(5000).nullable().optional(),
+  hashtags: z.string().max(1000).nullable().optional(),
+  link: z.string().trim().max(2000).nullable().optional(),
+  notes: z.string().max(5000).nullable().optional(),
+});
+export type UpdateContentInput = z.infer<typeof updateContentInput>;
+
+export async function updateContentItem(id: string, raw: UpdateContentInput) {
+  const user = await requireUser();
+  const data = updateContentInput.parse(raw);
+
+  const patch: Record<string, unknown> = { updatedAt: new Date() };
+  if (data.title !== undefined) patch.title = data.title;
+  if (data.clientId !== undefined) patch.clientId = data.clientId;
+  if (data.channel !== undefined) patch.channel = data.channel;
+  if (data.status !== undefined) patch.status = data.status;
+  if (data.scheduledFor !== undefined) patch.scheduledFor = data.scheduledFor;
+  if (data.body !== undefined) patch.body = data.body;
+  if (data.hashtags !== undefined) patch.hashtags = data.hashtags;
+  if (data.link !== undefined) patch.link = data.link;
+  if (data.notes !== undefined) patch.notes = data.notes;
+
+  const db = getDb();
+  // Org-scope + ownership guard: the update only matches rows in the caller's org.
+  const [row] = await db
+    .update(contentItems)
+    .set(patch)
+    .where(and(eq(contentItems.id, id), eq(contentItems.orgId, user.orgId)))
+    .returning({ id: contentItems.id, title: contentItems.title });
+  if (!row) throw new Error("Content item not found.");
+  await db.insert(activityLog).values({
+    orgId: user.orgId,
+    actorUserId: user.id,
+    action: "content.updated",
+    entityType: "content_item",
+    entityId: row.id,
+    meta: { title: row.title },
+  });
+  return { id: row.id };
 }

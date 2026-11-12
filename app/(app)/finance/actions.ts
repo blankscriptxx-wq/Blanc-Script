@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createInvoice } from "@/lib/data/finance";
+import { createInvoice, draftTalentPaymentsFromBookings } from "@/lib/data/finance";
 
 export async function createInvoiceAction(
   _prev: { ok: boolean; error: string } | null,
@@ -34,5 +34,29 @@ export async function createInvoiceAction(
     return { ok: true, error: "" };
   } catch (e) {
     return { ok: false, error: (e as Error).message || "Could not create invoice." };
+  }
+}
+
+export type DraftTalentPaymentsState = {
+  ok: boolean;
+  created: number;
+  error: string;
+};
+
+export async function draftTalentPaymentsAction(
+  _prev: DraftTalentPaymentsState | null,
+  _formData: FormData,
+): Promise<DraftTalentPaymentsState> {
+  try {
+    const created = await draftTalentPaymentsFromBookings();
+    revalidatePath("/finance");
+    revalidatePath("/talent");
+    return { ok: true, created, error: "" };
+  } catch (e) {
+    return {
+      ok: false,
+      created: 0,
+      error: (e as Error).message || "Could not draft talent payments.",
+    };
   }
 }

@@ -2,11 +2,22 @@ import { Check, Minus } from "lucide-react";
 import { PageHeader } from "@/components/ds/page-header";
 import { ThemeSwitcher } from "@/components/ds/theme-switcher";
 import { WorkspaceForm } from "@/components/settings/workspace-form";
+import { WorkspaceDetailsForm } from "@/components/settings/workspace-details-form";
 import { PackagesEditor } from "@/components/settings/packages-editor";
+import { AddonsEditor } from "@/components/settings/addons-editor";
+import { AuditLog } from "@/components/settings/audit-log";
+import { Integrations } from "@/components/settings/integrations";
+import { DangerZone } from "@/components/settings/danger-zone";
 import { StatusPill } from "@/components/ds/status-pill";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getWorkspace } from "@/lib/data/settings";
 import { listServicePlans, type ServicePlanRow } from "@/lib/data/service-plans";
+import {
+  listAddOns,
+  ADDON_CADENCE_LABELS,
+  type AddOnRow,
+} from "@/lib/data/addons";
+import { listRecentActivity, type ActivityRow } from "@/lib/data/audit";
 import {
   CAPABILITIES,
   INTERNAL_ROLES,
@@ -50,18 +61,28 @@ const CAP_LABELS: Record<Capability, string> = {
 export default async function SettingsPage() {
   const user = await getCurrentUser();
   const canSettings = user?.capabilities.has("can_settings") ?? false;
-  const workspace = user?.hasAccess ? await getWorkspace() : null;
-  const plans: ServicePlanRow[] = user?.hasAccess ? await listServicePlans() : [];
+  const canViewAudit = user?.capabilities.has("can_view_audit") ?? false;
+  const hasAccess = user?.hasAccess ?? false;
+  const workspace = hasAccess ? await getWorkspace() : null;
+  const plans: ServicePlanRow[] = hasAccess ? await listServicePlans() : [];
+  const addons: AddOnRow[] = hasAccess ? await listAddOns() : [];
+  const activity: ActivityRow[] =
+    hasAccess && canViewAudit ? await listRecentActivity(50) : [];
+
+  const gbp = new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: "GBP",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
 
   const planPrice = (p: ServicePlanRow) =>
-    p.bespoke || p.pricePence == null
+    p.bespoke || p.pricePence == null ? "Bespoke" : gbp.format(p.pricePence / 100);
+
+  const addonPrice = (a: AddOnRow) =>
+    a.cadence === "bespoke" || a.pricePence == null
       ? "Bespoke"
-      : new Intl.NumberFormat("en-GB", {
-          style: "currency",
-          currency: "GBP",
-          minimumFractionDigits: 0,
-          maximumFractionDigits: 2,
-        }).format(p.pricePence / 100);
+      : gbp.format(a.pricePence / 100);
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -100,6 +121,50 @@ export default async function SettingsPage() {
         )}
       </section>
 
+      {/* Workspace details */}
+      <section className="mt-6 rounded-md border border-bs-border bg-bs-surface p-5">
+        <h2 className="font-display text-h3">Workspace details</h2>
+        <p className="mt-1 text-sm text-bs-muted">
+          Branding and billing details used on invoices and client-facing
+          documents.
+          {!canSettings ? " Only owners and ops can change these." : ""}
+        </p>
+        {workspace && canSettings ? (
+          <WorkspaceDetailsForm
+            details={{
+              logoUrl: workspace.logoUrl,
+              vatNumber: workspace.vatNumber,
+              addressText: workspace.addressText,
+              billingEmail: workspace.billingEmail,
+              defaultCurrency: workspace.defaultCurrency,
+            }}
+          />
+        ) : workspace ? (
+          <dl className="mt-4 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-bs-subtle">VAT number</dt>
+              <dd className="text-bs-text">{workspace.vatNumber ?? "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-bs-subtle">Default currency</dt>
+              <dd className="text-bs-text">{workspace.defaultCurrency}</dd>
+            </div>
+            <div>
+              <dt className="text-bs-subtle">Billing email</dt>
+              <dd className="text-bs-text">{workspace.billingEmail ?? "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-bs-subtle">Billing address</dt>
+              <dd className="whitespace-pre-line text-bs-text">
+                {workspace.addressText ?? "—"}
+              </dd>
+            </div>
+          </dl>
+        ) : (
+          <p className="mt-4 text-sm text-bs-subtle">No workspace loaded.</p>
+        )}
+      </section>
+
       {/* Service packages */}
       <section className="mt-6 rounded-md border border-bs-border bg-bs-surface p-5">
         <h2 className="font-display text-h3">Service packages</h2>
@@ -124,6 +189,39 @@ export default async function SettingsPage() {
           </ul>
         ) : (
           <p className="mt-4 text-sm text-bs-subtle">No packages yet.</p>
+        )}
+      </section>
+
+      {/* Add-ons */}
+      <section className="mt-6 rounded-md border border-bs-border bg-bs-surface p-5">
+        <h2 className="font-display text-h3">Add-ons</h2>
+        <p className="mt-1 text-sm text-bs-muted">
+          Extra services billed on top of a retainer.
+          {!canSettings ? " Only owners and ops can change these." : ""}
+        </p>
+        {canSettings ? (
+          <AddonsEditor addons={addons} />
+        ) : addons.length > 0 ? (
+          <ul className="mt-4 divide-y divide-bs-border rounded-md border border-bs-border">
+            {addons.map((a) => (
+              <li
+                key={a.id}
+                className="flex items-center justify-between gap-3 px-4 py-3"
+              >
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium text-bs-text">{a.name}</span>
+                  {a.freeWithPlanCode ? (
+                    <StatusPill tone="success">Free with {a.freeWithPlanCode}</StatusPill>
+                  ) : null}
+                </span>
+                <span className="text-sm text-bs-muted">
+                  {addonPrice(a)} · {ADDON_CADENCE_LABELS[a.cadence]}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-4 text-sm text-bs-subtle">No add-ons yet.</p>
         )}
       </section>
 
@@ -175,6 +273,40 @@ export default async function SettingsPage() {
           scoped to their own records only.
         </p>
       </section>
+
+      {/* Integrations */}
+      {canSettings ? (
+        <section className="mt-6 rounded-md border border-bs-border bg-bs-surface p-5">
+          <h2 className="font-display text-h3">Integrations</h2>
+          <p className="mt-1 text-sm text-bs-muted">
+            External services wired into Blanc Script OS. Connection status is
+            read from the environment — no keys or secrets are shown here.
+          </p>
+          <Integrations />
+        </section>
+      ) : null}
+
+      {/* Audit log */}
+      {canViewAudit ? (
+        <section className="mt-6 rounded-md border border-bs-border bg-bs-surface p-5">
+          <h2 className="font-display text-h3">Audit log</h2>
+          <p className="mt-1 text-sm text-bs-muted">
+            The most recent changes across your workspace.
+          </p>
+          <AuditLog rows={activity} />
+        </section>
+      ) : null}
+
+      {/* Danger zone */}
+      {canSettings ? (
+        <section className="mt-6 rounded-md border border-bs-danger/40 bg-bs-surface p-5">
+          <h2 className="font-display text-h3 text-bs-danger">Danger zone</h2>
+          <p className="mt-1 text-sm text-bs-muted">
+            Irreversible, workspace-wide actions.
+          </p>
+          <DangerZone />
+        </section>
+      ) : null}
     </div>
   );
 }

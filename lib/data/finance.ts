@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getDb } from "@/lib/db/client";
 import { invoices, clients, activityLog, talent } from "@/lib/db/schema";
 import { requireUser } from "@/lib/data/clients";
+import { listShootCastings, bookingCostPence } from "@/lib/data/castings";
 
 /**
  * Finance data access — internal invoices. EVERY query is scoped to the caller's
@@ -161,4 +162,86 @@ export async function createInvoice(input: InvoiceInput) {
     },
   });
   return row;
+}
+
+/**
+ * Create DRAFT talent-payment invoices for confirmed shoot bookings that have a
+ * computable cost and aren't yet drafted. Org-scoped, requires can_see_money.
+ *
+ * De-dupe (v1 heuristic): skip when a non-archived draft talent invoice already
+ * references the same shoot title for the same talent.
+ *
+ * Returns the number of drafts created.
+ */
+export async function draftTalentPaymentsFromBookings(): Promise<number> {
+  const user = await requireUser();
+  if (!user.capabilities.has("can_see_money")) {
+    throw new Error("You do not have permission to change finance records.");
+  }
+  const db = getDb();
+
+  const castings = await listShootCastings();
+
+  // Existing draft talent invoices, keyed by talent + reference (shoot title).
+  const existing = await db
+    .select({ talentId: invoices.talentId, reference: invoices.reference })
+    .from(invoices)
+    .where(
+      and(
+        eq(invoices.orgId, user.orgId),
+        eq(invoices.status, "draft"),
+        isNull(invoices.archivedAt),
+      ),
+    );
+  const seen = new Set(
+    existing
+      .filter((r) => r.talentId && r.reference)
+      .map((r) => `${r.talentId}::${r.reference}`),
+  );
+
+  let created = 0;
+  for (const c of castings) {
+    if (c.status !== "confirmed") continue;
+    const cost = bookingCostPence({
+      mode: c.rateMode,
+      agreedRatePence: c.agreedRatePence,
+      talentHourlyPence: c.talentRatePence,
+      talentDayPence: c.talentDayRatePence,
+      durationMinutes: c.durationMinutes,
+      dayCount: c.dayCount,
+    });
+    if (cost == null || cost <= 0) continue;
+
+    const key = `${c.talentId}::${c.shootTitle}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const [row] = await db
+      .insert(invoices)
+      .values({
+        orgId: user.orgId,
+        talentId: c.talentId,
+        status: "draft",
+        amountPence: cost,
+        reference: c.shootTitle,
+      })
+      .returning({ id: invoices.id });
+
+    await db.insert(activityLog).values({
+      orgId: user.orgId,
+      actorUserId: user.id,
+      action: "invoice.autodrafted",
+      entityType: "invoice",
+      entityId: row.id,
+      meta: {
+        talentId: c.talentId,
+        shootId: c.shootId,
+        shootTitle: c.shootTitle,
+        amountPence: cost,
+      },
+    });
+    created += 1;
+  }
+
+  return created;
 }

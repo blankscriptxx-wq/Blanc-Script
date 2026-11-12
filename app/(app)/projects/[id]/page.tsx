@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { ProjectProfileView } from "@/components/projects/project-profile";
 import { getProjectProfile } from "@/lib/data/project-profile";
+import { listMediaFor, storageConfigured } from "@/lib/data/media";
 
 export const dynamic = "force-dynamic";
 
@@ -22,5 +23,12 @@ export default async function ProjectProfilePage({
   const { id } = await params;
   const profile = await getProjectProfile(id).catch(() => null);
   if (!profile) notFound();
-  return <ProjectProfileView profile={profile} />;
+  const media = await listMediaFor({ projectId: id }).catch(() => []);
+  return (
+    <ProjectProfileView
+      profile={profile}
+      media={media}
+      storageReady={storageConfigured()}
+    />
+  );
 }

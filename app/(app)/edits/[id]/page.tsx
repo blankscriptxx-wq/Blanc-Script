@@ -1,6 +1,12 @@
 import { notFound } from "next/navigation";
 import { DeliverableDetailView } from "@/components/edits/deliverable-detail";
 import { getDeliverableDetail } from "@/lib/data/deliverable-detail";
+import {
+  listProjectOptions,
+  listClientOptions,
+  listShootOptions,
+  listReviewerOptions,
+} from "@/lib/data/edits";
 
 export const dynamic = "force-dynamic";
 
@@ -22,5 +28,20 @@ export default async function DeliverableDetailPage({
   const { id } = await params;
   const detail = await getDeliverableDetail(id).catch(() => null);
   if (!detail) notFound();
-  return <DeliverableDetailView detail={detail} />;
+  const [projectOptions, clientOptions, shootOptions, reviewerOptions] =
+    await Promise.all([
+      listProjectOptions(),
+      listClientOptions(),
+      listShootOptions(),
+      listReviewerOptions(),
+    ]);
+  return (
+    <DeliverableDetailView
+      detail={detail}
+      projectOptions={projectOptions}
+      clientOptions={clientOptions}
+      shootOptions={shootOptions}
+      reviewerOptions={reviewerOptions}
+    />
+  );
 }

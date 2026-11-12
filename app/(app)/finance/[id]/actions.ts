@@ -1,11 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import {
   addLineItem,
+  archiveInvoice,
   removeLineItem,
   setInvoiceStatus,
   syncInvoiceAmountToLines,
+  updateInvoice,
+  type UpdateInvoiceInput,
 } from "@/lib/data/invoice-detail";
 import type { InvoiceStatus } from "@/lib/data/finance";
 
@@ -68,4 +72,50 @@ export async function setInvoiceStatusAction(formData: FormData): Promise<void> 
   await setInvoiceStatus(invoiceId, status);
   revalidatePath(`/finance/${invoiceId}`);
   revalidatePath("/finance");
+}
+
+export type UpdateInvoiceActionState = { ok?: boolean; error?: string };
+
+export async function updateInvoiceAction(
+  _prev: UpdateInvoiceActionState,
+  formData: FormData,
+): Promise<UpdateInvoiceActionState> {
+  try {
+    const invoiceId = str(formData, "invoiceId");
+    if (!invoiceId) return { error: "Missing invoice." };
+
+    const status = str(formData, "status");
+    const taxRaw = str(formData, "taxRatePct");
+
+    const patch: UpdateInvoiceInput = {
+      number: str(formData, "number") || null,
+      clientId: str(formData, "clientId") || null,
+      talentId: str(formData, "talentId") || null,
+      status: STATUSES.includes(status as InvoiceStatus)
+        ? (status as InvoiceStatus)
+        : undefined,
+      issuedAt: str(formData, "issuedAt") ? new Date(str(formData, "issuedAt")) : null,
+      dueAt: str(formData, "dueAt") ? new Date(str(formData, "dueAt")) : null,
+      taxRatePct: taxRaw ? Number.parseInt(taxRaw, 10) : null,
+      paymentUrl: str(formData, "paymentUrl") || null,
+      reference: str(formData, "reference") || null,
+      terms: str(formData, "terms") || null,
+    };
+
+    await updateInvoice(invoiceId, patch);
+    revalidatePath(`/finance/${invoiceId}`);
+    revalidatePath("/finance");
+    return { ok: true };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Could not update invoice." };
+  }
+}
+
+export async function voidInvoiceAction(formData: FormData): Promise<void> {
+  const invoiceId = str(formData, "invoiceId");
+  if (!invoiceId) return;
+  await archiveInvoice(invoiceId);
+  revalidatePath(`/finance/${invoiceId}`);
+  revalidatePath("/finance");
+  redirect("/finance");
 }

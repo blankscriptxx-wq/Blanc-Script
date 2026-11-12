@@ -11,9 +11,17 @@ import { Dialog } from "@/components/ds/dialog";
 import { Sheet } from "@/components/ds/sheet";
 import { EmptyState } from "@/components/ds/empty-state";
 import { Spotlight, CountUp } from "@/components/ds/motion";
-import { createInvoiceAction } from "@/app/(app)/finance/actions";
+import {
+  createInvoiceAction,
+  draftTalentPaymentsAction,
+} from "@/app/(app)/finance/actions";
 import type { InvoiceRow, InvoiceStatus, FinanceSummary } from "@/lib/data/finance";
 import { cn } from "@/lib/cn";
+
+const STATUS_FILTERS: InvoiceStatus[] = ["draft", "sent", "approved", "paid", "overdue"];
+
+const filterCls =
+  "h-9 rounded-sm border border-bs-border-strong bg-bs-surface px-3 text-sm text-bs-text outline-none";
 
 const gbp = new Intl.NumberFormat("en-GB", {
   style: "currency",
@@ -53,6 +61,33 @@ export function FinanceView({
   const router = useRouter();
   const [addOpen, setAddOpen] = React.useState(false);
   const [selected, setSelected] = React.useState<InvoiceRow | null>(null);
+  const [statusFilter, setStatusFilter] = React.useState<"all" | InvoiceStatus>("all");
+  const [partyFilter, setPartyFilter] = React.useState<string>("all");
+
+  const [draftState, draftAction, draftPending] = useActionState(
+    draftTalentPaymentsAction,
+    null,
+  );
+  React.useEffect(() => {
+    if (draftState?.ok) router.refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftState]);
+
+  function partyOf(r: InvoiceRow): string {
+    return r.talentName ?? r.clientName ?? "Blanc Script";
+  }
+
+  const partyOptions = React.useMemo(() => {
+    const names = new Set<string>();
+    for (const r of rows) names.add(partyOf(r));
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [rows]);
+
+  const filteredRows = rows.filter(
+    (r) =>
+      (statusFilter === "all" || r.status === statusFilter) &&
+      (partyFilter === "all" || partyOf(r) === partyFilter),
+  );
 
   return (
     <>
@@ -68,13 +103,59 @@ export function FinanceView({
         </SummaryTile>
       </div>
 
-      <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm text-bs-muted">
-          {rows.length} {rows.length === 1 ? "invoice" : "invoices"}
-        </p>
-        <Button onClick={() => setAddOpen(true)}>
-          <Plus className="h-4 w-4" /> New invoice
-        </Button>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            aria-label="Filter by status"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as "all" | InvoiceStatus)}
+            className={filterCls}
+          >
+            <option value="all">All statuses</option>
+            {STATUS_FILTERS.map((s) => (
+              <option key={s} value={s}>
+                {titleCase(s)}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label="Filter by client or talent"
+            value={partyFilter}
+            onChange={(e) => setPartyFilter(e.target.value)}
+            className={filterCls}
+          >
+            <option value="all">All clients &amp; talent</option>
+            {partyOptions.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+          <span className="text-sm text-bs-muted">
+            {filteredRows.length} {filteredRows.length === 1 ? "invoice" : "invoices"}
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {draftState?.ok ? (
+            <span className="text-sm text-bs-muted">
+              {draftState.created === 0
+                ? "No new drafts to create."
+                : `Drafted ${draftState.created} talent ${
+                    draftState.created === 1 ? "payment" : "payments"
+                  }.`}
+            </span>
+          ) : draftState && !draftState.ok ? (
+            <span className="text-sm text-bs-danger">{draftState.error}</span>
+          ) : null}
+          <form action={draftAction}>
+            <Button type="submit" variant="ghost" disabled={draftPending}>
+              {draftPending ? "Drafting…" : "Draft talent payments"}
+            </Button>
+          </form>
+          <Button onClick={() => setAddOpen(true)}>
+            <Plus className="h-4 w-4" /> New invoice
+          </Button>
+        </div>
       </div>
 
       {rows.length === 0 ? (
@@ -96,7 +177,14 @@ export function FinanceView({
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
+              {filteredRows.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-6 text-center text-sm text-bs-subtle">
+                    No invoices match these filters.
+                  </td>
+                </tr>
+              ) : null}
+              {filteredRows.map((r) => (
                 <tr
                   key={r.id}
                   onClick={() => setSelected(r)}

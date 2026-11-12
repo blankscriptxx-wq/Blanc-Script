@@ -1,7 +1,10 @@
 import Link from "next/link";
-import { ArrowLeft, Camera, Users, FileVideo } from "lucide-react";
+import { ArrowLeft, Camera, Users, FileVideo, FolderOpen } from "lucide-react";
 import { StatusPill } from "@/components/ds/status-pill";
 import { TasksBoard } from "@/components/tasks/tasks-board";
+import { Uploader } from "@/components/uploads/uploader";
+import { FileList } from "@/components/uploads/file-list";
+import type { MediaAssetRow } from "@/lib/data/media";
 import type {
   ProjectProfile,
   ProjectStatus,
@@ -42,7 +45,15 @@ const DELIVERABLE_STATUS: Record<
   published: { label: "Published", tone: "accent" },
 };
 
-export function ProjectProfileView({ profile }: { profile: ProjectProfile }) {
+export function ProjectProfileView({
+  profile,
+  media = [],
+  storageReady = false,
+}: {
+  profile: ProjectProfile;
+  media?: MediaAssetRow[];
+  storageReady?: boolean;
+}) {
   const { project: p, summary, tasks, shoots, talent, deliverables } = profile;
 
   const tiles = [
@@ -170,6 +181,18 @@ export function ProjectProfileView({ profile }: { profile: ProjectProfile }) {
             ))}
           </ul>
         )}
+      </section>
+
+      {/* Project files */}
+      <section className="mt-8">
+        <div className="mb-2 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FolderOpen className="h-4 w-4 text-bs-subtle" />
+            <h2 className="font-display text-h3">Project files</h2>
+          </div>
+          <Uploader context={{ projectId: p.id }} configured={storageReady} />
+        </div>
+        <FileList rows={media} />
       </section>
     </div>
   );

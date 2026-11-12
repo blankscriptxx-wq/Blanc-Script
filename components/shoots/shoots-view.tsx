@@ -14,6 +14,9 @@ import { createShootAction } from "@/app/(app)/shoots/actions";
 import type { ShootRow } from "@/lib/data/shoots";
 import { CastingSection } from "@/components/castings/casting-section";
 import type { ShootCasting, TalentPickerOption } from "@/lib/data/castings";
+import { Uploader } from "@/components/uploads/uploader";
+import { FileList } from "@/components/uploads/file-list";
+import type { MediaAssetRow } from "@/lib/data/media";
 import { cn } from "@/lib/cn";
 
 const dateFmt = new Intl.DateTimeFormat("en-GB", {
@@ -62,11 +65,15 @@ export function ShootsView({
   clientOptions,
   castings = [],
   talentOptions = [],
+  media = [],
+  storageReady = false,
 }: {
   rows: ShootRow[];
   clientOptions: { id: string; name: string }[];
   castings?: ShootCasting[];
   talentOptions?: TalentPickerOption[];
+  media?: MediaAssetRow[];
+  storageReady?: boolean;
 }) {
   const router = useRouter();
   const [addOpen, setAddOpen] = React.useState(false);
@@ -158,10 +165,13 @@ export function ShootsView({
               items={castings.filter((c) => c.shootId === selected.id)}
               talentOptions={talentOptions}
             />
-            <p className="pt-2 text-xs text-bs-subtle">
-              Call sheets, crew, edits and deliverables attach here as those
-              modules come online.
-            </p>
+            <div className="border-t border-bs-border pt-4">
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-sm font-medium text-bs-text">Files</h3>
+                <Uploader context={{ shootId: selected.id }} configured={storageReady} label="Upload" />
+              </div>
+              <FileList rows={media.filter((m) => m.shootId === selected.id)} />
+            </div>
           </div>
         ) : null}
       </Sheet>
