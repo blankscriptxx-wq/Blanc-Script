@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { NAV, SETTINGS_ITEM } from "@/lib/nav";
 import { signOutAction } from "@/app/(os)/auth/sign-out/actions";
 import { portalHomeForSession } from "@/lib/data/portal";
+import { secondFactorGate } from "@/lib/auth/mfa";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,11 @@ export default async function AppGroupLayout({
       </div>
     );
   }
+
+  // The team must have a second sign-in step, and pass it on each device.
+  const gate = await secondFactorGate(user.id, true);
+  if (gate === "setup") redirect("/auth/security?setup=1");
+  if (gate === "verify") redirect("/auth/verify");
 
   const allowedHrefs = [...NAV, SETTINGS_ITEM]
     .filter((i) => !i.requires || user.capabilities.has(i.requires))

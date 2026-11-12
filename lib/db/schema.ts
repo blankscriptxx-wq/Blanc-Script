@@ -714,6 +714,32 @@ export const clientOnboardings = pgTable("client_onboardings", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ── Sign-in security: the second step (authenticator app and passkeys) ────
+export const userSecurity = pgTable("user_security", {
+  /** Neon Auth user id. */
+  userId: uuid("user_id").primaryKey(),
+  /** Authenticator-app secret, encrypted. Null until set up. */
+  totpSecretEnc: text("totp_secret_enc"),
+  /** Set once a code has been confirmed; until then the secret is only pending. */
+  totpEnabledAt: timestamp("totp_enabled_at", { withTimezone: true }),
+  /** One-time recovery codes, stored hashed. */
+  recoveryHashes: jsonb("recovery_hashes").$type<string[]>().notNull().default([]),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const passkeys = pgTable("passkeys", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull(),
+  credentialId: text("credential_id").notNull().unique(),
+  /** Public key, base64url. */
+  publicKey: text("public_key").notNull(),
+  counter: integer("counter").notNull().default(0),
+  transports: jsonb("transports").$type<string[]>().notNull().default([]),
+  name: text("name").notNull().default("Passkey"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+});
+
 // ── Proposals: a branded web page sent to a prospect, accepted with a typed name ─
 export type ProposalItem = { title: string; text: string };
 export type ProposalContent = {

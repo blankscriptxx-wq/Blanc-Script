@@ -106,17 +106,25 @@ async function claimReservedOwner(userId: string, email: string): Promise<boolea
   // loses the race finds the membership already there (checked below) rather
   // than seeing a moment of "no access".
   const { rows } = await db.execute(sql`
-    with taken as (
-      update organisations
+    with pick as (
+      select id,
+        case when settings -> 'ownerEmails' ? ${mail} then 'owner' else settings -> 'invites' ->> ${mail} end as role
+      from organisations
+      where settings -> 'ownerEmails' ? ${mail} or settings -> 'invites' ? ${mail}
+      limit 1
+    ),
+    taken as (
+      update organisations o
       set settings =
-        jsonb_set(settings, '{ownerEmails}', (settings -> 'ownerEmails') - ${mail}::text)
-        || case when settings ->> 'masterEmail' = ${mail} then jsonb_build_object('masterUserId', ${userId}::text) else '{}'::jsonb end
-      where settings -> 'ownerEmails' ? ${mail}
-      returning id
+        (jsonb_set(o.settings, '{ownerEmails}', coalesce(o.settings -> 'ownerEmails', '[]'::jsonb) - ${mail}::text) #- array['invites', ${mail}::text])
+        || case when o.settings ->> 'masterEmail' = ${mail} then jsonb_build_object('masterUserId', ${userId}::text) else '{}'::jsonb end
+      from pick
+      where o.id = pick.id and (o.settings -> 'ownerEmails' ? ${mail} or o.settings -> 'invites' ? ${mail})
+      returning o.id, pick.role
     )
     insert into memberships (org_id, user_id, role, status)
-    select id, ${userId}::uuid, 'owner', 'active' from taken
-    returning id
+    select id, ${userId}::uuid, role::role, 'active' from taken
+    returning id, role
   `);
   if (rows.length > 0) {
     // Second email of the pair: the invitation came first, this confirms the account.
@@ -135,7 +143,7 @@ async function claimReservedOwner(userId: string, email: string): Promise<boolea
         heading: "You're in",
         paragraphs: [
           "Hi,",
-          "Thanks for creating your account. You now have owner access to the Blanc Script Studio.",
+          "Thanks for creating your account. You now have access to the Blanc Script Studio.",
           "Sign in any time with this email address and the password you chose.",
         ],
         button: { label: "Open the studio", url: `${appOrigin()}/today` },

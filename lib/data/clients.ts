@@ -15,6 +15,11 @@ export async function requireUser(): Promise<CurrentUser & { orgId: string }> {
   if (!user || !user.hasAccess || !user.orgId) {
     throw new Error("No workspace access.");
   }
+  // Staff data is only served once the second sign-in step has been passed.
+  const { secondFactorGate } = await import("@/lib/auth/mfa");
+  if ((await secondFactorGate(user.id, true)) !== "ok") {
+    throw new Error("Please complete your second sign-in step.");
+  }
   return user as CurrentUser & { orgId: string };
 }
 

@@ -330,6 +330,8 @@ export async function portalHomeForSession(): Promise<string | null> {
 
 export async function signOutOfPortal(): Promise<void> {
   await getAuth().signOut();
+  const { clearVerified } = await import("@/lib/auth/mfa");
+  await clearVerified();
 }
 
 /** Deliverable states a client is allowed to see (never work still in the edit). */

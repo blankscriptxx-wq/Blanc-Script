@@ -85,17 +85,39 @@ export async function setMemberStatusAction(
   }
 }
 
-/** Reserve owner access for an email and send the branded sign-up invitation. */
-export async function inviteOwnerAction(email: string): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
+/** Reserve a place on the team for an email and send the branded sign-up invitation. */
+export async function inviteMemberAction(email: string, role: InternalRole): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
   try {
-    const { inviteOwnerByEmail } = await import("@/lib/data/team-admin");
-    const status = await inviteOwnerByEmail(email);
+    const { inviteMemberByEmail } = await import("@/lib/data/team-admin");
+    const status = await inviteMemberByEmail(email, role);
     revalidatePath("/team");
     return status === "sent"
       ? { ok: true, message: `Invitation emailed to ${email.trim().toLowerCase()}.` }
-      : { ok: false, error: status === "not_configured" ? "Their owner access is reserved, but email isn't connected so nothing was sent." : "Their owner access is reserved, but the email failed to send." };
+      : { ok: false, error: status === "not_configured" ? "Their place is reserved, but email isn't connected so nothing was sent." : "Their place is reserved, but the email failed to send." };
   } catch (e) {
     if (e && typeof e === "object" && "issues" in e) return { ok: false, error: (e as { issues: { message: string }[] }).issues[0]?.message ?? "Check the email address." };
     return { ok: false, error: e instanceof Error ? e.message : "Could not send the invitation." };
+  }
+}
+
+export async function cancelInviteAction(email: string): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
+  try {
+    const { cancelInvite } = await import("@/lib/data/team-admin");
+    await cancelInvite(email);
+    revalidatePath("/team");
+    return { ok: true, message: "Invitation withdrawn." };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not withdraw the invitation." };
+  }
+}
+
+export async function resetMemberSecurityAction(membershipId: string): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
+  try {
+    const { resetMemberSecurity } = await import("@/lib/data/team-admin");
+    await resetMemberSecurity(membershipId);
+    revalidatePath("/team");
+    return { ok: true, message: "Reset. They'll be asked to set up a second step next time they sign in." };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not reset." };
   }
 }

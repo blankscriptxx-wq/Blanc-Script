@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { resolvePortalAccess } from "@/lib/data/portal";
+import { getCurrentUser } from "@/lib/auth/session";
+import { secondFactorGate } from "@/lib/auth/mfa";
 import { portalSignOutAction } from "@/app/(os)/portal/auth-actions";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +27,12 @@ export default async function PortalLayout({
   // Not signed in / not set up yet: the page itself sends them to /portal/enter.
   if (access.state !== "ok") return <>{children}</>;
   const ctx = access.ctx;
+  if (ctx.login) {
+    const me = await getCurrentUser().catch(() => null);
+    if (me && (await secondFactorGate(me.id, false)) === "verify") {
+      redirect(`/auth/verify?next=${encodeURIComponent(`/portal/${token}`)}`);
+    }
+  }
 
   return (
     <div className="min-h-dvh bg-bs-canvas text-bs-text">
@@ -40,6 +49,11 @@ export default async function PortalLayout({
             <span className="block font-medium text-bs-text">{ctx.clientName}</span>
             <span className="block text-xs text-bs-subtle">Signed in as {ctx.viewerName}</span>
           </span>
+          {ctx.login ? (
+            <Link href="/auth/security" className="text-xs text-bs-subtle underline-offset-2 hover:text-bs-text hover:underline">
+              Security
+            </Link>
+          ) : null}
           {ctx.login ? (
             <form action={portalSignOutAction}>
               <button className="text-xs text-bs-subtle underline-offset-2 hover:text-bs-text hover:underline">

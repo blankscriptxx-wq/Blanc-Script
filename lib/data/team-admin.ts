@@ -342,44 +342,66 @@ export async function setMemberStatus(
   });
 }
 
-// ── Inviting an owner by email ────────────────────────────────────────────
+// ── Inviting team members by email ───────────────────────────────────────
 
-/** Emails reserved as owners that haven't signed up yet. */
-export async function listReservedOwners(): Promise<string[]> {
+type InviteSettings = { ownerEmails?: string[]; invites?: Record<string, string> };
+export type PendingInvite = { email: string; role: InternalRole };
+
+/** Invitations that haven't been taken up yet. */
+export async function listPendingInvites(): Promise<PendingInvite[]> {
   const user = await requireUser();
-  if (user.role !== "owner") return [];
+  if (!user.capabilities.has(CAN_MANAGE)) return [];
   const [org] = await getDb().select({ settings: organisations.settings }).from(organisations).where(eq(organisations.id, user.orgId)).limit(1);
-  return ((org?.settings as { ownerEmails?: string[] } | null)?.ownerEmails ?? []).slice();
+  const s = (org?.settings ?? {}) as InviteSettings;
+  return [
+    ...(s.ownerEmails ?? []).map((email) => ({ email, role: "owner" as InternalRole })),
+    ...Object.entries(s.invites ?? {}).map(([email, role]) => ({ email, role: role as InternalRole })),
+  ];
 }
 
+const ROLE_WORDS: Record<InternalRole, string> = {
+  owner: "an owner",
+  ops: "operations manager",
+  account_manager: "an account manager",
+  editor: "an editor",
+  filmer: "a filmer",
+};
+
 /**
- * Reserve owner access for an email (if it isn't already) and send that
- * person a branded invitation with the sign-up link. They choose their own
- * password; access is granted the moment they sign up with that email.
+ * Reserve a place on the team for an email, with a role, and send that person
+ * a branded invitation. They choose their own password; access is granted the
+ * moment they sign up with that email. Re-inviting re-sends (and can change
+ * the role).
  */
-export async function inviteOwnerByEmail(email: string): Promise<EmailResult["status"]> {
+export async function inviteMemberByEmail(email: string, role: InternalRole): Promise<EmailResult["status"]> {
   const user = await requireUser();
-  if (user.role !== "owner") throw new Error("Only an owner can invite another owner.");
+  if (!user.capabilities.has(CAN_MANAGE)) throw new Error("You do not have permission to invite people.");
   const mail = z.string().trim().toLowerCase().email("Enter a valid email address.").parse(email);
+  const nextRole = roleSchema.parse(role);
+  if (nextRole === "owner" && user.role !== "owner") throw new Error("Only an owner can invite another owner.");
   const db = getDb();
   const { rows } = await db.execute(sql`
     select count(*)::int as n from neon_auth."user" u join memberships m on m.user_id = u.id where lower(u.email) = ${mail}
   `);
   if (Number((rows[0] as { n: number }).n) > 0) throw new Error("That person already has access.");
-  const [org] = await db.select({ settings: organisations.settings, name: organisations.name }).from(organisations).where(eq(organisations.id, user.orgId)).limit(1);
-  const settings = { ...((org?.settings ?? {}) as Record<string, unknown>) } as Record<string, unknown> & { ownerEmails?: string[] };
-  if (!(settings.ownerEmails ?? []).includes(mail)) {
-    settings.ownerEmails = [...(settings.ownerEmails ?? []), mail];
-    await db.update(organisations).set({ settings }).where(eq(organisations.id, user.orgId));
-    await db.insert(activityLog).values({
-      orgId: user.orgId,
-      actorUserId: user.id,
-      action: "member.owner_invited",
-      entityType: "organisation",
-      entityId: user.orgId,
-      meta: { email: mail },
-    });
-  }
+  const [org] = await db.select({ settings: organisations.settings }).from(organisations).where(eq(organisations.id, user.orgId)).limit(1);
+  const settings = { ...((org?.settings ?? {}) as Record<string, unknown>) } as Record<string, unknown> & InviteSettings;
+  const owners = (settings.ownerEmails ?? []).filter((e) => e !== mail);
+  const invites = { ...(settings.invites ?? {}) };
+  delete invites[mail];
+  if (nextRole === "owner") owners.push(mail);
+  else invites[mail] = nextRole;
+  settings.ownerEmails = owners;
+  settings.invites = invites;
+  await db.update(organisations).set({ settings }).where(eq(organisations.id, user.orgId));
+  await db.insert(activityLog).values({
+    orgId: user.orgId,
+    actorUserId: user.id,
+    action: "member.invited",
+    entityType: "organisation",
+    entityId: user.orgId,
+    meta: { email: mail, role: nextRole },
+  });
   const res = await sendEmail({
     orgId: user.orgId,
     to: mail,
@@ -387,12 +409,92 @@ export async function inviteOwnerByEmail(email: string): Promise<EmailResult["st
     heading: "You're invited to the studio",
     paragraphs: [
       "Hi,",
-      `${user.name} has added you as an owner of the Blanc Script Studio — the workspace where we run clients, projects, shoots, edits, invoices and agreements.`,
-      `To get in, press the button below — your email (${mail}) is already filled in. Add your name, choose your own password, and you'll land straight in the workspace with full owner access.`,
-      "The invitation is tied to this email address, so please use it when you sign up.",
+      `${user.name} has added you to the Blanc Script Studio as ${ROLE_WORDS[nextRole]} — the workspace where we run clients, projects, shoots, edits and delivery.`,
+      `To get in, press the button below — your email (${mail}) is already filled in. Add your name and choose your own password.`,
+      "For security you'll then be asked to set up a second sign-in step (an authenticator app or a passkey). It takes a minute.",
     ],
     button: { label: "Create my account", url: `${appOrigin()}/auth/sign-up?email=${encodeURIComponent(mail)}` },
-    kind: "owner_invite",
+    kind: "team_invite",
   });
   return res.status;
+}
+
+/** Withdraw an invitation that hasn't been used. */
+export async function cancelInvite(email: string): Promise<void> {
+  const user = await requireUser();
+  if (!user.capabilities.has(CAN_MANAGE)) throw new Error("You do not have permission to manage invitations.");
+  const mail = email.trim().toLowerCase();
+  const [org] = await getDb().select({ settings: organisations.settings }).from(organisations).where(eq(organisations.id, user.orgId)).limit(1);
+  const settings = { ...((org?.settings ?? {}) as Record<string, unknown>) } as Record<string, unknown> & InviteSettings & { masterEmail?: string };
+  if (settings.masterEmail === mail) throw new Error("The master owner's invitation can't be withdrawn.");
+  if ((settings.ownerEmails ?? []).includes(mail) && user.role !== "owner") throw new Error("Only an owner can withdraw an owner's invitation.");
+  settings.ownerEmails = (settings.ownerEmails ?? []).filter((e) => e !== mail);
+  const invites = { ...(settings.invites ?? {}) };
+  delete invites[mail];
+  settings.invites = invites;
+  await getDb().update(organisations).set({ settings }).where(eq(organisations.id, user.orgId));
+}
+
+// ── Sign-in security (second step) ───────────────────────────────────────
+
+export type MemberSecurity = {
+  membershipId: string;
+  name: string;
+  email: string;
+  role: string;
+  totp: boolean;
+  passkeys: number;
+  isMaster: boolean;
+  isSelf: boolean;
+};
+
+/** Who on the team has set up their second sign-in step. */
+export async function listMemberSecurity(): Promise<MemberSecurity[]> {
+  const user = await requireUser();
+  if (!user.capabilities.has(CAN_MANAGE)) return [];
+  const { rows } = await getDb().execute(sql`
+    select m.id as "membershipId", coalesce(u.name, u.email) as name, u.email, m.role::text as role, m.user_id::text as "userId",
+      exists (select 1 from user_security s where s.user_id = m.user_id and s.totp_enabled_at is not null) as totp,
+      (select count(*)::int from passkeys p where p.user_id = m.user_id) as passkeys,
+      (o.settings ->> 'masterUserId') = m.user_id::text as "isMaster"
+    from memberships m
+    join neon_auth."user" u on u.id = m.user_id
+    join organisations o on o.id = m.org_id
+    where m.org_id = ${user.orgId} and m.status = 'active' and m.role::text not in ('client_user', 'talent_user')
+    order by u.name
+  `);
+  return (rows as unknown as (MemberSecurity & { userId: string })[]).map((r) => ({
+    membershipId: r.membershipId,
+    name: r.name,
+    email: r.email,
+    role: r.role,
+    totp: Boolean(r.totp),
+    passkeys: Number(r.passkeys),
+    isMaster: Boolean(r.isMaster),
+    isSelf: r.userId === user.id,
+  }));
+}
+
+/**
+ * Clear a colleague's second step so they can set it up again (lost phone).
+ * Owners only. The master owner's can't be cleared by anyone else — they use
+ * their recovery codes.
+ */
+export async function resetMemberSecurity(membershipId: string): Promise<void> {
+  const user = await requireUser();
+  if (user.role !== "owner") throw new Error("Only an owner can reset someone's sign-in security.");
+  const id = membershipIdSchema.parse(membershipId);
+  const member = await loadOwnOrgMembership(user.orgId, id);
+  if (member.userId === user.id) throw new Error("Use your own Sign-in security page to change yours.");
+  await assertNotMaster(user.orgId, member.userId);
+  const { resetSecondFactor } = await import("@/lib/auth/mfa");
+  await resetSecondFactor(member.userId);
+  await getDb().insert(activityLog).values({
+    orgId: user.orgId,
+    actorUserId: user.id,
+    action: "member.security_reset",
+    entityType: "membership",
+    entityId: id,
+    meta: { userId: member.userId },
+  });
 }
