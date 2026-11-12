@@ -12,12 +12,16 @@ import {
   type OnboardingResult,
 } from "@/app/(os)/(app)/clients/[id]/onboarding-actions";
 
+import type { OnboardingTerms } from "@/lib/db/schema";
+import { AGREEMENT_PLATFORMS, AGREEMENT_SERVICES } from "@/lib/documents/generate-agreement";
+
 type Extra = { name: string; pricePence: number; cadence: "monthly" | "one_off" };
 
 export type OnboardingCardView = {
   status: "draft" | "sent" | "completed" | "cancelled";
   billingType: "subscription" | "one_off";
   paymentMethod: "card" | "cash";
+  terms: OnboardingTerms;
   invoiceId: string | null;
   servicePlanId: string | null;
   planName: string | null;
@@ -94,6 +98,16 @@ export function OnboardingCard({
   const [email, setEmail] = React.useState(draft?.contactEmail ?? firstContact?.email ?? "");
   const [welcome, setWelcome] = React.useState(draft?.welcomeNote ?? "");
   const [payBy, setPayBy] = React.useState<"card" | "cash">(draft?.paymentMethod ?? "card");
+  const t0 = draft?.terms ?? {};
+  const [companyNumber, setCompanyNumber] = React.useState(t0.companyNumber ?? "");
+  const [regAddress, setRegAddress] = React.useState(t0.registeredAddress ?? "");
+  const [minTerm, setMinTerm] = React.useState(t0.minimumTermMonths ? String(t0.minimumTermMonths) : "");
+  const [startDate, setStartDate] = React.useState(t0.startDate ?? "");
+  const [platforms, setPlatforms] = React.useState<string[]>(t0.platforms ?? []);
+  const [services, setServices] = React.useState<string[]>(t0.services ?? []);
+  const [exclusions, setExclusions] = React.useState(t0.exclusions ?? "");
+  const [agreement, setAgreement] = React.useState(t0.agreement !== false);
+  const toggle = (list: string[], set: (v: string[]) => void, v: string) => set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
   const [busy, setBusy] = React.useState("");
   const [note, setNote] = React.useState<{ ok: boolean; text: string } | null>(null);
   const [invite, setInvite] = React.useState("");
@@ -121,6 +135,16 @@ export function OnboardingCard({
       contactEmail: email,
       welcomeNote: welcome.trim() || null,
       paymentMethod: payBy,
+      terms: {
+        companyNumber: companyNumber.trim() || undefined,
+        registeredAddress: regAddress.trim() || undefined,
+        minimumTermMonths: !oneOff && Number(minTerm) >= 1 ? Math.round(Number(minTerm)) : null,
+        startDate: startDate || undefined,
+        platforms,
+        services,
+        exclusions: exclusions.trim() || undefined,
+        agreement,
+      },
     };
   }
 
@@ -431,7 +455,54 @@ export function OnboardingCard({
         </div>
 
         <div className="mb-3">
+          <p className={label}>Platforms and services included (shown ticked in the agreement)</p>
+          <div className="flex flex-wrap gap-1.5">
+            {AGREEMENT_PLATFORMS.map((x) => (
+              <button key={x} type="button" aria-pressed={platforms.includes(x)} onClick={() => toggle(platforms, setPlatforms, x)} className={`rounded-pill border px-2.5 py-1 text-xs transition-colors ${platforms.includes(x) ? "border-bs-primary bg-bs-primary text-bs-on-accent" : "border-bs-border-strong text-bs-text hover:bg-bs-surface-2"}`}>
+                {x}
+              </button>
+            ))}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {AGREEMENT_SERVICES.map((x) => (
+              <button key={x} type="button" aria-pressed={services.includes(x)} onClick={() => toggle(services, setServices, x)} className={`rounded-pill border px-2.5 py-1 text-xs transition-colors ${services.includes(x) ? "border-bs-primary bg-bs-primary text-bs-on-accent" : "border-bs-border-strong text-bs-text hover:bg-bs-surface-2"}`}>
+                {x}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mb-3 grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className={label} htmlFor="ob-start">Start date</label>
+            <input id="ob-start" type="date" className={input} value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          </div>
+          {oneOff ? null : (
+            <div>
+              <label className={label} htmlFor="ob-term">Minimum term in months (optional)</label>
+              <input id="ob-term" className={input} inputMode="numeric" value={minTerm} onChange={(e) => setMinTerm(e.target.value)} placeholder="Leave blank for rolling monthly" />
+            </div>
+          )}
+          <div>
+            <label className={label} htmlFor="ob-conum">Company number (optional)</label>
+            <input id="ob-conum" className={input} value={companyNumber} onChange={(e) => setCompanyNumber(e.target.value)} placeholder="Leave blank if they don't have one" />
+          </div>
+          <div>
+            <label className={label} htmlFor="ob-addr">Their address (optional)</label>
+            <input id="ob-addr" className={input} value={regAddress} onChange={(e) => setRegAddress(e.target.value)} placeholder="Registered or trading address" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className={label} htmlFor="ob-excl">Exclusions (optional)</label>
+            <input id="ob-excl" className={input} value={exclusions} onChange={(e) => setExclusions(e.target.value)} placeholder="Anything specifically not included" />
+          </div>
+        </div>
+
+        <div className="mb-3">
           <p className={label}>Documents to sign</p>
+          <label className="mb-1.5 flex items-center gap-2 text-sm text-bs-text">
+            <input type="checkbox" checked={agreement} onChange={(e) => setAgreement(e.target.checked)} />
+            Service Agreement, written for this client from the details above
+          </label>
           {templates.length ? (
             <div className="flex flex-wrap gap-x-4 gap-y-1.5">
               {templates.map((t) => (

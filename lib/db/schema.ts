@@ -656,6 +656,21 @@ export const clientDocuments = pgTable("client_documents", {
 });
 
 // ── Onboarding: what was agreed with a new client, and how far they've got ─
+/** Extra agreed terms captured at onboarding; every one is optional. */
+export type OnboardingTerms = {
+  companyNumber?: string;
+  registeredAddress?: string;
+  billingAddress?: string;
+  minimumTermMonths?: number | null;
+  /** yyyy-mm-dd */
+  startDate?: string;
+  platforms?: string[];
+  services?: string[];
+  exclusions?: string;
+  /** Generate and send the tailored Service Agreement with the welcome. */
+  agreement?: boolean;
+};
+
 export type OnboardingExtra = { name: string; pricePence: number; cadence: "monthly" | "one_off" };
 
 export const clientOnboardings = pgTable("client_onboardings", {
@@ -678,6 +693,7 @@ export const clientOnboardings = pgTable("client_onboardings", {
   /** Agreed deliverables, one per line — shown to the client and merged into documents. */
   deliverables: text("deliverables"),
   templateIds: jsonb("template_ids").$type<string[]>().notNull().default([]),
+  terms: jsonb("terms").$type<OnboardingTerms>().notNull().default({}),
   contactName: text("contact_name"),
   contactEmail: text("contact_email"),
   /** card = pays through Stripe; cash = pays us directly and staff mark it paid. */

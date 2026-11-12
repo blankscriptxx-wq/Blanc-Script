@@ -14,10 +14,11 @@ import {
   portalLinks,
   servicePlans,
   type OnboardingExtra,
+  type OnboardingTerms,
 } from "@/lib/db/schema";
 import { requireUser } from "@/lib/data/clients";
 import { nextInvoiceNumber, subscriptionIsLive } from "@/lib/data/billing";
-import { createClientDocument } from "@/lib/data/documents";
+import { createClientDocument, createGeneratedAgreement } from "@/lib/data/documents";
 import { syncInvoicePayment } from "@/lib/data/payments";
 import { appOrigin, sendEmail, type EmailResult } from "@/lib/email/send";
 import { createPaymentLink, deactivatePaymentLink, stripeConfigured } from "@/lib/payments/stripe";
@@ -52,6 +53,19 @@ export const onboardingInput = z.object({
   contactEmail: z.string().trim().toLowerCase().email("Enter the contact's email address."),
   welcomeNote: z.string().trim().max(2000).nullable(),
   paymentMethod: z.enum(["card", "cash"]).default("card"),
+  terms: z
+    .object({
+      companyNumber: z.string().trim().max(40).optional(),
+      registeredAddress: z.string().trim().max(400).optional(),
+      billingAddress: z.string().trim().max(400).optional(),
+      minimumTermMonths: z.number().int().min(1).max(60).nullable().optional(),
+      startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
+      platforms: z.array(z.string().max(40)).max(12).optional(),
+      services: z.array(z.string().max(40)).max(30).optional(),
+      exclusions: z.string().trim().max(600).optional(),
+      agreement: z.boolean().optional(),
+    })
+    .default({}),
 });
 export type OnboardingInput = z.input<typeof onboardingInput>;
 
@@ -69,6 +83,7 @@ export type OnboardingView = {
   status: "draft" | "sent" | "completed" | "cancelled";
   billingType: "subscription" | "one_off";
   paymentMethod: "card" | "cash";
+  terms: OnboardingTerms;
   servicePlanId: string | null;
   planName: string | null;
   monthlyPence: number | null;
@@ -237,6 +252,7 @@ async function toView(ob: Row, progress: OnboardingProgress | null): Promise<Onb
     status: ob.status as OnboardingView["status"],
     billingType: ob.billingType as OnboardingView["billingType"],
     paymentMethod: ob.paymentMethod === "cash" ? "cash" : "card",
+    terms: ob.terms ?? {},
     servicePlanId: ob.servicePlanId,
     planName: plan?.name ?? null,
     monthlyPence: ob.monthlyPence,
@@ -447,9 +463,12 @@ export async function sendOnboarding(clientId: string): Promise<{ emailStatus: E
     }
     const token = (await linkToken(linkId))!;
 
-    // 4. Documents: a populated copy of each chosen template, published to the portal.
-    for (const templateId of ob.templateIds ?? []) {
-      const doc = await createClientDocument(clientId, templateId);
+    // 4. Documents: the tailored Service Agreement, plus a populated copy of
+    //    each chosen template — all published to the portal.
+    const issue: { id: string }[] = [];
+    if (ob.terms?.agreement !== false) issue.push(await createGeneratedAgreement(clientId));
+    for (const templateId of ob.templateIds ?? []) issue.push(await createClientDocument(clientId, templateId));
+    for (const doc of issue) {
       await db
         .update(clientDocuments)
         .set({ status: "sent", sentAt: new Date(), updatedAt: new Date() })

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import {
   createClientDocument,
+  createGeneratedAgreement,
   sendClientDocument,
   updateClientDocument,
   voidClientDocument,
@@ -82,5 +83,16 @@ export async function assignUploadAction(clientId: string, assetId: string, targ
     return { ok: true };
   } catch (e) {
     return fail(e, "Could not file the upload.");
+  }
+}
+
+/** Write a Service Agreement for this client from their onboarding (starts as a draft). */
+export async function generateAgreementAction(clientId: string): Promise<DocResult> {
+  try {
+    await createGeneratedAgreement(clientId);
+    revalidatePath(`/clients/${clientId}`);
+    return { ok: true, message: "Agreement written from this client's onboarding — check it, then send." };
+  } catch (e) {
+    return fail(e, "Could not generate the agreement.");
   }
 }

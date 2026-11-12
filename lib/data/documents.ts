@@ -17,6 +17,7 @@ import { requireUser } from "@/lib/data/clients";
 import { appOrigin, sendEmail } from "@/lib/email/send";
 import { mergeTemplate } from "@/lib/documents/merge";
 import { STARTER_TEMPLATES } from "@/lib/documents/starter-templates";
+import { generateAgreement } from "@/lib/documents/generate-agreement";
 import type { PortalContext } from "@/lib/data/portal";
 
 /**
@@ -215,6 +216,87 @@ export async function createClientDocument(clientId: string, templateId: string)
       body,
       createdByUserId: user.id,
     })
+    .returning({ id: clientDocuments.id });
+  return row;
+}
+
+/**
+ * Create a Service Agreement written for this client from their onboarding:
+ * the studio's design and standard terms, with the client's own details,
+ * scope, deliverables and fees — and nothing left blank. Starts as a draft.
+ */
+export async function createGeneratedAgreement(clientId: string): Promise<{ id: string }> {
+  const user = await requireUser();
+  requireDocs(user);
+  const db = getDb();
+  const [[c], [ob], [contact]] = await Promise.all([
+    db
+      .select({
+        name: clients.name,
+        retainerOverridePence: clients.retainerOverridePence,
+        planName: servicePlans.name,
+        planPricePence: servicePlans.pricePence,
+      })
+      .from(clients)
+      .leftJoin(servicePlans, eq(clients.servicePlanId, servicePlans.id))
+      .where(and(eq(clients.id, clientId), eq(clients.orgId, user.orgId)))
+      .limit(1),
+    db
+      .select()
+      .from(clientOnboardings)
+      .where(
+        and(
+          eq(clientOnboardings.orgId, user.orgId),
+          eq(clientOnboardings.clientId, clientId),
+          inArray(clientOnboardings.status, ["draft", "sent", "completed"]),
+        ),
+      )
+      .orderBy(desc(clientOnboardings.createdAt))
+      .limit(1),
+    db
+      .select({ name: clientContacts.name, email: clientContacts.email, phone: clientContacts.phone })
+      .from(clientContacts)
+      .where(and(eq(clientContacts.orgId, user.orgId), eq(clientContacts.clientId, clientId)))
+      .orderBy(desc(clientContacts.isPrimary), asc(clientContacts.createdAt))
+      .limit(1),
+  ]);
+  if (!c) throw new Error("That client was not found.");
+  const project = ob?.billingType === "one_off";
+  const extras = ob?.extras ?? [];
+  const feePence = project
+    ? extras.reduce((n, x) => n + x.pricePence, 0)
+    : ((ob?.status === "draft" ? ob.monthlyPence : null) ?? c.retainerOverridePence ?? c.planPricePence ?? ob?.monthlyPence ?? 0);
+  if (!feePence) throw new Error("Set the client's package or project fee first (in Onboarding), so the agreement can state it.");
+  const terms = ob?.terms ?? {};
+  let planName = c.planName ?? "";
+  if (!project && ob?.status === "draft" && ob.servicePlanId) {
+    const [p] = await db.select({ name: servicePlans.name }).from(servicePlans).where(eq(servicePlans.id, ob.servicePlanId)).limit(1);
+    planName = p?.name ?? planName;
+  }
+  const body = generateAgreement({
+    clientName: c.name,
+    contactName: ob?.contactName ?? contact?.name ?? "",
+    contactEmail: ob?.contactEmail ?? contact?.email ?? "",
+    contactPhone: contact?.phone ?? "",
+    companyNumber: terms.companyNumber ?? "",
+    registeredAddress: terms.registeredAddress ?? "",
+    billingAddress: terms.billingAddress ?? "",
+    engagement: project ? "project" : "retainer",
+    packageName: planName,
+    projectName: ob?.projectTitle ?? "",
+    feePence,
+    addOns: project ? extras : extras,
+    deliverables: (ob?.deliverables ?? "").split("\n").map((l) => l.trim()).filter(Boolean),
+    platforms: terms.platforms ?? [],
+    services: terms.services ?? [],
+    exclusions: terms.exclusions ?? "",
+    minimumTermMonths: terms.minimumTermMonths ?? null,
+    startDate: terms.startDate ? new Date(`${terms.startDate}T12:00:00Z`) : new Date(),
+    paymentMethod: ob?.paymentMethod === "cash" ? "cash" : "card",
+  });
+  const [row] = await db
+    .insert(clientDocuments)
+    .values({ orgId: user.orgId, clientId, title: "Service Agreement", body, createdByUserId: user.id })
     .returning({ id: clientDocuments.id });
   return row;
 }

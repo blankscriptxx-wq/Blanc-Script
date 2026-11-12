@@ -2,11 +2,12 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { FileText, Loader2, Plus } from "lucide-react";
+import { FileText, Loader2, Plus, Wand2 } from "lucide-react";
 import { Dialog } from "@/components/ds/dialog";
 import { StatusPill } from "@/components/ds/status-pill";
 import {
   createDocumentAction,
+  generateAgreementAction,
   saveDocumentAction,
   sendDocumentAction,
   voidDocumentAction,
@@ -180,6 +181,16 @@ export function ClientDocuments({
             </button>
           </>
         )}
+        <button
+          type="button"
+          disabled={busy !== ""}
+          onClick={() => run("generate", () => generateAgreementAction(clientId))}
+          title="Writes the Service Agreement from what you entered in Onboarding — no blank fields"
+          className="inline-flex h-9 items-center gap-1.5 rounded-sm bg-bs-primary px-3 text-sm font-medium text-bs-on-accent transition-colors hover:bg-bs-primary-hover disabled:opacity-50"
+        >
+          {busy === "generate" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+          Generate agreement
+        </button>
       </div>
       {note ? (
         <p className={`mt-2 text-xs ${note.ok ? "text-bs-success" : "text-bs-danger"}`}>{note.text}</p>

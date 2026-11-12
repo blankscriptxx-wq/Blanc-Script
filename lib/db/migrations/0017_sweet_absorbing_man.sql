@@ -1,0 +1,1 @@
+ALTER TABLE "client_onboardings" ADD COLUMN "terms" jsonb DEFAULT '{}'::jsonb NOT NULL;
