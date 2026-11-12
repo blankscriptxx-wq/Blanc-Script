@@ -13,6 +13,16 @@ export async function createTalentAction(
     const ratePounds = ((formData.get("ratePerHour") as string) || "").trim();
     const ratePerHourPence =
       ratePounds === "" ? null : Math.round(Number(ratePounds) * 100);
+    const dayPounds = ((formData.get("dayRate") as string) || "").trim();
+    const dayRatePence = dayPounds === "" ? null : Math.round(Number(dayPounds) * 100);
+    const tags = ((formData.get("tags") as string) || "")
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+    const agentName = ((formData.get("agentName") as string) || "").trim();
+    const agentContact = ((formData.get("agentContact") as string) || "").trim();
+    const baseLocation = ((formData.get("baseLocation") as string) || "").trim();
+    const instagram = ((formData.get("instagram") as string) || "").trim();
 
     await createTalent({
       name: (formData.get("name") as string) ?? "",
@@ -23,6 +33,12 @@ export async function createTalentAction(
         | "inactive"
         | "archived",
       ratePerHourPence,
+      dayRatePence,
+      tags,
+      agentName: agentName ? agentName : null,
+      agentContact: agentContact ? agentContact : null,
+      baseLocation: baseLocation ? baseLocation : null,
+      instagram: instagram ? instagram : null,
     });
     revalidatePath("/talent");
     return { ok: true, error: "" };

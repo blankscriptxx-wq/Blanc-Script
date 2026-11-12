@@ -93,7 +93,21 @@ export function TalentView({
                   onClick={() => setSelected(r)}
                   className="cursor-pointer border-b border-bs-border last:border-0 transition-colors hover:bg-bs-surface-2"
                 >
-                  <td className="px-4 py-3 font-medium text-bs-text">{r.name}</td>
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-bs-text">{r.name}</div>
+                    {r.tags.length ? (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {r.tags.slice(0, 4).map((tag) => (
+                          <span
+                            key={tag}
+                            className="rounded-full bg-bs-surface-2 px-2 py-0.5 text-[11px] text-bs-subtle"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </td>
                   <td className="px-4 py-3 text-bs-muted">{r.email ?? "—"}</td>
                   <td className="px-4 py-3 text-bs-muted">{r.phone ?? "—"}</td>
                   <td className="px-4 py-3 text-right tabular-nums">{rate(r)}</td>
@@ -203,16 +217,12 @@ function AddTalentDialog({
             <input name="phone" type="text" placeholder="07…" className={inputCls} />
           </Field>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Rate per hour (£)">
-            <input
-              name="ratePerHour"
-              type="number"
-              step="1"
-              min="0"
-              placeholder="45"
-              className={inputCls}
-            />
+        <div className="grid grid-cols-3 gap-3">
+          <Field label="Hourly (£)">
+            <input name="ratePerHour" type="number" step="1" min="0" placeholder="45" className={inputCls} />
+          </Field>
+          <Field label="Day rate (£)">
+            <input name="dayRate" type="number" step="1" min="0" placeholder="350" className={inputCls} />
           </Field>
           <Field label="Status">
             <select name="status" defaultValue="active" className={cn(inputCls, "pr-8")}>
@@ -220,6 +230,25 @@ function AddTalentDialog({
               <option value="inactive">Inactive</option>
               <option value="archived">Archived</option>
             </select>
+          </Field>
+        </div>
+        <Field label="Skills / tags (comma separated)">
+          <input name="tags" placeholder="presenter, voiceover, model" className={inputCls} />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Base location (optional)">
+            <input name="baseLocation" placeholder="London" className={inputCls} />
+          </Field>
+          <Field label="Instagram (optional)">
+            <input name="instagram" placeholder="@handle" className={inputCls} />
+          </Field>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Agent / rep (optional)">
+            <input name="agentName" placeholder="Agency name" className={inputCls} />
+          </Field>
+          <Field label="Agent contact (optional)">
+            <input name="agentContact" placeholder="email or phone" className={inputCls} />
           </Field>
         </div>
         {state && !state.ok ? (

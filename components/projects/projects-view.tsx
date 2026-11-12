@@ -3,7 +3,8 @@
 import * as React from "react";
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import Link from "next/link";
+import { Plus, ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ds/button";
 import { StatusPill } from "@/components/ds/status-pill";
 import { Dialog } from "@/components/ds/dialog";
@@ -121,6 +122,13 @@ export function ProjectsView({
       >
         {selected ? (
           <div className="space-y-4">
+            <Link
+              href={`/projects/${selected.id}`}
+              className="flex items-center justify-between rounded-sm border border-bs-border bg-bs-surface-2 px-3 py-2.5 text-sm font-medium text-bs-text transition-colors hover:bg-bs-surface"
+            >
+              View full project
+              <ArrowUpRight className="h-4 w-4 text-bs-subtle" />
+            </Link>
             <Row label="Status">
               <StatusPill tone={STATUS_TONE[selected.status]}>
                 {STATUS_LABEL[selected.status]}
@@ -133,6 +141,18 @@ export function ProjectsView({
             <Row label="Updated">
               {dateFmt.format(new Date(selected.updatedAt))}
             </Row>
+            {(() => {
+              const brief = (selected as ProjectRow & { brief?: string | null })
+                .brief;
+              return brief?.trim() ? (
+                <div className="space-y-1.5 pt-1">
+                  <span className="text-sm text-bs-subtle">Brief</span>
+                  <p className="whitespace-pre-wrap text-sm text-bs-text">
+                    {brief}
+                  </p>
+                </div>
+              ) : null;
+            })()}
             <CastingSection
               kind="project"
               parentId={selected.id}

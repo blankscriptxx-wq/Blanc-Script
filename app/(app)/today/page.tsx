@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { asc, eq } from "drizzle-orm";
 import { EmptyState } from "@/components/ds/empty-state";
 import { PageHeader } from "@/components/ds/page-header";
@@ -8,6 +9,11 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db/client";
 import { servicePlans } from "@/lib/db/schema";
 import { getTodayStats } from "@/lib/data/today";
+import {
+  getNeedsYou,
+  getRecentActivity,
+  type NeedsYouKind,
+} from "@/lib/data/today-feed";
 
 export const metadata = { title: "Today" };
 export const dynamic = "force-dynamic";
@@ -23,7 +29,7 @@ export default async function TodayPage() {
     timeZone: "Europe/London",
   }).format(new Date());
 
-  const [plans, stats] = await Promise.all([
+  const [plans, stats, needsYou, activity] = await Promise.all([
     user.orgId
       ? getDb()
           .select()
@@ -32,7 +38,16 @@ export default async function TodayPage() {
           .orderBy(asc(servicePlans.sortOrder))
       : Promise.resolve([]),
     getTodayStats(),
+    getNeedsYou(),
+    getRecentActivity(),
   ]);
+
+  const kindLabel: Record<NeedsYouKind, string> = {
+    invoice: "Invoice",
+    shoot: "Shoot",
+    task: "Task",
+    deliverable: "Edit",
+  };
 
   const kpis = [
     { label: "Clients", value: stats.clients, hint: "On the books" },
@@ -106,13 +121,76 @@ export default async function TodayPage() {
         )}
       </section>
 
-      <section className="mt-8">
-        <h2 className="mb-3 font-display text-h2">Needs you</h2>
-        <EmptyState
-          title="Your day will gather here."
-          description="Once records exist, the things that need you — late edits, shoots on site, overdue invoices, approvals waiting — surface on this list, newest first."
-        />
-      </section>
+      <div className="mt-8 grid gap-8 lg:grid-cols-[1.6fr_1fr]">
+        <section>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-display text-h2">Needs you</h2>
+            {needsYou.items.length > 0 ? (
+              <span className="inline-flex items-center gap-1.5 text-xs text-bs-subtle">
+                <PulseDot tone="danger" /> {needsYou.items.length} to action
+              </span>
+            ) : null}
+          </div>
+
+          {needsYou.items.length === 0 ? (
+            <EmptyState
+              title="Your day will gather here."
+              description="Once records exist, the things that need you — late edits, shoots on site, overdue invoices, approvals waiting — surface on this list, most urgent first."
+            />
+          ) : (
+            <ul className="space-y-2">
+              {needsYou.items.map((item, i) => (
+                <Reveal key={item.id} delay={i * 0.04}>
+                  <Link href={item.href} className="block">
+                    <Spotlight
+                      lift
+                      tilt={false}
+                      className="flex items-center gap-3 rounded-md border border-bs-border bg-bs-surface p-3"
+                    >
+                      <PulseDot tone={item.tone} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate font-medium text-bs-text">
+                            {item.title}
+                          </span>
+                          <StatusPill tone={item.tone} className="shrink-0">
+                            {kindLabel[item.kind]}
+                          </StatusPill>
+                        </div>
+                        <div className="mt-0.5 truncate text-xs text-bs-muted">
+                          {item.meta}
+                        </div>
+                      </div>
+                      <span aria-hidden className="text-bs-subtle">
+                        →
+                      </span>
+                    </Spotlight>
+                  </Link>
+                </Reveal>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section>
+          <h2 className="mb-3 font-display text-h2">Recent activity</h2>
+          {activity.length === 0 ? (
+            <EmptyState title="Nothing logged yet." />
+          ) : (
+            <ol className="relative space-y-4 border-l border-bs-border pl-4">
+              {activity.map((a, i) => (
+                <Reveal key={a.id} delay={i * 0.03}>
+                  <li className="relative">
+                    <span className="absolute -left-[21px] top-1.5 h-2 w-2 rounded-full bg-bs-accent" />
+                    <div className="text-sm text-bs-text">{a.label}</div>
+                    <div className="text-xs text-bs-subtle">{a.when}</div>
+                  </li>
+                </Reveal>
+              ))}
+            </ol>
+          )}
+        </section>
+      </div>
     </div>
   );
 }

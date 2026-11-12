@@ -13,6 +13,7 @@ import {
   talent,
 } from "@/lib/db/schema";
 import { requireUser } from "@/lib/data/clients";
+import { listAvailability, type AvailabilityRow } from "@/lib/data/talent";
 import type { CastingStatus } from "@/lib/data/castings";
 import type { InvoiceStatus } from "@/lib/data/finance";
 
@@ -64,6 +65,12 @@ export type TalentProfile = {
     phone: string | null;
     status: "active" | "inactive" | "archived";
     ratePerHourPence: number | null;
+    dayRatePence: number | null;
+    tags: string[];
+    agentName: string | null;
+    agentContact: string | null;
+    baseLocation: string | null;
+    instagram: string | null;
     notes: string | null;
     createdAt: Date;
   };
@@ -74,6 +81,7 @@ export type TalentProfile = {
     paidPence: number;
     outstandingPence: number;
   };
+  availability: AvailabilityRow[];
   payments: TalentProfileInvoice[];
   byClient: TalentClientGroup[];
 };
@@ -91,6 +99,12 @@ export async function getTalentProfile(id: string): Promise<TalentProfile | null
       phone: talent.phone,
       status: talent.status,
       ratePerHourPence: talent.ratePerHourPence,
+      dayRatePence: talent.dayRatePence,
+      tags: talent.tags,
+      agentName: talent.agentName,
+      agentContact: talent.agentContact,
+      baseLocation: talent.baseLocation,
+      instagram: talent.instagram,
       notes: talent.notes,
       createdAt: talent.createdAt,
     })
@@ -283,8 +297,10 @@ export async function getTalentProfile(id: string): Promise<TalentProfile | null
     .filter((p) => ["sent", "approved", "overdue"].includes(p.status))
     .reduce((s, p) => s + p.amountPence, 0);
 
+  const availability = await listAvailability(id);
+
   return {
-    talent: t,
+    talent: { ...t, tags: t.tags ?? [] },
     summary: {
       shootsCount: shootRows.length,
       clientsCount: workedClientIds.length,
@@ -292,6 +308,7 @@ export async function getTalentProfile(id: string): Promise<TalentProfile | null
       paidPence,
       outstandingPence,
     },
+    availability,
     payments,
     byClient,
   };

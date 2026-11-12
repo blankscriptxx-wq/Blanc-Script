@@ -108,6 +108,10 @@ export const castingStatusEnum = pgEnum("casting_status", [
   "confirmed",
   "released",
 ]);
+export const availabilityKindEnum = pgEnum("availability_kind", [
+  "available",
+  "unavailable",
+]);
 
 // ── Tenancy ─────────────────────────────────────────────────────────────────
 export const organisations = pgTable("organisations", {
@@ -162,6 +166,7 @@ export const projects = pgTable("projects", {
   clientId: uuid("client_id").references(() => clients.id),
   name: text("name").notNull(),
   status: projectStatusEnum("status").notNull().default("planning"),
+  brief: text("brief"),
   archivedAt: timestamp("archived_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -255,10 +260,33 @@ export const talent = pgTable("talent", {
   phone: text("phone"),
   status: talentStatusEnum("status").notNull().default("active"),
   ratePerHourPence: integer("rate_per_hour_pence"),
+  dayRatePence: integer("day_rate_pence"),
+  /** Free-form skills/categories: ["presenter","voiceover",…] */
+  tags: jsonb("tags").$type<string[]>().default([]),
+  agentName: text("agent_name"),
+  agentContact: text("agent_contact"),
+  baseLocation: text("base_location"),
+  instagram: text("instagram"),
   notes: text("notes"),
   archivedAt: timestamp("archived_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Talent availability / unavailability windows (feeds clash detection). */
+export const talentAvailability = pgTable("talent_availability", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organisations.id),
+  talentId: uuid("talent_id")
+    .notNull()
+    .references(() => talent.id),
+  kind: availabilityKindEnum("kind").notNull().default("unavailable"),
+  startDate: timestamp("start_date", { withTimezone: true }).notNull(),
+  endDate: timestamp("end_date", { withTimezone: true }).notNull(),
+  note: text("note"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 // ── Invoices (internal; Xero sync is a later integration) ─────────────────
@@ -374,10 +402,28 @@ export const contentTalent = pgTable("content_talent", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/** People we deal with at a client (billing, marketing, main point of contact…). */
+export const clientContacts = pgTable("client_contacts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organisations.id),
+  clientId: uuid("client_id")
+    .notNull()
+    .references(() => clients.id),
+  name: text("name").notNull(),
+  roleTitle: text("role_title"),
+  email: text("email"),
+  phone: text("phone"),
+  isPrimary: boolean("is_primary").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const schema = {
   organisations,
   memberships,
   clients,
+  clientContacts,
   projects,
   tasks,
   shoots,
@@ -385,6 +431,7 @@ export const schema = {
   addOns,
   activityLog,
   talent,
+  talentAvailability,
   invoices,
   deliverables,
   contentItems,

@@ -16,6 +16,7 @@ export type ProjectRow = {
   status: "planning" | "active" | "on_hold" | "complete" | "cancelled";
   clientId: string | null;
   clientName: string | null;
+  brief: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -29,6 +30,7 @@ export async function listProjects(): Promise<ProjectRow[]> {
       status: projects.status,
       clientId: projects.clientId,
       clientName: clients.name,
+      brief: projects.brief,
       createdAt: projects.createdAt,
       updatedAt: projects.updatedAt,
     })

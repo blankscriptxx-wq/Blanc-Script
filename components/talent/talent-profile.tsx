@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, Camera, FolderKanban, CalendarRange, Receipt } from "lucide-react";
 import { StatusPill } from "@/components/ds/status-pill";
+import { AvailabilityPanel } from "@/components/talent/availability-panel";
 import type {
   TalentProfile,
   TalentProfileInvoice,
@@ -71,13 +72,36 @@ export function TalentProfileView({ profile }: { profile: TalentProfile }) {
             {cap(t.status)}
           </StatusPill>
         </div>
+        {t.tags.length ? (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {t.tags.map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full bg-bs-surface-2 px-2.5 py-1 text-xs text-bs-muted"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        ) : null}
         <div className="mt-3 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
           <Detail label="Email" value={t.email ?? "—"} />
           <Detail label="Phone" value={t.phone ?? "—"} />
           <Detail
-            label="Standard rate"
+            label="Hourly rate"
             value={t.ratePerHourPence == null ? "—" : `${gbp.format(t.ratePerHourPence / 100)} / hr`}
           />
+          <Detail
+            label="Day rate"
+            value={t.dayRatePence == null ? "—" : `${gbp.format(t.dayRatePence / 100)} / day`}
+          />
+          <Detail label="Base" value={t.baseLocation ?? "—"} />
+          <Detail
+            label="Instagram"
+            value={t.instagram ? `@${t.instagram}` : "—"}
+          />
+          <Detail label="Agent / rep" value={t.agentName ?? "—"} />
+          <Detail label="Agent contact" value={t.agentContact ?? "—"} />
           <Detail label="On book since" value={dateFmt.format(new Date(t.createdAt))} />
         </div>
         {t.notes?.trim() ? (
@@ -97,6 +121,9 @@ export function TalentProfileView({ profile }: { profile: TalentProfile }) {
           </div>
         ))}
       </div>
+
+      {/* Availability */}
+      <AvailabilityPanel talentId={t.id} rows={profile.availability} />
 
       {/* Their payments */}
       <section className="mt-8">
