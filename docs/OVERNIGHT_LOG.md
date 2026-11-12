@@ -34,4 +34,8 @@ Why deferred: it needs the Neon Auth JWT surfaced from the session, a driver swa
 - Launched 3 build agents (Projects, Shoots, Team). Integrating each as it lands (mark nav live, build green, commit).
 - **Projects, Shoots, Team modules — DONE** (built by 3 parallel agents, integrated + verified: team lists the owner, project create persists). Nav live for Clients/Projects/Shoots/Team.
 - **Command Centre (Today) — wired to real counts**: Clients, Active projects, Upcoming shoots, Open tasks (live, org-scoped, count-up animated).
-- Next: expanding schema for Talent + Finance, then agents build those.
+- **Schema expanded**: added `talent` + `invoices` tables (org-scoped, money as integer pence), generated migration `0001_mysterious_maestro.sql`, applied to Neon. Build green.
+- **Talent module — DONE** (parallel agent, integrated): talent book — list, add (name/email/phone/rate per hour/status), record drawer. Rate shown £/hr from pence. Org-scoped via `requireUser`, writes activity_log. Nav `/talent` live.
+- **Finance module — DONE** (parallel agent, integrated): invoices — 3 summary tiles (Outstanding £, Paid this month £, Overdue count, count-up animated), new-invoice dialog (client/number/amount £/status/due date), table with status pills (draft/sent/approved/paid/overdue), record drawer. Org-scoped, gated behind `can_see_money`. Nav `/finance` live.
+- Modules now live on real data: Today, Clients, Projects, Shoots, Team, Talent, Finance. Remaining nav stubs: Edits, Content, Settings.
+- Next: Edits (review/approvals) + Content (calendar/scheduling) modules, then Settings.

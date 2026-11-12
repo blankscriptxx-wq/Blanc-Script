@@ -1,7 +1,20 @@
-import { ModulePlaceholder } from "@/components/ds/page-header";
+import { PageHeader } from "@/components/ds/page-header";
+import { FinanceView } from "@/components/finance/finance-view";
+import { listInvoices, getFinanceSummary, listClientOptions } from "@/lib/data/finance";
 
 export const metadata = { title: "Finance" };
+export const dynamic = "force-dynamic";
 
-export default function Page() {
-  return <ModulePlaceholder title="Finance" milestone="Milestone 5" />;
+export default async function FinancePage() {
+  const [rows, summary, clientOptions] = await Promise.all([
+    listInvoices(),
+    getFinanceSummary(),
+    listClientOptions(),
+  ]);
+  return (
+    <div className="mx-auto max-w-5xl">
+      <PageHeader title="Finance" eyebrow="Commercials" />
+      <FinanceView rows={rows} summary={summary} clientOptions={clientOptions} />
+    </div>
+  );
 }

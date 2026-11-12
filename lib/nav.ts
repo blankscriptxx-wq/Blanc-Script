@@ -31,9 +31,9 @@ export const NAV: NavItem[] = [
   { href: "/shoots", label: "Shoots", icon: Camera, ready: true },
   { href: "/edits", label: "Edits", icon: Clapperboard },
   { href: "/content", label: "Content", icon: CalendarRange },
-  { href: "/finance", label: "Finance", icon: Receipt, requires: "can_see_money" },
+  { href: "/finance", label: "Finance", icon: Receipt, requires: "can_see_money", ready: true },
   { href: "/team", label: "Team", icon: UsersRound, requires: "can_manage_users", ready: true },
-  { href: "/talent", label: "Talent", icon: Sparkles },
+  { href: "/talent", label: "Talent", icon: Sparkles, ready: true },
 ];
 
 export const SETTINGS_ITEM: NavItem = {
