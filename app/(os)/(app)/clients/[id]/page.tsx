@@ -11,7 +11,8 @@ import { listClientUploads, uploadAssignOptions } from "@/lib/data/client-upload
 import { stripeConfigured } from "@/lib/payments/stripe";
 import { getCurrentUser } from "@/lib/auth/session";
 import { OnboardingCard } from "@/components/clients/onboarding-card";
-import { getOnboarding } from "@/lib/data/onboarding";
+import { getOnboarding, listUnpaidInvoices } from "@/lib/data/onboarding";
+import { ClientInvoicing } from "@/components/clients/client-invoicing";
 import { listPlanOptions } from "@/lib/data/clients";
 import { listAddOns } from "@/lib/data/addons";
 import { emailConfigured } from "@/lib/email/send";
@@ -44,7 +45,7 @@ export default async function ClientProfilePage({
   const canDocs =
     (user?.capabilities.has("can_contract") || user?.capabilities.has("can_settings")) ?? false;
 
-  const [portalLinks, billing, documents, templates, uploads, assignOptions, onboarding, plans, addOns, cashDefaults, proposalRows] = await Promise.all([
+  const [portalLinks, billing, documents, templates, uploads, assignOptions, onboarding, plans, addOns, cashDefaults, proposalRows, unpaid] = await Promise.all([
     listPortalLinks(id).catch(() => []),
     canMoney && user?.orgId ? getBillingSummary(user.orgId, id).catch(() => null) : null,
     canDocs ? listClientDocuments(id).catch(() => []) : [],
@@ -56,6 +57,7 @@ export default async function ClientProfilePage({
     canMoney ? listAddOns().catch(() => []) : [],
     canMoney && user?.orgId ? cashPaymentDefaults(user.orgId, id).catch(() => null) : null,
     canMoney ? listProposals(id).catch(() => []) : [],
+    canMoney ? listUnpaidInvoices(id).catch(() => []) : [],
   ]);
 
   return (
@@ -79,6 +81,14 @@ export default async function ClientProfilePage({
           ) : null}
           {billing ? (
             <SubscriptionCard clientId={id} billing={billing} stripeReady={stripeConfigured()} cashDefaultPence={cashDefaults?.totalPence ?? 0} />
+          ) : null}
+          {canMoney ? (
+            <ClientInvoicing
+              clientId={id}
+              addOns={addOns.map((a) => ({ id: a.id, name: a.name, pricePence: a.pricePence }))}
+              unpaid={unpaid}
+              stripeReady={stripeConfigured()}
+            />
           ) : null}
           {canDocs ? (
             <ClientDocuments

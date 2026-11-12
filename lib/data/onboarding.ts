@@ -20,6 +20,7 @@ import { requireUser } from "@/lib/data/clients";
 import { nextInvoiceNumber, subscriptionIsLive } from "@/lib/data/billing";
 import { createClientDocument, createGeneratedAgreement } from "@/lib/data/documents";
 import { syncInvoicePayment } from "@/lib/data/payments";
+import { clientRecipients } from "@/lib/data/followups";
 import { appOrigin, sendEmail, type EmailResult } from "@/lib/email/send";
 import { createPaymentLink, deactivatePaymentLink, stripeConfigured } from "@/lib/payments/stripe";
 
@@ -361,20 +362,29 @@ function stepsLeft(ob: Row, p: OnboardingProgress): string[] {
 
 async function welcomeEmail(ob: Row, planName: string | null, token: string, progress: OnboardingProgress): Promise<EmailResult> {
   const steps = stepsLeft(ob, progress);
+  // Someone who already has their login is an existing client starting something new.
+  const returning = progress.accountReady;
+  const what = ob.billingType === "one_off" ? (ob.projectTitle ?? "your new project") : (planName ?? "your new package");
   return sendEmail({
     orgId: ob.orgId,
     to: ob.contactEmail!,
-    subject: "Welcome to Blanc Script — let's get you set up",
-    heading: "Welcome to Blanc Script",
+    subject: returning ? `${what} — ready for you to confirm` : "Welcome to Blanc Script — let's get you set up",
+    heading: returning ? `Your next step with us: ${what}` : "Welcome to Blanc Script",
     paragraphs: [
       `Hi ${firstName(ob.contactName)},`,
-      ...(ob.welcomeNote ? [ob.welcomeNote] : ["We're really pleased to be working with you. Everything we've agreed is ready for you in your private client portal."]),
+      ...(ob.welcomeNote
+        ? [ob.welcomeNote]
+        : [
+            returning
+              ? "Thank you for working with us again. Everything we've agreed is ready for you in your client portal."
+              : "We're really pleased to be working with you. Everything we've agreed is ready for you in your private client portal.",
+          ]),
       ["What we've agreed:", ...agreedLines(ob, planName)].join("\n"),
       ...(ob.deliverables ? [["What you'll get:", ...ob.deliverables.split("\n").filter((l) => l.trim()).map((l) => `  • ${l.trim()}`)].join("\n")] : []),
-      ["To get started (about five minutes):", ...steps.map((s, i) => `  ${i + 1}. ${s}`)].join("\n"),
+      [returning ? "To confirm (a couple of minutes):" : "To get started (about five minutes):", ...steps.map((s, i) => `  ${i + 1}. ${s}`)].join("\n"),
       "Once that's done you'll receive your invoice by email, and it will always be available in your portal.",
     ],
-    button: { label: "Get started", url: `${appOrigin()}/portal/${token}` },
+    button: { label: returning ? "Open my portal" : "Get started", url: `${appOrigin()}/portal/${token}` },
     kind: "welcome",
     related: { type: "onboarding", id: ob.id },
   });
@@ -646,6 +656,97 @@ async function raiseInvoice(input: {
       .where(eq(invoices.id, inv.id));
   }
   return inv.id;
+}
+
+const invoiceInput = z.object({
+  title: z.string().trim().min(1, "Say what the invoice is for.").max(160),
+  lines: z.array(extraInput.pick({ name: true, pricePence: true })).min(1, "Add at least one line.").max(30),
+  method: z.enum(["card", "cash"]),
+});
+
+/**
+ * Invoice an existing client in one step: raises the invoice, makes it payable
+ * by card (or marks it as to be paid directly), puts it in their portal and
+ * emails it to them.
+ */
+export async function sendClientInvoice(clientId: string, raw: z.input<typeof invoiceInput>): Promise<{ invoiceId: string; emailed: number }> {
+  const user = await requireUser();
+  requireMoney(user);
+  const data = invoiceInput.parse(raw);
+  const lines = data.lines.filter((l) => l.pricePence > 0);
+  const total = lines.reduce((n, l) => n + l.pricePence, 0);
+  if (total < 50) throw new Error("The invoice total must be at least £0.50.");
+  const [client] = await getDb()
+    .select({ name: clients.name })
+    .from(clients)
+    .where(and(eq(clients.id, clientId), eq(clients.orgId, user.orgId)))
+    .limit(1);
+  if (!client) throw new Error("That client was not found.");
+  const people = await clientRecipients(user.orgId, clientId);
+  const portalToken = people.find((r) => r.token)?.token ?? null;
+  const invoiceId = await raiseInvoice({
+    orgId: user.orgId,
+    clientId,
+    lines,
+    reference: data.title,
+    card: data.method === "card",
+    returnUrl: portalToken ? `${appOrigin()}/portal/${portalToken}?paid=1` : `${appOrigin()}/pay/thanks`,
+    payerEmail: people[0]?.email ?? null,
+  });
+  const [inv] = await getDb()
+    .select({ number: invoices.number, paymentUrl: invoices.paymentUrl })
+    .from(invoices)
+    .where(eq(invoices.id, invoiceId))
+    .limit(1);
+  let emailed = 0;
+  for (const r of people) {
+    const url = r.token ? `${appOrigin()}/portal/${r.token}/invoices/${invoiceId}` : inv?.paymentUrl;
+    const res = await sendEmail({
+      orgId: user.orgId,
+      to: r.email,
+      subject: `Invoice ${inv?.number ?? ""} from Blanc Script — ${data.title}`,
+      heading: `Invoice ${inv?.number ?? ""}: ${gbp(total)}`,
+      paragraphs: [
+        `Hi ${firstName(r.name)},`,
+        `Here is your invoice for ${data.title}: ${gbp(total)}, due within 7 days.`,
+        data.method === "cash"
+          ? "You're paying us directly (cash or bank transfer). We'll mark it as paid and send your receipt as soon as we receive it."
+          : "You can pay securely by card using the button below. You'll get a receipt straight away.",
+      ],
+      button: url ? { label: data.method === "cash" ? "View invoice" : "View and pay invoice", url } : undefined,
+      kind: "invoice",
+      related: { type: "invoice", id: invoiceId },
+    });
+    if (res.status === "sent") emailed += 1;
+  }
+  await getDb().insert(activityLog).values({
+    orgId: user.orgId,
+    actorUserId: user.id,
+    action: "invoice.sent",
+    entityType: "invoice",
+    entityId: invoiceId,
+    meta: { number: inv?.number, amountPence: total, method: data.method },
+  });
+  return { invoiceId, emailed };
+}
+
+/** A client's invoices that are still unpaid (for the "mark paid" buttons). */
+export async function listUnpaidInvoices(clientId: string) {
+  const user = await requireUser();
+  if (!user.capabilities.has("can_see_money")) return [];
+  return getDb()
+    .select({ id: invoices.id, number: invoices.number, amountPence: invoices.amountPence, reference: invoices.reference, dueAt: invoices.dueAt, hasLink: sql<boolean>`${invoices.paymentUrl} is not null` })
+    .from(invoices)
+    .where(
+      and(
+        eq(invoices.orgId, user.orgId),
+        eq(invoices.clientId, clientId),
+        isNull(invoices.talentId),
+        isNull(invoices.archivedAt),
+        inArray(invoices.status, ["sent", "approved", "overdue"]),
+      ),
+    )
+    .orderBy(desc(invoices.createdAt));
 }
 
 /** What is still owed on a project after its deposit (null when nothing is, or it's already invoiced). */

@@ -7,6 +7,7 @@ import {
   saveOnboarding,
   sendOnboarding,
   sendBalanceInvoiceNow,
+  sendClientInvoice,
   type OnboardingInput,
 } from "@/lib/data/onboarding";
 import { markInvoicePaidDirect, recordDirectPayment, type DirectMethod } from "@/lib/data/cash";
@@ -112,5 +113,24 @@ export async function sendBalanceInvoiceAction(clientId: string): Promise<Onboar
     return sent ? { ok: true, message: "Balance invoice sent to the client." } : { ok: false, error: "There's no balance to invoice." };
   } catch (e) {
     return fail(e, "Could not send the balance invoice.");
+  }
+}
+
+/** Invoice an existing client: raise it, make it payable and email it, in one go. */
+export async function sendClientInvoiceAction(
+  clientId: string,
+  input: { title: string; lines: { name: string; pricePence: number }[]; method: "card" | "cash" },
+): Promise<OnboardingResult> {
+  try {
+    const { emailed } = await sendClientInvoice(clientId, input);
+    refresh(clientId);
+    return {
+      ok: true,
+      message: emailed
+        ? "Invoice sent. It's in their portal and has been emailed to them."
+        : "Invoice created and in their portal. It couldn't be emailed (no contact email, or email isn't connected).",
+    };
+  } catch (e) {
+    return fail(e, "Could not send the invoice.");
   }
 }
