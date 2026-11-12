@@ -10,10 +10,8 @@
  */
 
 :root {
-  --font-display: "Sora", ui-sans-serif, system-ui, sans-serif;
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-serif: "Fraunces", ui-serif, Georgia, serif;
-  --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  /* Font families come from next/font (app/layout.tsx): --font-display (Sora),
+     --font-sans (Inter), --font-serif (Fraunces), --font-mono (Geist Mono). */
 
   /* ── LIGHT (default) — brand cream + charcoal ─────────── */
   --bs-canvas: #f7f1e9;        /* warm, cream-derived */
