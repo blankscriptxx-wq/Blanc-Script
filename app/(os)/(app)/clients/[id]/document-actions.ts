@@ -91,7 +91,7 @@ export async function generateAgreementAction(clientId: string): Promise<DocResu
   try {
     await createGeneratedAgreement(clientId);
     revalidatePath(`/clients/${clientId}`);
-    return { ok: true, message: "Agreement written from this client's onboarding — check it, then send." };
+    return { ok: true, message: "Updated agreement sent. The previous unsigned one has been withdrawn." };
   } catch (e) {
     return fail(e, "Could not generate the agreement.");
   }

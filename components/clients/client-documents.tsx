@@ -149,47 +149,15 @@ export function ClientDocuments({
       )}
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        {templates.length === 0 ? (
-          <p className="text-xs text-bs-subtle">
-            Add a template in Settings → Document templates to create documents here.
-          </p>
-        ) : (
-          <>
-            <select
-              value={templateId}
-              onChange={(e) => setTemplateId(e.target.value)}
-              aria-label="Template"
-              className="h-9 min-w-[220px] rounded-sm border border-bs-border-strong bg-bs-surface px-3 pr-8 text-sm text-bs-text outline-none"
-            >
-              <option value="">Choose a template…</option>
-              {templates.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              disabled={busy !== "" || !templateId}
-              onClick={async () => {
-                if (await run("create", () => createDocumentAction(clientId, templateId))) setTemplateId("");
-              }}
-              className="inline-flex h-9 items-center gap-1.5 rounded-sm border border-bs-border-strong bg-bs-surface px-3 text-sm font-medium text-bs-text transition-colors hover:bg-bs-surface-2 disabled:opacity-50"
-            >
-              {busy === "create" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-              Create document
-            </button>
-          </>
-        )}
         <button
           type="button"
           disabled={busy !== ""}
           onClick={() => run("generate", () => generateAgreementAction(clientId))}
-          title="Writes the Service Agreement from what you entered in Onboarding — no blank fields"
+          title="Rewrites the Service Agreement from this client's current details and sends it to their portal"
           className="inline-flex h-9 items-center gap-1.5 rounded-sm bg-bs-primary px-3 text-sm font-medium text-bs-on-accent transition-colors hover:bg-bs-primary-hover disabled:opacity-50"
         >
           {busy === "generate" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-          Generate agreement
+          Send updated agreement
         </button>
       </div>
       {note ? (

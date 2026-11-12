@@ -220,14 +220,8 @@ export async function createClientDocument(clientId: string, templateId: string)
   return row;
 }
 
-/**
- * Create a Service Agreement written for this client from their onboarding:
- * the studio's design and standard terms, with the client's own details,
- * scope, deliverables and fees — and nothing left blank. Starts as a draft.
- */
-export async function createGeneratedAgreement(clientId: string): Promise<{ id: string }> {
-  const user = await requireUser();
-  requireDocs(user);
+/** The Service Agreement text for this client, written from their onboarding. */
+async function buildAgreementBody(orgId: string, clientId: string): Promise<string> {
   const db = getDb();
   const [[c], [ob], [contact]] = await Promise.all([
     db
@@ -239,14 +233,14 @@ export async function createGeneratedAgreement(clientId: string): Promise<{ id: 
       })
       .from(clients)
       .leftJoin(servicePlans, eq(clients.servicePlanId, servicePlans.id))
-      .where(and(eq(clients.id, clientId), eq(clients.orgId, user.orgId)))
+      .where(and(eq(clients.id, clientId), eq(clients.orgId, orgId)))
       .limit(1),
     db
       .select()
       .from(clientOnboardings)
       .where(
         and(
-          eq(clientOnboardings.orgId, user.orgId),
+          eq(clientOnboardings.orgId, orgId),
           eq(clientOnboardings.clientId, clientId),
           inArray(clientOnboardings.status, ["draft", "sent", "completed"]),
         ),
@@ -256,7 +250,7 @@ export async function createGeneratedAgreement(clientId: string): Promise<{ id: 
     db
       .select({ name: clientContacts.name, email: clientContacts.email, phone: clientContacts.phone })
       .from(clientContacts)
-      .where(and(eq(clientContacts.orgId, user.orgId), eq(clientContacts.clientId, clientId)))
+      .where(and(eq(clientContacts.orgId, orgId), eq(clientContacts.clientId, clientId)))
       .orderBy(desc(clientContacts.isPrimary), asc(clientContacts.createdAt))
       .limit(1),
   ]);
@@ -294,11 +288,92 @@ export async function createGeneratedAgreement(clientId: string): Promise<{ id: 
     startDate: terms.startDate ? new Date(`${terms.startDate}T12:00:00Z`) : new Date(),
     paymentMethod: ob?.paymentMethod === "cash" ? "cash" : "card",
   });
+  return body;
+}
+
+/**
+ * Write this client's Service Agreement and put it straight in their portal —
+ * no draft, no review step. Any earlier agreement they haven't accepted yet is
+ * withdrawn so there is only ever one to sign. Used at onboarding, when a
+ * package changes, and from the "Send updated agreement" button. No session
+ * needed (the portal and Stripe can trigger it).
+ */
+export async function issueAgreement(
+  orgId: string,
+  clientId: string,
+  opts: { actorUserId?: string | null; notify?: boolean; reason?: string } = {},
+): Promise<{ id: string }> {
+  const db = getDb();
+  const body = await buildAgreementBody(orgId, clientId);
+  await db
+    .update(clientDocuments)
+    .set({ status: "void", updatedAt: new Date() })
+    .where(
+      and(
+        eq(clientDocuments.orgId, orgId),
+        eq(clientDocuments.clientId, clientId),
+        eq(clientDocuments.title, "Service Agreement"),
+        inArray(clientDocuments.status, ["draft", "sent"]),
+      ),
+    );
   const [row] = await db
     .insert(clientDocuments)
-    .values({ orgId: user.orgId, clientId, title: "Service Agreement", body, createdByUserId: user.id })
+    .values({
+      orgId,
+      clientId,
+      title: "Service Agreement",
+      body,
+      status: "sent",
+      sentAt: new Date(),
+      createdByUserId: opts.actorUserId ?? null,
+    })
     .returning({ id: clientDocuments.id });
+  await db.insert(activityLog).values({
+    orgId,
+    actorUserId: opts.actorUserId ?? null,
+    action: "document.sent",
+    entityType: "client",
+    entityId: clientId,
+    meta: { title: "Service Agreement", automatic: true, reason: opts.reason ?? null },
+  });
+  if (opts.notify !== false) {
+    const people = await db
+      .select({ label: portalLinks.label, email: portalLinks.email, token: portalLinks.token })
+      .from(portalLinks)
+      .where(and(eq(portalLinks.orgId, orgId), eq(portalLinks.clientId, clientId), isNull(portalLinks.revokedAt)));
+    for (const p of people) {
+      if (!p.email) continue;
+      await sendEmail({
+        orgId,
+        to: p.email,
+        subject: "Your Blanc Script Service Agreement — ready to accept",
+        heading: opts.reason ? "Your updated Service Agreement" : "Your Service Agreement is ready",
+        paragraphs: [
+          `Hi ${p.label.split(" ")[0]},`,
+          opts.reason
+            ? `${opts.reason} We've updated your Service Agreement to match. Please read it and accept it in your portal — it only takes a moment.`
+            : "Your Service Agreement is in your portal. Please read it and, if you're happy, accept it there — it only takes a moment.",
+        ],
+        button: { label: "Read and accept", url: `${appOrigin()}/portal/${p.token}/documents/${row.id}` },
+        kind: "document",
+        related: { type: "document", id: row.id },
+      });
+    }
+  }
   return row;
+}
+
+/** Staff: send this client a freshly written agreement now. */
+export async function createGeneratedAgreement(clientId: string, opts: { notify?: boolean } = {}): Promise<{ id: string }> {
+  const user = await requireUser();
+  requireDocs(user);
+  const [c] = await getDb()
+    .select({ id: clients.id })
+    .from(clients)
+    .where(and(eq(clients.id, clientId), eq(clients.orgId, user.orgId)))
+    .limit(1);
+  if (!c) throw new Error("That client was not found.");
+  return issueAgreement(user.orgId, clientId, { actorUserId: user.id, notify: opts.notify });
 }
 
 const docEdit = z.object({

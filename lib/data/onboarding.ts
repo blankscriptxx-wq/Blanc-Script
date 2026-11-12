@@ -466,7 +466,8 @@ export async function sendOnboarding(clientId: string): Promise<{ emailStatus: E
     // 4. Documents: the tailored Service Agreement, plus a populated copy of
     //    each chosen template — all published to the portal.
     const issue: { id: string }[] = [];
-    if (ob.terms?.agreement !== false) issue.push(await createGeneratedAgreement(clientId));
+    // The agreement is always written and sent with the welcome (which is the email they get).
+    issue.push(await createGeneratedAgreement(clientId, { notify: false }));
     for (const templateId of ob.templateIds ?? []) issue.push(await createClientDocument(clientId, templateId));
     for (const doc of issue) {
       await db

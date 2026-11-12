@@ -320,6 +320,9 @@ export async function upgradeSubscription(
     entityId: clientId,
     meta: { plan: target.name, by },
   });
+  // Their agreement follows the package: send an updated one to accept.
+  const { issueAgreement } = await import("@/lib/data/documents");
+  await issueAgreement(orgId, clientId, { reason: `Your package is now ${target.name}.` }).catch(() => {});
   // The pro-rata charge arrives as a Stripe invoice; pull it in now too.
   await syncClientBilling(orgId, clientId).catch(() => {});
 }

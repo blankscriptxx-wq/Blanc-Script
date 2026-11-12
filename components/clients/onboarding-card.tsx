@@ -93,7 +93,6 @@ export function OnboardingCard({
     (draft?.extras ?? []).map((x) => ({ name: x.name, price: pounds(x.pricePence), cadence: x.cadence })),
   );
   const [deliverables, setDeliverables] = React.useState(draft?.deliverables ?? "");
-  const [tpl, setTpl] = React.useState<string[]>(draft?.templateIds ?? []);
   const [name, setName] = React.useState(draft?.contactName ?? firstContact?.name ?? "");
   const [email, setEmail] = React.useState(draft?.contactEmail ?? firstContact?.email ?? "");
   const [welcome, setWelcome] = React.useState(draft?.welcomeNote ?? "");
@@ -106,7 +105,6 @@ export function OnboardingCard({
   const [platforms, setPlatforms] = React.useState<string[]>(t0.platforms ?? []);
   const [services, setServices] = React.useState<string[]>(t0.services ?? []);
   const [exclusions, setExclusions] = React.useState(t0.exclusions ?? "");
-  const [agreement, setAgreement] = React.useState(t0.agreement !== false);
   const toggle = (list: string[], set: (v: string[]) => void, v: string) => set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
   const [busy, setBusy] = React.useState("");
   const [note, setNote] = React.useState<{ ok: boolean; text: string } | null>(null);
@@ -130,7 +128,7 @@ export function OnboardingCard({
         .filter((l) => l.name.trim())
         .map((l) => ({ name: l.name.trim(), pricePence: pence(l.price), cadence: oneOff ? ("one_off" as const) : l.cadence })),
       deliverables: deliverables.trim() || null,
-      templateIds: tpl,
+      templateIds: [],
       contactName: name,
       contactEmail: email,
       welcomeNote: welcome.trim() || null,
@@ -143,7 +141,7 @@ export function OnboardingCard({
         platforms,
         services,
         exclusions: exclusions.trim() || undefined,
-        agreement,
+        agreement: true,
       },
     };
   }
@@ -497,25 +495,9 @@ export function OnboardingCard({
           </div>
         </div>
 
-        <div className="mb-3">
-          <p className={label}>Documents to sign</p>
-          <label className="mb-1.5 flex items-center gap-2 text-sm text-bs-text">
-            <input type="checkbox" checked={agreement} onChange={(e) => setAgreement(e.target.checked)} />
-            Service Agreement, written for this client from the details above
-          </label>
-          {templates.length ? (
-            <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-              {templates.map((t) => (
-                <label key={t.id} className="flex items-center gap-2 text-sm text-bs-text">
-                  <input type="checkbox" checked={tpl.includes(t.id)} onChange={(e) => setTpl((x) => (e.target.checked ? [...x, t.id] : x.filter((id) => id !== t.id)))} />
-                  {t.name}
-                </label>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-bs-subtle">No templates yet — add your agreement in Settings → Document templates.</p>
-          )}
-        </div>
+        <p className="mb-3 rounded-sm bg-bs-surface-2 px-3 py-2 text-xs text-bs-muted">
+          Their Service Agreement is written from these details and sent with the welcome — nothing to prepare.
+        </p>
 
         <div className="mb-3 grid gap-3 sm:grid-cols-2">
           <div>
@@ -538,7 +520,7 @@ export function OnboardingCard({
             className={primary}
             disabled={busy !== ""}
             onClick={() => {
-              if (window.confirm(`Send the welcome to ${email || "the client"}? This ${oneOff ? "raises the invoice" : "sets their package"}, publishes the documents and gives them a portal login.`)) {
+              if (window.confirm(`Send the welcome to ${email || "the client"}? This ${oneOff ? "raises the invoice" : "sets their package"}, sends their agreement and gives them a portal login.`)) {
                 void run("send", () => sendOnboardingAction(clientId, payload()));
               }
             }}
