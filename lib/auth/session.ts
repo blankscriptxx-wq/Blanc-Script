@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { auth } from "./server";
+import { getAuth } from "./server";
 import { getDb } from "@/lib/db/client";
 import { memberships, organisations } from "@/lib/db/schema";
 import { resolveCapabilities, type Capability, type Role } from "./roles";
@@ -24,7 +24,7 @@ export type CurrentUser = {
 };
 
 export async function getCurrentUser(): Promise<CurrentUser | null> {
-  const { data: session } = await auth.getSession();
+  const { data: session } = await getAuth().getSession();
   const u = session?.user;
   if (!u) return null;
 

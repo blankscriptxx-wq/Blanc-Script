@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@/lib/auth/server";
+import { getAuth } from "@/lib/auth/server";
 import { redirect } from "next/navigation";
 
 export async function signUpWithEmail(
@@ -15,7 +15,7 @@ export async function signUpWithEmail(
     return { error: "Please fill in your name, email and password." };
   }
 
-  const { error } = await auth.signUp.email({ email, name, password });
+  const { error } = await getAuth().signUp.email({ email, name, password });
 
   if (error) {
     return { error: error.message || "Couldn't create your account." };

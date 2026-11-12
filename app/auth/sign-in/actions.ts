@@ -1,13 +1,13 @@
 "use server";
 
-import { auth } from "@/lib/auth/server";
+import { getAuth } from "@/lib/auth/server";
 import { redirect } from "next/navigation";
 
 export async function signInWithEmail(
   _prevState: { error: string } | null,
   formData: FormData,
 ) {
-  const { error } = await auth.signIn.email({
+  const { error } = await getAuth().signIn.email({
     email: formData.get("email") as string,
     password: formData.get("password") as string,
   });
