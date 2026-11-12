@@ -15,6 +15,8 @@ import {
   Archive,
   CornerDownRight,
   User,
+  Clock,
+  VideoOff,
 } from "lucide-react";
 import { StatusPill } from "@/components/ds/status-pill";
 import { Button } from "@/components/ds/button";
@@ -35,6 +37,7 @@ import type {
   DeliverableVersionRow,
   ReviewCommentRow,
 } from "@/lib/data/deliverable-detail";
+import type { MediaAssetRow } from "@/lib/data/media";
 import { AiGenerate } from "@/components/ai/ai-generate";
 import {
   summariseCommentsAction,
@@ -89,9 +92,33 @@ function toDateInput(d: Date | null | undefined): string {
 
 /** Seconds → m:ss timecode. */
 function formatTimecode(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
+  const whole = Math.max(0, Math.floor(seconds));
+  const m = Math.floor(whole / 60);
+  const s = whole % 60;
   return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+const VIDEO_EXT = /\.(mp4|webm|ogg|ogv|mov|m4v)(\?|#|$)/i;
+
+/** Does this URL look like a directly playable video file? */
+function looksLikeVideoUrl(url: string | null | undefined): boolean {
+  if (!url) return false;
+  return VIDEO_EXT.test(url.trim());
+}
+
+/**
+ * Resolve a playable video source for inline review: prefer the first attached
+ * video asset (served via /uploads/<id>), else fall back to the header's
+ * previewUrl when it points at a video file.
+ */
+function resolveVideoSource(
+  media: MediaAssetRow[] | undefined,
+  previewUrl: string | null,
+): string | null {
+  const asset = media?.find((m) => m.kind === "video");
+  if (asset) return `/uploads/${asset.id}`;
+  if (looksLikeVideoUrl(previewUrl)) return previewUrl;
+  return null;
 }
 
 const inputCls =
@@ -103,15 +130,31 @@ export function DeliverableDetailView({
   clientOptions,
   shootOptions,
   reviewerOptions,
+  media,
+  storageReady,
 }: {
   detail: DeliverableDetail;
   projectOptions: Option[];
   clientOptions: Option[];
   shootOptions: ShootOption[];
   reviewerOptions: ReviewerOption[];
+  media?: MediaAssetRow[];
+  storageReady?: boolean;
 }) {
   const { deliverable: d, versions, comments } = detail;
   const [editOpen, setEditOpen] = React.useState(false);
+  const videoRef = React.useRef<HTMLVideoElement>(null);
+  const videoSrc = resolveVideoSource(media, d.previewUrl);
+
+  /** Seek the review player to a comment's timecode and start playback. */
+  const seekTo = React.useCallback((seconds: number) => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.currentTime = Math.max(0, seconds);
+    void v.play().catch(() => {
+      /* autoplay can be blocked — seeking alone is enough */
+    });
+  }, []);
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -209,6 +252,14 @@ export function DeliverableDetailView({
         </div>
       </div>
 
+      {/* Inline video review */}
+      <VideoReview
+        videoRef={videoRef}
+        videoSrc={videoSrc}
+        previewUrl={d.previewUrl}
+        storageReady={storageReady}
+      />
+
       {/* Status workflow */}
       <StatusWorkflow deliverableId={d.id} current={d.status} />
 
@@ -216,7 +267,13 @@ export function DeliverableDetailView({
       <VersionsSection deliverableId={d.id} versions={versions} />
 
       {/* Review comments */}
-      <CommentsSection deliverableId={d.id} comments={comments} />
+      <CommentsSection
+        deliverableId={d.id}
+        comments={comments}
+        videoRef={videoRef}
+        hasVideo={Boolean(videoSrc)}
+        onSeek={seekTo}
+      />
 
       <EditDeliverableDialog
         open={editOpen}
@@ -228,6 +285,66 @@ export function DeliverableDetailView({
         reviewerOptions={reviewerOptions}
       />
     </div>
+  );
+}
+
+function VideoReview({
+  videoRef,
+  videoSrc,
+  previewUrl,
+  storageReady,
+}: {
+  videoRef: React.RefObject<HTMLVideoElement | null>;
+  videoSrc: string | null;
+  previewUrl: string | null;
+  storageReady?: boolean;
+}) {
+  return (
+    <section className="mt-6">
+      <div className="mb-2 flex items-center gap-2">
+        <Film className="h-4 w-4 text-bs-subtle" />
+        <h2 className="font-display text-h3">Review player</h2>
+      </div>
+
+      {videoSrc ? (
+        <div className="overflow-hidden rounded-md border border-bs-border bg-bs-surface-2">
+          <video
+            ref={videoRef}
+            controls
+            preload="metadata"
+            playsInline
+            src={videoSrc}
+            className="aspect-video w-full bg-black"
+          >
+            Your browser doesn’t support embedded video. Use the preview link
+            instead.
+          </video>
+        </div>
+      ) : (
+        <div className="rounded-md border border-dashed border-bs-border bg-bs-surface px-4 py-6 text-sm text-bs-subtle">
+          <div className="flex items-center gap-2 text-bs-muted">
+            <VideoOff className="h-4 w-4 text-bs-subtle" />
+            <span>No video attached to review inline.</span>
+          </div>
+          {previewUrl ? (
+            <a
+              href={previewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-flex items-center gap-1.5 text-bs-primary underline-offset-4 hover:underline"
+            >
+              Open preview <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          ) : null}
+          {storageReady ? (
+            <p className="mt-2 text-xs text-bs-subtle">
+              Attach a video file from the Shoot or Files areas and it will play
+              here for timecoded review.
+            </p>
+          ) : null}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -576,18 +693,38 @@ function VersionsSection({
 function CommentsSection({
   deliverableId,
   comments,
+  videoRef,
+  hasVideo,
+  onSeek,
 }: {
   deliverableId: string;
   comments: ReviewCommentRow[];
+  videoRef: React.RefObject<HTMLVideoElement | null>;
+  hasVideo: boolean;
+  onSeek: (seconds: number) => void;
 }) {
   const [state, formAction, pending] = useActionState<DetailActionState, FormData>(
     postCommentAction,
     null,
   );
   const formRef = React.useRef<HTMLFormElement>(null);
+  const timecodeRef = React.useRef<HTMLInputElement>(null);
+  const [capturedLabel, setCapturedLabel] = React.useState<string | null>(null);
   React.useEffect(() => {
-    if (state?.ok) formRef.current?.reset();
+    if (state?.ok) {
+      formRef.current?.reset();
+      setCapturedLabel(null);
+    }
   }, [state]);
+
+  /** Read the player's current time into the timecode input, anchoring the note. */
+  const captureCurrentTime = React.useCallback(() => {
+    const v = videoRef.current;
+    if (!v || !timecodeRef.current) return;
+    const secs = Math.max(0, Math.floor(v.currentTime));
+    timecodeRef.current.value = String(secs);
+    setCapturedLabel(formatTimecode(secs));
+  }, [videoRef]);
 
   const topLevel = comments.filter((c) => !c.parentId);
   const repliesByParent = React.useMemo(() => {
@@ -630,17 +767,31 @@ function CommentsSection({
           aria-label="Review comment"
         />
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <label className="inline-flex items-center gap-1.5 text-xs text-bs-subtle">
-            Timecode (secs)
-            <input
-              name="timecodeSeconds"
-              type="number"
-              min={0}
-              placeholder="e.g. 42"
-              className="h-8 w-24 rounded-sm border border-bs-border-strong bg-bs-surface px-2 text-sm text-bs-text outline-none placeholder:text-bs-subtle"
-              aria-label="Timecode in seconds"
-            />
-          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="inline-flex items-center gap-1.5 text-xs text-bs-subtle">
+              Timecode (secs)
+              <input
+                ref={timecodeRef}
+                name="timecodeSeconds"
+                type="number"
+                min={0}
+                placeholder="e.g. 42"
+                onChange={() => setCapturedLabel(null)}
+                className="h-8 w-24 rounded-sm border border-bs-border-strong bg-bs-surface px-2 text-sm text-bs-text outline-none placeholder:text-bs-subtle"
+                aria-label="Timecode in seconds"
+              />
+            </label>
+            {hasVideo ? (
+              <button
+                type="button"
+                onClick={captureCurrentTime}
+                className="inline-flex items-center gap-1 rounded-sm border border-bs-border bg-bs-surface px-2 py-1 text-xs text-bs-muted transition-colors hover:bg-bs-surface-2 hover:text-bs-text"
+              >
+                <Clock className="h-3.5 w-3.5 text-bs-subtle" />
+                At current time{capturedLabel ? ` (${capturedLabel})` : ""}
+              </button>
+            ) : null}
+          </div>
           <button
             type="submit"
             disabled={pending}
@@ -666,6 +817,7 @@ function CommentsSection({
               comment={c}
               replies={repliesByParent[c.id] ?? []}
               deliverableId={deliverableId}
+              onSeek={hasVideo ? onSeek : undefined}
             />
           ))}
         </ul>
@@ -678,10 +830,12 @@ function CommentItem({
   comment: c,
   replies,
   deliverableId,
+  onSeek,
 }: {
   comment: ReviewCommentRow;
   replies: ReviewCommentRow[];
   deliverableId: string;
+  onSeek?: (seconds: number) => void;
 }) {
   const [replyOpen, setReplyOpen] = React.useState(false);
   const [state, formAction, pending] = useActionState<DetailActionState, FormData>(
@@ -705,7 +859,7 @@ function CommentItem({
         resolved && "opacity-60",
       )}
     >
-      <CommentBody comment={c} deliverableId={deliverableId} />
+      <CommentBody comment={c} deliverableId={deliverableId} onSeek={onSeek} />
 
       {/* Actions */}
       <div className="mt-2 flex items-center gap-3">
@@ -768,7 +922,7 @@ function CommentItem({
                 r.resolvedAt && "opacity-60",
               )}
             >
-              <CommentBody comment={r} deliverableId={deliverableId} />
+              <CommentBody comment={r} deliverableId={deliverableId} onSeek={onSeek} />
               <div className="mt-1.5">
                 <ResolveToggle comment={r} deliverableId={deliverableId} />
               </div>
@@ -783,10 +937,13 @@ function CommentItem({
 function CommentBody({
   comment: c,
   deliverableId,
+  onSeek,
 }: {
   comment: ReviewCommentRow;
   deliverableId: string;
+  onSeek?: (seconds: number) => void;
 }) {
+  const timecode = c.timecodeSeconds;
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -794,8 +951,19 @@ function CommentBody({
           <span className="text-sm font-medium text-bs-text">
             {c.authorName ?? "Unknown"}
           </span>
-          {c.timecodeSeconds != null ? (
-            <StatusPill tone="info">@ {formatTimecode(c.timecodeSeconds)}</StatusPill>
+          {timecode != null ? (
+            onSeek ? (
+              <button
+                type="button"
+                onClick={() => onSeek(timecode)}
+                title="Jump to this point in the video"
+                className="inline-flex items-center gap-1.5 rounded-pill bg-bs-info-soft px-2 py-0.5 text-xs font-medium text-bs-info transition-opacity hover:opacity-80"
+              >
+                @ {formatTimecode(timecode)}
+              </button>
+            ) : (
+              <StatusPill tone="info">@ {formatTimecode(timecode)}</StatusPill>
+            )
           ) : null}
           {c.resolvedAt ? <StatusPill tone="success">Resolved</StatusPill> : null}
         </div>

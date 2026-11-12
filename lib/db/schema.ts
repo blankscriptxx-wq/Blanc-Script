@@ -159,6 +159,8 @@ export const scriptStatusEnum = pgEnum("script_status", [
   "approved",
   "produced",
 ]);
+export const waStatusEnum = pgEnum("wa_status", ["open", "snoozed", "closed"]);
+export const waDirectionEnum = pgEnum("wa_direction", ["inbound", "outbound"]);
 
 // ── Tenancy ─────────────────────────────────────────────────────────────────
 export const organisations = pgTable("organisations", {
@@ -568,8 +570,38 @@ export const mediaAssets = pgTable("media_assets", {
   clientId: uuid("client_id").references(() => clients.id),
   deliverableId: uuid("deliverable_id").references(() => deliverables.id),
   contentItemId: uuid("content_item_id").references(() => contentItems.id),
+  scriptId: uuid("script_id").references(() => scripts.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ── WhatsApp inbox (Periskope/Aniro connection deferred) ──────────────────
+export const waConversations = pgTable("wa_conversations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organisations.id),
+  clientId: uuid("client_id").references(() => clients.id),
+  contactName: text("contact_name"),
+  contactPhone: text("contact_phone"),
+  status: waStatusEnum("status").notNull().default("open"),
+  lastMessageAt: timestamp("last_message_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const waMessages = pgTable("wa_messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organisations.id),
+  conversationId: uuid("conversation_id")
+    .notNull()
+    .references(() => waConversations.id),
+  direction: waDirectionEnum("direction").notNull(),
+  body: text("body").notNull(),
+  authorUserId: uuid("author_user_id"),
+  sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 /** The client's "brain" — core brand profile (1 per client). */
@@ -649,6 +681,8 @@ export const scripts = pgTable("scripts", {
   title: text("title").notNull(),
   format: scriptFormatEnum("format").notNull().default("reel"),
   status: scriptStatusEnum("status").notNull().default("idea"),
+  /** Set when this script is a new version refined from another. */
+  parentScriptId: uuid("parent_script_id"),
   hookVisual: text("hook_visual"),
   hookScript: text("hook_script"),
   body: text("body"),
@@ -689,4 +723,6 @@ export const schema = {
   projectTalent,
   contentTalent,
   mediaAssets,
+  waConversations,
+  waMessages,
 };

@@ -4,6 +4,8 @@ import {
   Clapperboard,
   FolderKanban,
   LayoutDashboard,
+  ChartColumn,
+  MessageCircle,
   Receipt,
   Settings,
   Sparkles,
@@ -26,11 +28,13 @@ export type NavItem = {
 /** Primary navigation — the 10 product systems (Foundation §5). */
 export const NAV: NavItem[] = [
   { href: "/today", label: "Today", icon: LayoutDashboard, ready: true },
+  { href: "/insights", label: "Insights", icon: ChartColumn, ready: true },
   { href: "/clients", label: "Clients", icon: Users, ready: true },
   { href: "/projects", label: "Projects", icon: FolderKanban, ready: true },
   { href: "/shoots", label: "Shoots", icon: Camera, ready: true },
   { href: "/edits", label: "Edits", icon: Clapperboard, ready: true },
   { href: "/content", label: "Content", icon: CalendarRange, ready: true },
+  { href: "/inbox", label: "Inbox", icon: MessageCircle, ready: true },
   { href: "/finance", label: "Finance", icon: Receipt, requires: "can_see_money", ready: true },
   { href: "/team", label: "Team", icon: UsersRound, requires: "can_manage_users", ready: true },
   { href: "/talent", label: "Talent", icon: Sparkles, ready: true },

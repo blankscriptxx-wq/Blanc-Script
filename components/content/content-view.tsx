@@ -24,6 +24,9 @@ import type { ContentRow, ContentChannel, ContentStatus } from "@/lib/data/conte
 import { CastingSection } from "@/components/castings/casting-section";
 import type { ContentCasting, TalentPickerOption } from "@/lib/data/castings";
 import { ContentCalendar } from "@/components/content/content-calendar";
+import { Uploader } from "@/components/uploads/uploader";
+import { FileList } from "@/components/uploads/file-list";
+import type { MediaAssetRow } from "@/lib/data/media";
 import { cn } from "@/lib/cn";
 
 type ContentViewMode = "board" | "calendar";
@@ -108,11 +111,15 @@ export function ContentView({
   clientOptions,
   castings = [],
   talentOptions = [],
+  media = [],
+  storageReady = false,
 }: {
   rows: ContentRow[];
   clientOptions: { id: string; name: string }[];
   castings?: ContentCasting[];
   talentOptions?: TalentPickerOption[];
+  media?: MediaAssetRow[];
+  storageReady?: boolean;
 }) {
   const router = useRouter();
   const [addOpen, setAddOpen] = React.useState(false);
@@ -302,6 +309,8 @@ export function ContentView({
             row={selected}
             castings={castings.filter((c) => c.contentItemId === selected.id)}
             talentOptions={talentOptions}
+            media={media.filter((m) => m.contentItemId === selected.id)}
+            storageReady={storageReady}
             onEdit={() => setEditing(selected)}
             onPatch={(patch) =>
               setSelected((s) => (s ? { ...s, ...patch } : s))
@@ -317,12 +326,16 @@ function DrawerContent({
   row,
   castings,
   talentOptions,
+  media,
+  storageReady,
   onEdit,
   onPatch,
 }: {
   row: ContentRow;
   castings: ContentCasting[];
   talentOptions: TalentPickerOption[];
+  media: MediaAssetRow[];
+  storageReady: boolean;
   onEdit: () => void;
   onPatch: (patch: Partial<ContentRow>) => void;
 }) {
@@ -455,6 +468,15 @@ function DrawerContent({
         items={castings}
         talentOptions={talentOptions}
       />
+
+      <div className="space-y-2.5 border-t border-bs-border pt-4">
+        <h3 className="text-sm font-medium text-bs-text">Files</h3>
+        <Uploader
+          context={{ contentItemId: row.id, clientId: row.clientId ?? undefined }}
+          configured={storageReady}
+        />
+        <FileList rows={media} />
+      </div>
     </div>
   );
 }

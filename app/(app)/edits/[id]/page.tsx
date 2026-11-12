@@ -7,6 +7,7 @@ import {
   listShootOptions,
   listReviewerOptions,
 } from "@/lib/data/edits";
+import { listMediaFor, storageConfigured } from "@/lib/data/media";
 
 export const dynamic = "force-dynamic";
 
@@ -28,12 +29,14 @@ export default async function DeliverableDetailPage({
   const { id } = await params;
   const detail = await getDeliverableDetail(id).catch(() => null);
   if (!detail) notFound();
-  const [projectOptions, clientOptions, shootOptions, reviewerOptions] =
+  const [projectOptions, clientOptions, shootOptions, reviewerOptions, media, storageReady] =
     await Promise.all([
       listProjectOptions(),
       listClientOptions(),
       listShootOptions(),
       listReviewerOptions(),
+      listMediaFor({ deliverableId: id }),
+      Promise.resolve(storageConfigured()),
     ]);
   return (
     <DeliverableDetailView
@@ -42,6 +45,8 @@ export default async function DeliverableDetailPage({
       clientOptions={clientOptions}
       shootOptions={shootOptions}
       reviewerOptions={reviewerOptions}
+      media={media}
+      storageReady={storageReady}
     />
   );
 }

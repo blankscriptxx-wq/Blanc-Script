@@ -1,9 +1,10 @@
 import "server-only";
-import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db/client";
-import { clients, contentItems, activityLog } from "@/lib/db/schema";
+import { clients, contentItems, mediaAssets, activityLog } from "@/lib/db/schema";
 import { requireUser } from "@/lib/data/clients";
+import type { MediaAssetRow } from "@/lib/data/media";
 
 /**
  * Content calendar data access. EVERY query is scoped to the caller's org_id —
@@ -77,6 +78,30 @@ export async function getContentItem(id: string) {
     .where(and(eq(contentItems.id, id), eq(contentItems.orgId, user.orgId)))
     .limit(1);
   return (row as ContentRow | undefined) ?? null;
+}
+
+/** All media across the org that is attached to any content item (for the Content drawer). */
+export async function listContentMedia(): Promise<MediaAssetRow[]> {
+  const user = await requireUser();
+  const rows = await getDb()
+    .select({
+      id: mediaAssets.id,
+      kind: mediaAssets.kind,
+      fileName: mediaAssets.fileName,
+      mimeType: mediaAssets.mimeType,
+      sizeBytes: mediaAssets.sizeBytes,
+      status: mediaAssets.status,
+      shootId: mediaAssets.shootId,
+      projectId: mediaAssets.projectId,
+      clientId: mediaAssets.clientId,
+      deliverableId: mediaAssets.deliverableId,
+      contentItemId: mediaAssets.contentItemId,
+      createdAt: mediaAssets.createdAt,
+    })
+    .from(mediaAssets)
+    .where(and(eq(mediaAssets.orgId, user.orgId), isNotNull(mediaAssets.contentItemId)))
+    .orderBy(desc(mediaAssets.createdAt));
+  return rows as MediaAssetRow[];
 }
 
 export async function listClientOptions() {

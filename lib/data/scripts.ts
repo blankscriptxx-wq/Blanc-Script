@@ -18,6 +18,7 @@ export type ScriptRow = {
   body: string | null;
   notes: string | null;
   contentItemId: string | null;
+  parentScriptId: string | null;
   createdAt: Date;
 };
 
@@ -43,6 +44,7 @@ export async function listScripts(clientId: string): Promise<ScriptRow[]> {
       body: scripts.body,
       notes: scripts.notes,
       contentItemId: scripts.contentItemId,
+      parentScriptId: scripts.parentScriptId,
       createdAt: scripts.createdAt,
     })
     .from(scripts)
@@ -94,6 +96,7 @@ export const scriptInput = z.object({
   hookScript: z.string().trim().max(1000).nullable().optional(),
   body: z.string().trim().max(8000).nullable().optional(),
   notes: z.string().trim().max(2000).nullable().optional(),
+  parentScriptId: z.string().uuid().nullable().optional(),
 });
 
 export async function createScript(raw: z.input<typeof scriptInput>) {
@@ -112,6 +115,7 @@ export async function createScript(raw: z.input<typeof scriptInput>) {
       hookScript: data.hookScript ?? null,
       body: data.body ?? null,
       notes: data.notes ?? null,
+      parentScriptId: data.parentScriptId ?? null,
     })
     .returning({ id: scripts.id });
   await getDb().insert(activityLog).values({

@@ -8,6 +8,7 @@ import { ScriptsPanel } from "@/components/strategy/scripts-panel";
 import type { ClientProfile, KnowledgeRow } from "@/lib/data/client-brain";
 import type { ThreadRow } from "@/lib/data/client-chat";
 import type { ScriptRow } from "@/lib/data/scripts";
+import type { ScriptMediaRow } from "@/lib/data/media";
 import type { ChatMessage } from "@/lib/ai/claude";
 
 type Tab = "brain" | "chat" | "scripts";
@@ -21,6 +22,8 @@ export function StrategyWorkspace(props: {
   activeThreadId: string | null;
   messages: ChatMessage[];
   scripts: ScriptRow[];
+  scriptMedia: ScriptMediaRow[];
+  storageReady: boolean;
   aiReady: boolean;
 }) {
   const [tab, setTab] = React.useState<Tab>("brain");
@@ -79,7 +82,13 @@ export function StrategyWorkspace(props: {
           aiReady={props.aiReady}
         />
       ) : (
-        <ScriptsPanel clientId={props.clientId} scripts={props.scripts} aiReady={props.aiReady} />
+        <ScriptsPanel
+          clientId={props.clientId}
+          scripts={props.scripts}
+          scriptMedia={props.scriptMedia}
+          storageReady={props.storageReady}
+          aiReady={props.aiReady}
+        />
       )}
     </div>
   );

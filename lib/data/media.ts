@@ -58,6 +58,7 @@ const linkInput = z.object({
   clientId: z.string().uuid().nullable().optional(),
   deliverableId: z.string().uuid().nullable().optional(),
   contentItemId: z.string().uuid().nullable().optional(),
+  scriptId: z.string().uuid().nullable().optional(),
 });
 
 const uploadTargetInput = linkInput.extend({
@@ -106,6 +107,7 @@ export async function createUploadTarget(raw: UploadTargetInput): Promise<{
       clientId: data.clientId ?? null,
       deliverableId: data.deliverableId ?? null,
       contentItemId: data.contentItemId ?? null,
+      scriptId: data.scriptId ?? null,
     })
     .returning({ id: mediaAssets.id });
 
@@ -123,7 +125,10 @@ export async function confirmUpload(assetId: string): Promise<void> {
 }
 
 export type MediaFilter = Partial<
-  Record<"shootId" | "projectId" | "clientId" | "deliverableId" | "contentItemId", string>
+  Record<
+    "shootId" | "projectId" | "clientId" | "deliverableId" | "contentItemId" | "scriptId",
+    string
+  >
 >;
 
 export async function listMediaFor(filter: MediaFilter): Promise<MediaAssetRow[]> {
@@ -134,6 +139,7 @@ export async function listMediaFor(filter: MediaFilter): Promise<MediaAssetRow[]
   if (filter.clientId) conds.push(eq(mediaAssets.clientId, filter.clientId));
   if (filter.deliverableId) conds.push(eq(mediaAssets.deliverableId, filter.deliverableId));
   if (filter.contentItemId) conds.push(eq(mediaAssets.contentItemId, filter.contentItemId));
+  if (filter.scriptId) conds.push(eq(mediaAssets.scriptId, filter.scriptId));
   const rows = await getDb()
     .select({
       id: mediaAssets.id,
@@ -177,6 +183,33 @@ export async function listMediaWithShoot(): Promise<MediaAssetRow[]> {
     .where(and(eq(mediaAssets.orgId, user.orgId), isNotNull(mediaAssets.shootId)))
     .orderBy(desc(mediaAssets.createdAt));
   return rows as MediaAssetRow[];
+}
+
+export type ScriptMediaRow = MediaAssetRow & { scriptId: string | null };
+
+/** All media attached to any script in the org (for the Script studio). */
+export async function listAllScriptMedia(): Promise<ScriptMediaRow[]> {
+  const user = await requireUser();
+  const rows = await getDb()
+    .select({
+      id: mediaAssets.id,
+      kind: mediaAssets.kind,
+      fileName: mediaAssets.fileName,
+      mimeType: mediaAssets.mimeType,
+      sizeBytes: mediaAssets.sizeBytes,
+      status: mediaAssets.status,
+      shootId: mediaAssets.shootId,
+      projectId: mediaAssets.projectId,
+      clientId: mediaAssets.clientId,
+      deliverableId: mediaAssets.deliverableId,
+      contentItemId: mediaAssets.contentItemId,
+      scriptId: mediaAssets.scriptId,
+      createdAt: mediaAssets.createdAt,
+    })
+    .from(mediaAssets)
+    .where(and(eq(mediaAssets.orgId, user.orgId), isNotNull(mediaAssets.scriptId)))
+    .orderBy(desc(mediaAssets.createdAt));
+  return rows as ScriptMediaRow[];
 }
 
 /** Presigned download/view URL for an asset the caller owns. */

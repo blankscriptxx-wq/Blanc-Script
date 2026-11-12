@@ -6,16 +6,21 @@ import { useRouter } from "next/navigation";
 import { Eye, MessageSquareQuote, ChevronDown, Check, Send, X, Lightbulb, LineChart } from "lucide-react";
 import { AiGenerate } from "@/components/ai/ai-generate";
 import { StatusPill } from "@/components/ds/status-pill";
+import { Uploader } from "@/components/uploads/uploader";
+import { FileList } from "@/components/uploads/file-list";
 import { cn } from "@/lib/cn";
 import {
   generateScriptAction,
   generateIdeasAction,
+  refineScriptAction,
+  fillMonthAction,
   logResultAction,
   setScriptStatusAction,
   pushScriptToContentAction,
   archiveScriptAction,
 } from "@/app/(app)/clients/[id]/strategy/actions";
 import type { ScriptRow, ScriptFormat, ScriptStatus } from "@/lib/data/scripts";
+import type { ScriptMediaRow } from "@/lib/data/media";
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
 type Tone = "info" | "accent" | "gold" | "success" | "warning" | "danger" | "neutral";
@@ -54,10 +59,14 @@ const selectCls =
 export function ScriptsPanel({
   clientId,
   scripts,
+  scriptMedia = [],
+  storageReady = false,
   aiReady,
 }: {
   clientId: string;
   scripts: ScriptRow[];
+  scriptMedia?: ScriptMediaRow[];
+  storageReady?: boolean;
   aiReady: boolean;
 }) {
   const router = useRouter();
@@ -96,7 +105,16 @@ export function ScriptsPanel({
                 action={() => generateIdeasAction(clientId, 5)}
                 onResult={() => router.refresh()}
               />
+              <AiGenerate
+                label="Fill next month"
+                action={() => fillMonthAction(clientId, 8)}
+                onResult={() => router.refresh()}
+              />
             </div>
+            <p className="text-xs text-bs-subtle">
+              &ldquo;Fill next month&rdquo; drops a month of post ideas onto the content calendar
+              for this client.
+            </p>
           </div>
         ) : (
           <p className="mt-4 rounded-sm border border-dashed border-bs-border bg-bs-surface-2 px-3 py-2.5 text-sm text-bs-muted">
@@ -119,7 +137,13 @@ export function ScriptsPanel({
         <ul className="space-y-4">
           {scripts.map((script) => (
             <li key={script.id}>
-              <ScriptCard clientId={clientId} script={script} />
+              <ScriptCard
+                clientId={clientId}
+                script={script}
+                media={scriptMedia.filter((m) => m.scriptId === script.id)}
+                storageReady={storageReady}
+                aiReady={aiReady}
+              />
             </li>
           ))}
         </ul>
@@ -129,8 +153,23 @@ export function ScriptsPanel({
 }
 
 // ── Card ───────────────────────────────────────────────────────────────────────
-function ScriptCard({ clientId, script }: { clientId: string; script: ScriptRow }) {
+function ScriptCard({
+  clientId,
+  script,
+  media = [],
+  storageReady = false,
+  aiReady = false,
+}: {
+  clientId: string;
+  script: ScriptRow;
+  media?: ScriptMediaRow[];
+  storageReady?: boolean;
+  aiReady?: boolean;
+}) {
+  const router = useRouter();
   const [showBody, setShowBody] = React.useState(false);
+  const [refineOpen, setRefineOpen] = React.useState(false);
+  const [feedback, setFeedback] = React.useState("");
   const pushed = Boolean(script.contentItemId);
 
   return (
@@ -144,6 +183,7 @@ function ScriptCard({ clientId, script }: { clientId: string; script: ScriptRow 
             <StatusPill tone={STATUS_TONE[script.status]}>
               {STATUS_LABEL[script.status]}
             </StatusPill>
+            {script.parentScriptId ? <StatusPill tone="info">New version</StatusPill> : null}
           </div>
         </div>
 
@@ -209,6 +249,57 @@ function ScriptCard({ clientId, script }: { clientId: string; script: ScriptRow 
           ) : null}
         </div>
       ) : null}
+
+      {/* Refine into a new version */}
+      {aiReady ? (
+        <div className="px-5 pt-3">
+          {refineOpen ? (
+            <div className="space-y-2 rounded-sm border border-dashed border-bs-border p-3">
+              <input
+                value={feedback}
+                onChange={(e) => setFeedback(e.target.value)}
+                placeholder="What should the new version do differently? (optional)"
+                className="h-8 w-full rounded-sm border border-bs-border-strong bg-bs-surface px-2.5 text-sm text-bs-text outline-none placeholder:text-bs-subtle"
+              />
+              <div className="flex items-center gap-2">
+                <AiGenerate
+                  label="Create new version"
+                  action={() => refineScriptAction(script.id, feedback)}
+                  onResult={() => {
+                    setFeedback("");
+                    setRefineOpen(false);
+                    router.refresh();
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setRefineOpen(false)}
+                  className="text-xs text-bs-subtle transition-colors hover:text-bs-text"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setRefineOpen(true)}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-bs-primary transition-colors hover:underline"
+            >
+              ✨ Refine into a new version
+            </button>
+          )}
+        </div>
+      ) : null}
+
+      {/* Reference frames (visual-hook references) */}
+      <div className="px-5 pt-3">
+        <div className="mb-1.5 flex items-center justify-between">
+          <span className="text-xs uppercase tracking-wide text-bs-subtle">Reference frames</span>
+          <Uploader context={{ scriptId: script.id, clientId }} configured={storageReady} label="Attach" />
+        </div>
+        <FileList rows={media} />
+      </div>
 
       {/* Controls */}
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-bs-border p-5 pt-3">

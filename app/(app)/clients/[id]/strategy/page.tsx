@@ -6,6 +6,7 @@ import { StrategyWorkspace } from "@/components/strategy/strategy-workspace";
 import { getClientProfile, listKnowledge } from "@/lib/data/client-brain";
 import { listThreads, getThreadMessages } from "@/lib/data/client-chat";
 import { listScripts } from "@/lib/data/scripts";
+import { listAllScriptMedia, storageConfigured } from "@/lib/data/media";
 import { aiConfigured } from "@/lib/ai/claude";
 
 export const dynamic = "force-dynamic";
@@ -28,11 +29,12 @@ export default async function ClientStrategyPage({
   const profile = await getClientProfile(id).catch(() => null);
   if (!profile) notFound();
 
-  const [proposed, approved, threads, scripts] = await Promise.all([
+  const [proposed, approved, threads, scripts, scriptMedia] = await Promise.all([
     listKnowledge(id, "proposed"),
     listKnowledge(id, "approved"),
     listThreads(id),
     listScripts(id),
+    listAllScriptMedia(),
   ]);
   const activeThreadId = thread || threads[0]?.id || null;
   const messages = activeThreadId ? await getThreadMessages(activeThreadId).catch(() => []) : [];
@@ -55,6 +57,8 @@ export default async function ClientStrategyPage({
         activeThreadId={activeThreadId}
         messages={messages}
         scripts={scripts}
+        scriptMedia={scriptMedia}
+        storageReady={storageConfigured()}
         aiReady={aiConfigured()}
       />
     </div>

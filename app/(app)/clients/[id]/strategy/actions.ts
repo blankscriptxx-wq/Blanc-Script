@@ -1,5 +1,8 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { getDb } from "@/lib/db/client";
+import { contentItems } from "@/lib/db/schema";
+import { requireUser } from "@/lib/data/clients";
 import { aiConfigured, runChat, runJson, runResearch } from "@/lib/ai/claude";
 import {
   buildBrainContext,
@@ -344,6 +347,94 @@ export async function generateIdeasAction(clientId: string, count = 5): Promise<
     return { ok: true, text: `Added ${created} ideas to the backlog.` };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Could not generate ideas." };
+  }
+}
+
+// ── Refine a script into a new version (v2) ───────────────────────────────────
+export async function refineScriptAction(scriptId: string, feedback: string): Promise<AiResult> {
+  try {
+    if (!aiConfigured())
+      return { ok: false, error: "Add an Anthropic API key in Settings → Integrations to refine scripts." };
+    const s = await getScript(scriptId);
+    if (!s) return { ok: false, error: "Script not found." };
+    const context = await buildBrainContext(s.clientId);
+    const improved = await runJson<{
+      title: string;
+      format?: string;
+      hookVisual: string;
+      hookScript: string;
+      body: string;
+    }>({
+      system: `You improve an existing short-form video script into a stronger new version, keeping a strong VISUAL hook and SCRIPT hook. Use the client brain and the feedback. Return JSON {title, format, hookVisual, hookScript, body}. British English.\n\nCLIENT BRAIN:\n${context}`,
+      prompt: `Current script — title: ${s.title}\nScript hook: ${s.hookScript ?? ""}\nBody: ${s.body ?? ""}\n\nFeedback / direction: ${feedback.trim() || "Make it punchier and sharpen the hook."}`,
+      maxTokens: 1500,
+    });
+    const fmt = (["reel", "tiktok", "youtube_short", "youtube_long", "ad", "other"].includes(
+      improved.format ?? "",
+    )
+      ? improved.format
+      : "reel") as "reel" | "tiktok" | "youtube_short" | "youtube_long" | "ad" | "other";
+    await createScript({
+      clientId: s.clientId,
+      title: (improved.title || `${s.title} (v2)`).slice(0, 200),
+      format: fmt,
+      status: "draft",
+      hookVisual: improved.hookVisual ?? null,
+      hookScript: improved.hookScript ?? null,
+      body: improved.body ?? null,
+      parentScriptId: scriptId,
+    });
+    revalidatePath(path(s.clientId));
+    return { ok: true, text: "Created a new version." };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not refine the script." };
+  }
+}
+
+// ── Fill a month of ideas onto the content calendar ───────────────────────────
+export async function fillMonthAction(clientId: string, count = 8): Promise<AiResult> {
+  try {
+    if (!aiConfigured())
+      return { ok: false, error: "Add an Anthropic API key in Settings → Integrations to fill the calendar." };
+    const user = await requireUser();
+    const context = await buildBrainContext(clientId);
+    const n = Math.max(1, Math.min(20, count));
+    const out = await runJson<{ items: { title: string; channel?: string }[] }>({
+      system: `You are the content strategist for this client. Plan ${n} posts for the next month. Each has a title and a channel (instagram|tiktok|youtube|linkedin). Return JSON {items:[{title, channel}]}. British English.\n\nCLIENT BRAIN:\n${context}`,
+      prompt: `Plan ${n} posts.`,
+      maxTokens: 1200,
+    });
+    const items = (out.items ?? []).slice(0, n);
+    const now = Date.now();
+    const stepMs = (28 * 24 * 60 * 60 * 1000) / Math.max(1, items.length);
+    let created = 0;
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      if (!it.title) continue;
+      const channel = (["instagram", "tiktok", "youtube", "linkedin", "other"].includes(
+        it.channel ?? "",
+      )
+        ? it.channel
+        : "instagram") as "instagram" | "tiktok" | "youtube" | "linkedin" | "other";
+      const scheduledFor = new Date(now + Math.round((i + 1) * stepMs));
+      await getDb()
+        .insert(contentItems)
+        .values({
+          orgId: user.orgId,
+          clientId,
+          title: it.title.slice(0, 200),
+          channel,
+          status: "idea",
+          scheduledFor,
+        })
+        .catch(() => {});
+      created++;
+    }
+    revalidatePath(path(clientId));
+    revalidatePath("/content");
+    return { ok: true, text: `Added ${created} posts across next month.` };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not fill the calendar." };
   }
 }
 

@@ -78,6 +78,13 @@
       "when": 1794482596345,
       "tag": "0010_round_nemesis",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794484802287,
+      "tag": "0011_wide_triathlon",
+      "breakpoints": true
     }
   ]
 }
