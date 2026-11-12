@@ -118,7 +118,7 @@ export function DocumentTemplates({ templates }: { templates: TemplateView[] }) 
         className="ml-2 inline-flex h-9 items-center gap-1.5 rounded-sm border border-bs-border-strong bg-bs-surface px-3 text-sm font-medium text-bs-text transition-colors hover:bg-bs-surface-2 disabled:opacity-50"
       >
         {starterBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-        Add Blanc Script starter agreements
+        Add the Blanc Script Service Agreements
       </button>
       {starterNote ? <p className="mt-2 text-xs text-bs-muted">{starterNote}</p> : null}
 

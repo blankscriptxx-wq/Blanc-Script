@@ -90,7 +90,7 @@ export async function addStarterTemplatesAction(): Promise<SettingsResult> {
   try {
     const n = await addStarterTemplates();
     revalidatePath("/settings");
-    return { ok: true, message: n ? `Added ${n} template${n === 1 ? "" : "s"}. Read them through and edit the wording to suit.` : "The starter templates are already here." };
+    return { ok: true, message: n ? `Added ${n} template${n === 1 ? "" : "s"}. They match your PDF agreements.` : "Your Service Agreements are already here." };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Could not add the templates." };
   }
