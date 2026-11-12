@@ -212,6 +212,8 @@ export async function createSubscriptionCheckout(input: {
     "metadata[client_id]": input.clientId,
     "subscription_data[metadata][client_id]": input.clientId,
     "subscription_data[metadata][plan_id]": input.planId,
+    // Always charge in the package's own currency (no local-currency conversion offer).
+    "adaptive_pricing[enabled]": false,
     success_url: input.successUrl,
     cancel_url: input.cancelUrl,
   });
