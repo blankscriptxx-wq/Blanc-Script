@@ -1,3 +1,4 @@
+import { isExternalRole } from "@/lib/auth/roles";
 import { and, eq } from "drizzle-orm";
 import { getAuth } from "./server";
 import { getDb } from "@/lib/db/client";
@@ -77,7 +78,8 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     orgName: row.orgName,
     role,
     capabilities: resolveCapabilities(role, row.capabilities ?? {}),
-    hasAccess: true,
+    // The staff workspace is for internal roles only.
+    hasAccess: !isExternalRole(role),
   };
 }
 

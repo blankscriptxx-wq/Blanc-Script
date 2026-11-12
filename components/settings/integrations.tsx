@@ -31,14 +31,19 @@ const INTEGRATIONS: Integration[] = [
     envVars: ["METRICOOL_API_KEY"],
   },
   {
-    name: "Payment links",
-    unlocks: "Online payment links on invoices.",
+    name: "Payments (Stripe)",
+    unlocks: "Package subscriptions, invoice payment links and automatic paid invoices.",
     envVars: ["STRIPE_SECRET_KEY"],
   },
   {
-    name: "Email",
-    unlocks: "Transactional email — invoices, contracts and notifications.",
-    envVars: ["RESEND_API_KEY"],
+    name: "Email (your own mailbox)",
+    unlocks: "Invoices, portal invites and agreements, sent from your blancscript.com mailbox.",
+    envVars: ["SMTP_HOST", "SMTP_USER", "SMTP_PASS"],
+  },
+  {
+    name: "WhatsApp (Aniro)",
+    unlocks: "Live sending and receiving in the Inbox.",
+    envVars: ["ANIRO_API_URL", "ANIRO_API_KEY"],
   },
 ];
 

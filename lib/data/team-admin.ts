@@ -250,6 +250,8 @@ export async function listAwaitingUsers(): Promise<AwaitingUser[]> {
     select u.id as "userId", u.name, u.email, u."createdAt" as "createdAt"
     from neon_auth."user" u
     where not exists (select 1 from memberships m where m.user_id = u.id)
+      -- Client portal logins are not staff waiting to be let in.
+      and not exists (select 1 from portal_links pl where pl.user_id = u.id)
     order by u."createdAt" desc
     limit 50
   `);

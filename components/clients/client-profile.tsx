@@ -102,9 +102,12 @@ function humanAction(action: string): string {
 export function ClientProfileView({
   profile,
   portalLinks = [],
+  sections,
 }: {
   profile: ClientProfile;
   portalLinks?: PortalLinkView[];
+  /** Extra sections (subscription, documents, client uploads) rendered below the portal. */
+  sections?: React.ReactNode;
 }) {
   const { client: c, summary, contacts, projects, shoots, invoices, activity, canSeeMoney } =
     profile;
@@ -225,8 +228,10 @@ export function ClientProfileView({
       <PortalLinks
         clientId={profile.client.id}
         links={portalLinks}
-        suggestions={profile.contacts.map((c) => c.name)}
+        contacts={profile.contacts.map((c) => ({ name: c.name, email: c.email }))}
       />
+
+      {sections}
 
       {/* Projects */}
       <section className="mt-8">

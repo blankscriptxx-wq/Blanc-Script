@@ -30,7 +30,7 @@ export function stripeWebhookConfigured(): boolean {
 
 type Params = Record<string, string | number | boolean | undefined>;
 
-async function call<T>(method: "GET" | "POST", path: string, params: Params = {}): Promise<T> {
+async function call<T>(method: "GET" | "POST" | "DELETE", path: string, params: Params = {}): Promise<T> {
   const k = key();
   if (!k) throw new Error("Stripe isn't connected yet. Add STRIPE_SECRET_KEY to enable online payment.");
   const body = new URLSearchParams();
@@ -101,11 +101,13 @@ export async function paymentLinkPaid(id: string): Promise<boolean> {
 
 /**
  * Verify a Stripe webhook signature (the `Stripe-Signature` header) against
- * the raw request body. Rejects events older than five minutes.
+ * the raw request body, using any of the given signing secrets (the env
+ * STRIPE_WEBHOOK_SECRET and/or the one stored when the OS connected itself).
+ * Rejects events older than five minutes.
  */
-export function verifyWebhook(rawBody: string, header: string | null): boolean {
-  const secret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
-  if (!secret || !header) return false;
+export function verifyWebhook(rawBody: string, header: string | null, secrets: string[] = []): boolean {
+  const all = [process.env.STRIPE_WEBHOOK_SECRET?.trim(), ...secrets].filter((x): x is string => Boolean(x));
+  if (!all.length || !header) return false;
   const parts = new Map<string, string[]>();
   for (const piece of header.split(",")) {
     const [k, v] = piece.split("=", 2);
@@ -116,10 +118,171 @@ export function verifyWebhook(rawBody: string, header: string | null): boolean {
   const sigs = parts.get("v1") ?? [];
   if (!t || !sigs.length) return false;
   if (Math.abs(Date.now() / 1000 - Number(t)) > 300) return false;
-  const expected = createHmac("sha256", secret).update(`${t}.${rawBody}`).digest("hex");
-  const a = Buffer.from(expected, "hex");
-  return sigs.some((s) => {
-    const b = Buffer.from(s, "hex");
-    return a.length === b.length && timingSafeEqual(a, b);
+  return all.some((secret) => {
+    const a = Buffer.from(createHmac("sha256", secret).update(`${t}.${rawBody}`).digest("hex"), "hex");
+    return sigs.some((sig) => {
+      const b = Buffer.from(sig, "hex");
+      return a.length === b.length && timingSafeEqual(a, b);
+    });
   });
+}
+
+// ── Subscriptions (packages billed monthly) ───────────────────────────────
+
+export type StripeSubscription = {
+  id: string;
+  status: string;
+  customer: string;
+  cancel_at_period_end?: boolean;
+  current_period_end?: number;
+  metadata?: Record<string, string>;
+  items: { data: { id: string; current_period_end?: number; price: { id: string; unit_amount: number | null } }[] };
+};
+
+export type StripeInvoice = {
+  id: string;
+  number: string | null;
+  status: string;
+  customer: string;
+  currency: string;
+  subtotal: number;
+  total: number;
+  amount_paid: number;
+  created: number;
+  hosted_invoice_url: string | null;
+  invoice_pdf: string | null;
+  billing_reason?: string | null;
+  status_transitions?: { paid_at?: number | null };
+  lines: { data: { description: string | null; amount: number; quantity: number | null }[] };
+};
+
+/** When the current paid period ends (field moved onto items in newer API versions). */
+export function subscriptionPeriodEnd(sub: StripeSubscription): Date | null {
+  const ts = sub.current_period_end ?? sub.items.data[0]?.current_period_end;
+  return ts ? new Date(ts * 1000) : null;
+}
+
+export async function createCustomer(input: {
+  name: string;
+  email?: string | null;
+  clientId: string;
+  orgId: string;
+}): Promise<{ id: string }> {
+  return call("POST", "/customers", {
+    name: input.name,
+    email: input.email ?? undefined,
+    "metadata[client_id]": input.clientId,
+    "metadata[org_id]": input.orgId,
+  });
+}
+
+export async function createProduct(name: string, planId: string): Promise<{ id: string }> {
+  return call("POST", "/products", { name: `Blanc Script — ${name}`, "metadata[plan_id]": planId });
+}
+
+export async function createMonthlyPrice(input: {
+  productId: string;
+  amountPence: number;
+  currency: string;
+  planId: string;
+}): Promise<{ id: string }> {
+  return call("POST", "/prices", {
+    product: input.productId,
+    currency: input.currency.toLowerCase(),
+    unit_amount: input.amountPence,
+    "recurring[interval]": "month",
+    "metadata[plan_id]": input.planId,
+  });
+}
+
+/** A Stripe Checkout page that starts a monthly subscription for one client. */
+export async function createSubscriptionCheckout(input: {
+  customerId: string;
+  priceId: string;
+  clientId: string;
+  planId: string;
+  successUrl: string;
+  cancelUrl: string;
+}): Promise<{ id: string; url: string }> {
+  return call("POST", "/checkout/sessions", {
+    mode: "subscription",
+    customer: input.customerId,
+    "line_items[0][price]": input.priceId,
+    "line_items[0][quantity]": 1,
+    "metadata[client_id]": input.clientId,
+    "subscription_data[metadata][client_id]": input.clientId,
+    "subscription_data[metadata][plan_id]": input.planId,
+    success_url: input.successUrl,
+    cancel_url: input.cancelUrl,
+  });
+}
+
+export async function getSubscription(id: string): Promise<StripeSubscription> {
+  return call("GET", `/subscriptions/${encodeURIComponent(id)}`);
+}
+
+export async function listCustomerSubscriptions(customerId: string): Promise<StripeSubscription[]> {
+  const res = await call<{ data: StripeSubscription[] }>("GET", "/subscriptions", {
+    customer: customerId,
+    status: "all",
+    limit: 10,
+  });
+  return res.data;
+}
+
+/**
+ * Move a subscription to a different price straight away. The difference for
+ * the rest of the month is invoiced and charged immediately.
+ */
+export async function changeSubscriptionPrice(input: {
+  subscriptionId: string;
+  itemId: string;
+  priceId: string;
+  planId: string;
+}): Promise<StripeSubscription> {
+  return call("POST", `/subscriptions/${encodeURIComponent(input.subscriptionId)}`, {
+    "items[0][id]": input.itemId,
+    "items[0][price]": input.priceId,
+    proration_behavior: "always_invoice",
+    payment_behavior: "error_if_incomplete",
+    "metadata[plan_id]": input.planId,
+  });
+}
+
+/** Stripe-hosted page where a customer updates their card or downloads receipts. */
+export async function createBillingPortalSession(customerId: string, returnUrl: string): Promise<{ url: string }> {
+  return call("POST", "/billing_portal/sessions", { customer: customerId, return_url: returnUrl });
+}
+
+export async function listCustomerInvoices(customerId: string, limit = 24): Promise<StripeInvoice[]> {
+  const res = await call<{ data: StripeInvoice[] }>("GET", "/invoices", { customer: customerId, limit });
+  return res.data;
+}
+
+export async function getInvoice(id: string): Promise<StripeInvoice> {
+  return call("GET", `/invoices/${encodeURIComponent(id)}`);
+}
+
+// ── Connecting Stripe to the OS (webhook endpoint) ────────────────────────
+
+export const WEBHOOK_EVENTS = [
+  "checkout.session.completed",
+  "checkout.session.async_payment_succeeded",
+  "invoice.paid",
+  "invoice.payment_failed",
+  "customer.subscription.created",
+  "customer.subscription.updated",
+  "customer.subscription.deleted",
+] as const;
+
+export async function createWebhookEndpoint(url: string): Promise<{ id: string; secret: string }> {
+  const params: Params = { url, description: "Blanc Script OS" };
+  WEBHOOK_EVENTS.forEach((e, i) => {
+    params[`enabled_events[${i}]`] = e;
+  });
+  return call("POST", "/webhook_endpoints", params);
+}
+
+export async function deleteWebhookEndpoint(id: string): Promise<void> {
+  await call("DELETE", `/webhook_endpoints/${encodeURIComponent(id)}`);
 }

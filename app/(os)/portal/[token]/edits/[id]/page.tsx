@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { StatusPill } from "@/components/ds/status-pill";
 import { ReviewPanel } from "@/components/portal/review-panel";
@@ -35,7 +35,7 @@ export default async function PortalDeliverablePage({
 }) {
   const { token, id } = await params;
   const ctx = await resolvePortal(token);
-  if (!ctx) notFound();
+  if (!ctx) redirect(`/portal/enter?t=${encodeURIComponent(token)}`);
   const d = await getPortalDeliverable(ctx, id);
   if (!d) notFound();
 

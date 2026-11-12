@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { resolvePortal } from "@/lib/data/portal";
+import { resolvePortalAccess } from "@/lib/data/portal";
+import { portalSignOutAction } from "@/app/(os)/portal/auth-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -20,8 +20,10 @@ export default async function PortalLayout({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
-  const ctx = await resolvePortal(token);
-  if (!ctx) notFound();
+  const access = await resolvePortalAccess(token);
+  // Not signed in / not set up yet: the page itself sends them to /portal/enter.
+  if (access.state !== "ok") return <>{children}</>;
+  const ctx = access.ctx;
 
   return (
     <div className="min-h-dvh bg-bs-canvas text-bs-text">
@@ -38,6 +40,13 @@ export default async function PortalLayout({
             <span className="block font-medium text-bs-text">{ctx.clientName}</span>
             <span className="block text-xs text-bs-subtle">Signed in as {ctx.viewerName}</span>
           </span>
+          {ctx.login ? (
+            <form action={portalSignOutAction}>
+              <button className="text-xs text-bs-subtle underline-offset-2 hover:text-bs-text hover:underline">
+                Sign out
+              </button>
+            </form>
+          ) : null}
         </div>
       </header>
       <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6">{children}</main>

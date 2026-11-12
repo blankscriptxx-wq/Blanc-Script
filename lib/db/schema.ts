@@ -208,6 +208,12 @@ export const clients = pgTable("clients", {
   /** Per-client monthly override in pence (null = use the plan's price). */
   retainerOverridePence: integer("retainer_override_pence"),
   currency: text("currency").notNull().default("GBP"),
+  /** Stripe billing: the customer, their package subscription and its state. */
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  /** Stripe's status: active | trialing | past_due | unpaid | canceled | incomplete… */
+  subscriptionStatus: text("subscription_status"),
+  subscriptionPeriodEnd: timestamp("subscription_period_end", { withTimezone: true }),
   archivedAt: timestamp("archived_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -274,6 +280,10 @@ export const servicePlans = pgTable("service_plans", {
   bespoke: boolean("bespoke").notNull().default(false),
   /** Volumes & inclusions (videos_per_week, total_posts_per_month, ai_inbox, …). */
   features: jsonb("features").$type<Record<string, unknown>>().default({}),
+  /** Stripe product + the recurring price created for the current pricePence. */
+  stripeProductId: text("stripe_product_id"),
+  stripePriceId: text("stripe_price_id"),
+  stripePriceAmountPence: integer("stripe_price_amount_pence"),
   sortOrder: integer("sort_order").notNull().default(0),
   archivedAt: timestamp("archived_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -371,6 +381,10 @@ export const invoices = pgTable("invoices", {
   /** Stripe Payment Link behind paymentUrl, and the gross amount it charges. */
   stripePaymentLinkId: text("stripe_payment_link_id"),
   stripeLinkAmountPence: integer("stripe_link_amount_pence"),
+  /** Set when this invoice was generated from a Stripe (subscription) invoice. */
+  stripeInvoiceId: text("stripe_invoice_id").unique(),
+  /** Link to the PDF/receipt for this invoice (Stripe-hosted when from Stripe). */
+  documentUrl: text("document_url"),
   reference: text("reference"), // PO number / client ref
   terms: text("terms"),
   currency: text("currency").notNull().default("GBP"),
@@ -579,6 +593,62 @@ export const mediaAssets = pgTable("media_assets", {
   deliverableId: uuid("deliverable_id").references(() => deliverables.id),
   contentItemId: uuid("content_item_id").references(() => contentItems.id),
   scriptId: uuid("script_id").references(() => scripts.id),
+  /** Set when a client uploaded this through their portal (with their note). */
+  portalLinkId: uuid("portal_link_id"),
+  note: text("note"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ── Outgoing email log (every email the OS sends, or tried to) ────────────
+export const emailOutbox = pgTable("email_outbox", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull(),
+  toEmail: text("to_email").notNull(),
+  subject: text("subject").notNull(),
+  bodyText: text("body_text").notNull(),
+  kind: text("kind").notNull(), // portal_invite | invoice | document | test | …
+  status: text("status").notNull().default("queued"), // queued | sent | failed | not_configured
+  error: text("error"),
+  relatedType: text("related_type"),
+  relatedId: uuid("related_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+});
+
+// ── Documents: reusable templates and the copies issued to each client ────
+export const documentTemplates = pgTable("document_templates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organisations.id),
+  name: text("name").notNull(),
+  /** Text with merge fields such as {{client_name}} — see lib/documents/merge.ts. */
+  body: text("body").notNull(),
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const clientDocuments = pgTable("client_documents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organisations.id),
+  clientId: uuid("client_id")
+    .notNull()
+    .references(() => clients.id),
+  templateId: uuid("template_id"),
+  title: text("title").notNull(),
+  /** The populated text as issued — a snapshot, never re-merged. */
+  body: text("body").notNull(),
+  status: text("status").notNull().default("draft"), // draft | sent | accepted | void
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+  acceptedByName: text("accepted_by_name"),
+  acceptedByLinkId: uuid("accepted_by_link_id"),
+  acceptedIp: text("accepted_ip"),
+  createdByUserId: uuid("created_by_user_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -595,6 +665,10 @@ export const portalLinks = pgTable("portal_links", {
   /** Who the link was given to (shown on their comments), e.g. "Hannah Fernley". */
   label: text("label").notNull(),
   token: text("token").notNull().unique(),
+  /** Login-protected access: the invited email and, once claimed, their account. */
+  email: text("email"),
+  requiresLogin: boolean("requires_login").notNull().default(false),
+  userId: uuid("user_id"),
   createdByUserId: uuid("created_by_user_id"),
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),

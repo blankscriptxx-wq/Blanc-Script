@@ -3,6 +3,7 @@ import { AppShell } from "@/components/shell/app-shell";
 import { getCurrentUser } from "@/lib/auth/session";
 import { NAV, SETTINGS_ITEM } from "@/lib/nav";
 import { signOutAction } from "@/app/(os)/auth/sign-out/actions";
+import { portalHomeForSession } from "@/lib/data/portal";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,9 @@ export default async function AppGroupLayout({
   if (!user) redirect("/auth/sign-in");
 
   if (!user.hasAccess) {
+    // Client portal logins belong in their portal, not the staff workspace.
+    const portal = await portalHomeForSession();
+    if (portal) redirect(portal);
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center bg-bs-canvas px-6 text-center text-bs-text">
         <p className="font-serif text-h1 italic">You're signed in.</p>

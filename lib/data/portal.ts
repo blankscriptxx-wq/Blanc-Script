@@ -9,6 +9,7 @@ import {
   contentItems,
   deliverableVersions,
   deliverables,
+  invoiceLineItems,
   invoices,
   organisations,
   portalLinks,
@@ -16,6 +17,8 @@ import {
   shoots,
 } from "@/lib/db/schema";
 import { requireUser } from "@/lib/data/clients";
+import { getAuth } from "@/lib/auth/server";
+import { appOrigin, sendEmail } from "@/lib/email/send";
 import { invoiceGrossPence } from "@/lib/data/finance";
 
 /**
@@ -32,6 +35,9 @@ export type PortalLinkRow = {
   id: string;
   label: string;
   token: string;
+  email: string | null;
+  requiresLogin: boolean;
+  claimed: boolean;
   lastSeenAt: Date | null;
   revokedAt: Date | null;
   createdAt: Date;
@@ -53,6 +59,9 @@ export async function listPortalLinks(clientId: string): Promise<PortalLinkRow[]
       id: portalLinks.id,
       label: portalLinks.label,
       token: portalLinks.token,
+      email: portalLinks.email,
+      requiresLogin: portalLinks.requiresLogin,
+      claimed: sql<boolean>`${portalLinks.userId} is not null`,
       lastSeenAt: portalLinks.lastSeenAt,
       revokedAt: portalLinks.revokedAt,
       createdAt: portalLinks.createdAt,
@@ -62,25 +71,47 @@ export async function listPortalLinks(clientId: string): Promise<PortalLinkRow[]
     .orderBy(desc(portalLinks.createdAt));
 }
 
-export async function createPortalLink(clientId: string, label: string) {
+/**
+ * Give someone portal access. With an email, it is a LOGIN: they set a
+ * password the first time and sign in after that. Without one, it is a plain
+ * private link (anyone holding it can open the portal).
+ */
+export async function createPortalLink(clientId: string, label: string, email?: string | null) {
   const user = await requireUser();
   const id = z.string().uuid().parse(clientId);
-  const name = z.string().trim().min(1, "Say who this link is for.").max(120).parse(label);
+  const name = z.string().trim().min(1, "Say who this access is for.").max(120).parse(label);
+  const mail = email?.trim() ? z.string().trim().toLowerCase().email("Enter a valid email address.").parse(email) : null;
   await assertClientInOrg(id, user.orgId);
+  if (mail) {
+    const [dupe] = await getDb()
+      .select({ id: portalLinks.id })
+      .from(portalLinks)
+      .where(and(eq(portalLinks.orgId, user.orgId), eq(portalLinks.email, mail), isNull(portalLinks.revokedAt)))
+      .limit(1);
+    if (dupe) throw new Error("That email already has portal access.");
+  }
   const token = randomBytes(24).toString("base64url");
   const [row] = await getDb()
     .insert(portalLinks)
-    .values({ orgId: user.orgId, clientId: id, label: name, token, createdByUserId: user.id })
-    .returning({ id: portalLinks.id });
+    .values({
+      orgId: user.orgId,
+      clientId: id,
+      label: name,
+      token,
+      email: mail,
+      requiresLogin: Boolean(mail),
+      createdByUserId: user.id,
+    })
+    .returning({ id: portalLinks.id, token: portalLinks.token });
   await getDb().insert(activityLog).values({
     orgId: user.orgId,
     actorUserId: user.id,
     action: "portal.link_created",
     entityType: "client",
     entityId: id,
-    meta: { label: name },
+    meta: { label: name, login: Boolean(mail) },
   });
-  return row;
+  return { ...row, orgId: user.orgId, email: mail, label: name };
 }
 
 export async function revokePortalLink(linkId: string) {
@@ -100,17 +131,39 @@ export type PortalContext = {
   clientName: string;
   agencyName: string;
   viewerName: string;
+  /** True when this access is a login (rather than a plain private link). */
+  login: boolean;
 };
 
-/** Resolve a portal token. Returns null for unknown or revoked links. */
-export async function resolvePortal(token: string): Promise<PortalContext | null> {
-  if (!/^[A-Za-z0-9_-]{20,80}$/.test(token)) return null;
+export type PortalAccess =
+  | { state: "ok"; ctx: PortalContext }
+  | { state: "none" }
+  /** A login invite that hasn't been used yet: the person sets a password. */
+  | { state: "claim"; label: string; email: string; clientName: string }
+  /** A login-protected portal, and nobody (or someone else) is signed in. */
+  | { state: "signin"; email: string; clientName: string };
+
+async function sessionUser(): Promise<{ id: string; email: string } | null> {
+  try {
+    const { data } = await getAuth().getSession();
+    return data?.user ? { id: data.user.id, email: data.user.email } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Work out what a visitor holding this portal address is allowed to see. */
+export async function resolvePortalAccess(token: string): Promise<PortalAccess> {
+  if (!/^[A-Za-z0-9_-]{20,80}$/.test(token)) return { state: "none" };
   const [row] = await getDb()
     .select({
       linkId: portalLinks.id,
       orgId: portalLinks.orgId,
       clientId: portalLinks.clientId,
       viewerName: portalLinks.label,
+      email: portalLinks.email,
+      requiresLogin: portalLinks.requiresLogin,
+      userId: portalLinks.userId,
       clientName: clients.name,
       agencyName: organisations.name,
       clientArchivedAt: clients.archivedAt,
@@ -120,7 +173,15 @@ export async function resolvePortal(token: string): Promise<PortalContext | null
     .innerJoin(organisations, eq(portalLinks.orgId, organisations.id))
     .where(and(eq(portalLinks.token, token), isNull(portalLinks.revokedAt)))
     .limit(1);
-  if (!row || row.clientArchivedAt) return null;
+  if (!row || row.clientArchivedAt) return { state: "none" };
+
+  if (row.requiresLogin) {
+    const email = row.email ?? "";
+    if (!row.userId) return { state: "claim", label: row.viewerName, email, clientName: row.clientName };
+    const me = await sessionUser();
+    if (!me || me.id !== row.userId) return { state: "signin", email, clientName: row.clientName };
+  }
+
   // Best-effort "last seen" (at most one write a minute).
   await getDb()
     .update(portalLinks)
@@ -133,13 +194,83 @@ export async function resolvePortal(token: string): Promise<PortalContext | null
     )
     .catch(() => {});
   return {
-    linkId: row.linkId,
-    orgId: row.orgId,
-    clientId: row.clientId,
-    clientName: row.clientName,
-    agencyName: row.agencyName,
-    viewerName: row.viewerName,
+    state: "ok",
+    ctx: {
+      linkId: row.linkId,
+      orgId: row.orgId,
+      clientId: row.clientId,
+      clientName: row.clientName,
+      agencyName: row.agencyName,
+      viewerName: row.viewerName,
+      login: row.requiresLogin,
+    },
   };
+}
+
+/** The portal context for this address, or null if the visitor may not see it. */
+export async function resolvePortal(token: string): Promise<PortalContext | null> {
+  const access = await resolvePortalAccess(token);
+  return access.state === "ok" ? access.ctx : null;
+}
+
+/**
+ * First visit on a login invite: create the person's account with the invited
+ * email and their chosen password, and tie this portal access to it. If that
+ * email already has an account, the password must match it.
+ */
+export async function claimPortalLogin(token: string, name: string, password: string): Promise<void> {
+  const access = await resolvePortalAccess(token);
+  if (access.state !== "claim") throw new Error("This invite has already been used. Please sign in.");
+  const cleanName = z.string().trim().min(1, "Enter your name.").max(120).parse(name);
+  const pass = z.string().min(8, "Choose a password of at least 8 characters.").max(200).parse(password);
+
+  const auth = getAuth();
+  const created = await auth.signUp.email({ email: access.email, name: cleanName, password: pass });
+  if (created.error) {
+    // Already registered (for example, they have access to another client).
+    const signedIn = await auth.signIn.email({ email: access.email, password: pass });
+    if (signedIn.error) {
+      throw new Error(
+        "An account already exists for this email. Enter that account's password to link it.",
+      );
+    }
+  }
+  const me = await sessionUser();
+  if (!me || me.email.toLowerCase() !== access.email.toLowerCase()) {
+    throw new Error("We couldn't finish setting up your login. Please try again.");
+  }
+  await getDb()
+    .update(portalLinks)
+    .set({ userId: me.id, label: cleanName })
+    .where(and(eq(portalLinks.token, token), isNull(portalLinks.userId), isNull(portalLinks.revokedAt)));
+}
+
+/**
+ * Sign in to the portal. Returns the address of the person's portal (their
+ * first, if they have access to several clients), or null if they have none.
+ */
+export async function signInToPortal(email: string, password: string): Promise<string | null> {
+  const mail = z.string().trim().toLowerCase().email("Enter your email address.").parse(email);
+  const { error } = await getAuth().signIn.email({ email: mail, password });
+  if (error) throw new Error("That email and password don't match. Please try again.");
+  return portalHomeForSession();
+}
+
+/** The signed-in person's portal address, if they have one. */
+export async function portalHomeForSession(): Promise<string | null> {
+  const me = await sessionUser();
+  if (!me) return null;
+  const [row] = await getDb()
+    .select({ token: portalLinks.token })
+    .from(portalLinks)
+    .where(and(eq(portalLinks.userId, me.id), isNull(portalLinks.revokedAt)))
+    .orderBy(desc(portalLinks.lastSeenAt))
+    .limit(1);
+  return row ? `/portal/${row.token}` : null;
+}
+
+export async function signOutOfPortal(): Promise<void> {
+  await getAuth().signOut();
 }
 
 /** Deliverable states a client is allowed to see (never work still in the edit). */
@@ -421,4 +552,99 @@ export async function portalInvoiceId(ctx: PortalContext, invoiceId: string): Pr
     )
     .limit(1);
   return row?.id ?? null;
+}
+
+/** Email (or re-send) someone their portal invite. Staff only. */
+export async function sendPortalInvite(linkId: string): Promise<"sent" | "failed" | "not_configured" | "no_email"> {
+  const user = await requireUser();
+  const [link] = await getDb()
+    .select({
+      id: portalLinks.id,
+      token: portalLinks.token,
+      label: portalLinks.label,
+      email: portalLinks.email,
+      clientName: clients.name,
+      claimed: sql<boolean>`${portalLinks.userId} is not null`,
+    })
+    .from(portalLinks)
+    .innerJoin(clients, eq(portalLinks.clientId, clients.id))
+    .where(and(eq(portalLinks.id, linkId), eq(portalLinks.orgId, user.orgId), isNull(portalLinks.revokedAt)))
+    .limit(1);
+  if (!link) throw new Error("That portal access was not found.");
+  if (!link.email) return "no_email";
+  const url = `${appOrigin()}/portal/${link.token}`;
+  const result = await sendEmail({
+    orgId: user.orgId,
+    to: link.email,
+    subject: `Your Blanc Script client portal — ${link.clientName}`,
+    heading: `Your ${link.clientName} portal is ready`,
+    paragraphs: [
+      `Hi ${link.label.split(" ")[0]},`,
+      "We've set up a private portal for you. It's where you can review and approve cuts, see your package and invoices, read and accept agreements, and send us footage.",
+      link.claimed
+        ? "Use the button below and sign in with your email and password."
+        : "Use the button below to choose a password — that creates your login. After that, sign in any time at studio.blancscript.com/portal.",
+    ],
+    button: { label: link.claimed ? "Open my portal" : "Set up my login", url },
+    kind: "portal_invite",
+    related: { type: "client", id: link.id },
+  });
+  return result.status;
+}
+
+// ── Invoices (detail) ─────────────────────────────────────────────────────
+
+export type PortalInvoiceDetail = {
+  id: string;
+  number: string | null;
+  status: "sent" | "approved" | "paid" | "overdue";
+  reference: string | null;
+  terms: string | null;
+  issuedAt: Date | null;
+  dueAt: Date | null;
+  paidAt: Date | null;
+  subtotalPence: number;
+  taxRatePct: number | null;
+  totalPence: number;
+  paymentUrl: string | null;
+  documentUrl: string | null;
+  lines: { description: string; quantity: number; unitPence: number }[];
+};
+
+export async function getPortalInvoice(ctx: PortalContext, id: string): Promise<PortalInvoiceDetail | null> {
+  const invoiceId = await portalInvoiceId(ctx, id);
+  if (!invoiceId) return null;
+  const db = getDb();
+  const [[inv], lines] = await Promise.all([
+    db
+      .select({
+        id: invoices.id,
+        number: invoices.number,
+        status: invoices.status,
+        reference: invoices.reference,
+        terms: invoices.terms,
+        issuedAt: invoices.issuedAt,
+        dueAt: invoices.dueAt,
+        paidAt: invoices.paidAt,
+        subtotalPence: invoices.amountPence,
+        taxRatePct: invoices.taxRatePct,
+        totalPence: invoiceGrossPence,
+        paymentUrl: invoices.paymentUrl,
+        documentUrl: invoices.documentUrl,
+      })
+      .from(invoices)
+      .where(eq(invoices.id, invoiceId))
+      .limit(1),
+    db
+      .select({
+        description: invoiceLineItems.description,
+        quantity: invoiceLineItems.quantity,
+        unitPence: invoiceLineItems.unitPence,
+      })
+      .from(invoiceLineItems)
+      .where(eq(invoiceLineItems.invoiceId, invoiceId))
+      .orderBy(asc(invoiceLineItems.sortOrder)),
+  ]);
+  if (!inv) return null;
+  return { ...(inv as Omit<PortalInvoiceDetail, "lines">), totalPence: Number(inv.totalPence), lines };
 }
