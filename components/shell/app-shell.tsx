@@ -22,6 +22,7 @@ import {
   Clapperboard,
   CalendarRange,
   UserRound,
+  X,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { NAV, SETTINGS_ITEM, type NavItem } from "@/lib/nav";
@@ -52,6 +53,20 @@ export function AppShell({
   const [collapsed, setCollapsed] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [aiOpen, setAiOpen] = React.useState(false);
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  const pathname = usePathname();
+  // Going to another page closes the phone menu.
+  React.useEffect(() => setMenuOpen(false), [pathname]);
+  React.useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMenuOpen(false);
+    document.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [menuOpen]);
 
   React.useEffect(() => {
     try {
@@ -74,6 +89,11 @@ export function AppShell({
   }, []);
 
   const toggleCollapsed = () => {
+    // On a phone the button opens the menu; on a wider screen it narrows the sidebar.
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
+      setMenuOpen((v) => !v);
+      return;
+    }
     setCollapsed((v) => {
       const next = !v;
       try {
@@ -97,8 +117,28 @@ export function AppShell({
           onOpenPalette={() => setPaletteOpen(true)}
           onOpenAI={() => setAiOpen(true)}
         />
-        <main className="flex-1 px-4 py-6 md:px-6">{children}</main>
+        <main className="min-w-0 flex-1 px-4 py-6 md:px-6">{children}</main>
       </div>
+      {menuOpen ? (
+        <div className="fixed inset-0 z-40 md:hidden" role="dialog" aria-modal="true" aria-label="Menu">
+          <button type="button" aria-label="Close menu" className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setMenuOpen(false)} />
+          <motion.div
+            initial={{ x: -280 }}
+            animate={{ x: 0 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute inset-y-0 left-0 flex w-[280px] max-w-[85vw] shadow-elev-3"
+          >
+            <Sidebar
+              items={nav}
+              settingsItem={showSettings ? SETTINGS_ITEM : null}
+              collapsed={false}
+              user={user}
+              mobile
+              onClose={() => setMenuOpen(false)}
+            />
+          </motion.div>
+        </div>
+      ) : null}
       {paletteOpen ? (
         <CommandPalette
           items={[...nav, ...(showSettings ? [SETTINGS_ITEM] : [])]}
@@ -119,26 +159,42 @@ function Sidebar({
   settingsItem,
   collapsed,
   user,
+  mobile = false,
+  onClose,
 }: {
   items: NavItem[];
   settingsItem: NavItem | null;
   collapsed: boolean;
   user: ShellUser;
+  /** The slide-out version used on phones. */
+  mobile?: boolean;
+  onClose?: () => void;
 }) {
   const pathname = usePathname();
   return (
     <aside
       className={cn(
-        "hidden shrink-0 flex-col border-r border-bs-border bg-bs-surface md:flex",
-        collapsed ? "w-[60px]" : "w-[232px]",
+        "shrink-0 flex-col border-r border-bs-border bg-bs-surface",
+        mobile ? "flex h-full w-full overflow-y-auto" : "hidden md:flex",
+        mobile ? "" : collapsed ? "w-[60px]" : "w-[232px]",
       )}
     >
-      <div className="flex h-14 items-center gap-2 px-4">
+      <div className="flex h-14 shrink-0 items-center gap-2 px-4">
         <div className="grid h-7 w-7 place-items-center rounded-sm bg-bs-primary text-bs-on-accent">
           <span className="font-display text-sm font-bold">B</span>
         </div>
         {!collapsed ? (
           <span className="font-display text-h3 font-semibold">Blanc Script</span>
+        ) : null}
+        {mobile ? (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close menu"
+            className="ml-auto grid h-9 w-9 place-items-center rounded-sm text-bs-muted hover:bg-bs-surface-2"
+          >
+            <X className="h-[18px] w-[18px]" />
+          </button>
         ) : null}
       </div>
       <nav className="flex-1 space-y-0.5 px-2 py-2">
@@ -163,6 +219,12 @@ function Sidebar({
             <settingsItem.icon className="h-[18px] w-[18px] shrink-0" />
             {!collapsed ? <span>{settingsItem.label}</span> : null}
           </NavLink>
+        </div>
+      ) : null}
+      {mobile ? (
+        <div className="flex items-center justify-between gap-3 border-t border-bs-border px-4 py-3">
+          <span className="text-sm text-bs-muted">Theme</span>
+          <ThemeSwitcher size="sm" />
         </div>
       ) : null}
       <div className="flex items-center gap-2 border-t border-bs-border px-3 py-3">
@@ -245,26 +307,30 @@ function Topbar({
   onOpenAI: () => void;
 }) {
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-bs-border bg-bs-surface/90 px-3 backdrop-blur md:px-4">
+    <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-bs-border bg-bs-surface/90 px-3 backdrop-blur md:gap-3 md:px-4">
       <button
         onClick={onToggleSidebar}
-        aria-label="Toggle sidebar"
-        className="grid h-9 w-9 place-items-center rounded-sm text-bs-muted hover:bg-bs-surface-2"
+        aria-label="Menu"
+        className="grid h-9 w-9 shrink-0 place-items-center rounded-sm text-bs-muted hover:bg-bs-surface-2"
       >
         <PanelLeft className="h-[18px] w-[18px]" />
       </button>
       <button
         onClick={onOpenPalette}
-        className="flex h-9 flex-1 items-center gap-2 rounded-sm border border-bs-border-strong px-3 text-sm text-bs-subtle hover:bg-bs-surface-2 md:max-w-md"
+        className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-sm border border-bs-border-strong px-3 text-left text-sm text-bs-subtle hover:bg-bs-surface-2 md:max-w-md"
       >
-        <Search className="h-4 w-4" />
-        <span>Search or jump anywhere…</span>
+        <Search className="h-4 w-4 shrink-0" />
+        <span className="truncate sm:hidden">Search…</span>
+        <span className="hidden truncate sm:inline">Search or jump anywhere…</span>
         <kbd className="ml-auto hidden rounded-xs border border-bs-border px-1.5 py-0.5 font-mono text-[10px] text-bs-muted md:inline">
           ⌘K
         </kbd>
       </button>
-      <div className="ml-auto flex items-center gap-2">
-        <ThemeSwitcher size="sm" />
+      <div className="ml-auto flex shrink-0 items-center gap-1 md:gap-2">
+        {/* On phones the theme switch lives in the menu, to keep this bar uncluttered. */}
+        <span className="hidden md:block">
+          <ThemeSwitcher size="sm" />
+        </span>
         <NotificationsBell />
         <button
           onClick={onOpenAI}

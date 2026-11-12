@@ -80,8 +80,8 @@ export default async function TodayPage() {
       </div>
 
       <section className="mt-8">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-display text-h2">Your packages</h2>
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <h2 className="whitespace-nowrap font-display text-h2">Your packages</h2>
           <span className="inline-flex items-center gap-1.5 text-xs text-bs-subtle">
             <PulseDot tone="success" /> Live from the database · customisable per client
           </span>
