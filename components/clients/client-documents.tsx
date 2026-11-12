@@ -229,6 +229,14 @@ export function ClientDocuments({
                   Accepted by {open.acceptedByName} on {when.format(new Date(open.acceptedAt))}.
                 </p>
               ) : null}
+              <a
+                href={`/clients/${clientId}/documents/${open.id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-bs-primary hover:underline"
+              >
+                Open as the client sees it (print or save as PDF)
+              </a>
               <div className="max-h-[60vh] overflow-y-auto whitespace-pre-wrap rounded-sm border border-bs-border bg-bs-surface-2 p-4 text-sm leading-relaxed text-bs-text">
                 {open.body}
               </div>

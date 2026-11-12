@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import { AcceptDocument } from "@/components/portal/accept-document";
-import { DocumentPaper } from "@/components/documents/document-paper";
+import { DocumentView } from "@/components/documents/document-view";
+import { PrintButton } from "@/components/finance/print-button";
 import { getPortalDocument } from "@/lib/data/documents";
 import { resolvePortal } from "@/lib/data/portal";
 
@@ -41,7 +42,14 @@ export default async function PortalDocumentPage({
       ) : (
         <p className="mt-2 text-sm text-bs-muted">Please read this through, then accept it at the bottom.</p>
       )}
-      <DocumentPaper body={doc.body} />
+      <div className="mt-3 print:hidden">
+        <PrintButton />
+      </div>
+      <DocumentView
+        body={doc.body}
+        acceptance={doc.status === "accepted" && doc.acceptedAt && doc.acceptedByName ? { name: doc.acceptedByName, at: doc.acceptedAt } : null}
+        studio={doc.sentAt ? { name: ctx.agencyName, date: doc.sentAt } : null}
+      />
       {doc.status === "sent" ? (
         <AcceptDocument token={token} documentId={doc.id} defaultName={ctx.viewerName} />
       ) : null}

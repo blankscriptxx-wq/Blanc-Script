@@ -151,7 +151,7 @@ export async function createClientDocument(clientId: string, templateId: string)
   if (!tpl) throw new Error("That template was not found.");
   if (!c) throw new Error("That client was not found.");
   const [contact] = await db
-    .select({ name: clientContacts.name, email: clientContacts.email })
+    .select({ name: clientContacts.name, email: clientContacts.email, phone: clientContacts.phone })
     .from(clientContacts)
     .where(and(eq(clientContacts.orgId, user.orgId), eq(clientContacts.clientId, clientId)))
     .orderBy(desc(clientContacts.isPrimary), asc(clientContacts.createdAt))
@@ -187,6 +187,9 @@ export async function createClientDocument(clientId: string, templateId: string)
         .map((l) => `- ${l}`)
         .join("\n") || "- As set out in your package",
     project_name: oneOff ? (ob?.projectTitle ?? "") : "",
+    contact_phone: contact?.phone ?? "",
+    engagement_type: oneOff ? "Project" : fee != null || ob ? "Retainer" : "",
+    fee: oneOff ? gbp(extras.reduce((n, x) => n + x.pricePence, 0)) : fee != null ? `${gbp(fee)} a month` : "",
     project_fee: oneOff ? gbp(extras.reduce((n, x) => n + x.pricePence, 0)) : "",
     client_name: c.name,
     contact_name: contact?.name ?? "",
