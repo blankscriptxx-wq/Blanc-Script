@@ -4,6 +4,7 @@ import * as React from "react";
 import { Check, ChevronDown } from "lucide-react";
 import { portalTickShotAction } from "@/app/(os)/portal/[token]/actions";
 import { ScriptBreakdown } from "@/components/shoots/script-breakdown";
+import { UploadPanel } from "@/components/portal/upload-panel";
 import { parseScript } from "@/lib/scripts/breakdown";
 import type { PortalScript } from "@/lib/data/portal";
 
@@ -28,7 +29,7 @@ export function PortalScripts({ token, scripts }: { token: string; scripts: Port
   return (
     <div>
       <p className="mb-3 text-sm text-bs-muted">
-        Film these yourself, one shot at a time. Tick each shot as you get it, then send us the clips in &ldquo;Send us files&rdquo; below.
+        Film these yourself, one shot at a time. Tick each shot as you get it, then send us the clips from inside the script. We start editing as soon as they arrive.
       </p>
       {error ? <p className="mb-2 text-sm text-bs-danger">{error}</p> : null}
       <ol className="space-y-2">
@@ -36,6 +37,7 @@ export function PortalScripts({ token, scripts }: { token: string; scripts: Port
           const total = parseScript(s.body).length;
           const got = (shots[s.id] ?? []).length;
           const all = total > 0 && got >= total;
+          const sent = s.status === "produced";
           const isOpen = open === s.id;
           return (
             <li key={s.id} className="overflow-hidden rounded-md border border-bs-border bg-bs-surface">
@@ -56,14 +58,18 @@ export function PortalScripts({ token, scripts }: { token: string; scripts: Port
                 <span className="min-w-0 flex-1">
                   <span className="block break-words font-medium text-bs-text">{s.title}</span>
                   <span className="block text-xs text-bs-subtle">
-                    {all ? "All shots filmed — send us the clips" : got ? `${total - got} ${total - got === 1 ? "shot" : "shots"} to go` : `${total} shots`}
+                    {sent ? "Clips received — we’re editing" : all ? "All shots filmed — now send us the clips" : got ? `${total - got} ${total - got === 1 ? "shot" : "shots"} to go` : `${total} shots`}
                   </span>
                 </span>
                 <ChevronDown className={"h-4 w-4 shrink-0 text-bs-subtle transition-transform " + (isOpen ? "rotate-180" : "")} />
               </button>
               {isOpen ? (
                 <div className="border-t border-bs-border px-4 py-4">
-                  <ScriptBreakdown script={s} view="all" done={shots[s.id] ?? []} onTick={(i, on) => void tick(s.id, i, on)} />
+                  <ScriptBreakdown script={s} view="all" done={shots[s.id] ?? []} onTick={sent ? undefined : (i, on) => void tick(s.id, i, on)} />
+                  <div className="mt-5 border-t border-bs-border pt-4">
+                    <p className="mb-2 text-sm font-medium text-bs-text">{sent ? "Send more clips for this video" : "Send us the clips for this video"}</p>
+                    <UploadPanel token={token} scriptId={s.id} intro="Add every clip you filmed for this video. The order doesn’t matter." />
+                  </div>
                 </div>
               ) : null}
             </li>

@@ -2,7 +2,15 @@
 
 export type LineKind = "say" | "camera" | "visual" | "sound" | "cut" | "note";
 export type ScriptLine = { kind: LineKind; label: string; text: string };
-export type ScriptBeat = { time: string | null; heading: string | null; lines: ScriptLine[] };
+export type ScriptBeat = {
+  time: string | null;
+  heading: string | null;
+  lines: ScriptLine[];
+  /** Where this shot is filmed (self-shoot scripts are grouped by this). */
+  where: string | null;
+  /** Its place in the finished video, when the script is written in filming order. */
+  order: number | null;
+};
 
 const KINDS: Record<string, LineKind> = {
   say: "say",
@@ -46,19 +54,25 @@ export function parseScript(body: string | null): ScriptBeat[] {
     if (!line) continue;
     const b = line.match(BEAT);
     if (b) {
-      cur = { time: b[1].replace(/\s+/g, ""), heading: b[2]?.trim() || null, lines: [] };
+      cur = { time: b[1].replace(/\s+/g, ""), heading: b[2]?.trim() || null, lines: [], where: null, order: null };
       beats.push(cur);
       continue;
     }
     const sh = line.match(SHOT);
     if (sh) {
-      cur = { time: null, heading: sh[2]?.trim() || `Shot ${sh[1]}`, lines: [] };
+      cur = { time: null, heading: sh[2]?.trim() || `Shot ${sh[1]}`, lines: [], where: null, order: null };
       beats.push(cur);
       continue;
     }
     if (!cur) {
-      cur = { time: null, heading: null, lines: [] };
+      cur = { time: null, heading: null, lines: [], where: null, order: null };
       beats.push(cur);
+    }
+    const meta = line.match(/^(where|location|order|plays)\s*:\s*(.+)$/i);
+    if (meta) {
+      if (/^(where|location)$/i.test(meta[1])) cur.where = meta[2].trim();
+      else cur.order = Number(meta[2].match(/\d+/)?.[0]) || null;
+      continue;
     }
     const l = line.match(LABELLED);
     const kind = l ? KINDS[l[1].trim().toLowerCase()] : undefined;
@@ -74,12 +88,24 @@ export function isStructured(beats: ScriptBeat[]): boolean {
 }
 
 /** Leading "Key: value" lines become quick facts; the rest stays as notes. */
-export function parseNotes(notes: string | null): { facts: { label: string; value: string }[]; text: string } {
+/** The beats in the order they play in the finished video. */
+export function inEditOrder<T extends { order: number | null }>(beats: T[]): T[] {
+  if (!beats.some((b) => b.order)) return beats;
+  return [...beats].sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+}
+
+export function parseNotes(notes: string | null): { facts: { label: string; value: string }[]; text: string; brief: string } {
   const facts: { label: string; value: string }[] = [];
   const rest: string[] = [];
   let head = true;
+  let brief = "";
   for (const raw of (notes ?? "").split(/\r?\n/)) {
     const line = raw.trim();
+    const br = line.match(/^(?:brief|idea)\s*:\s*(\S.*)$/i);
+    if (br && !brief) {
+      brief = br[1].trim();
+      continue;
+    }
     const m = head ? line.match(/^([A-Za-z][A-Za-z ]{1,13}):\s*(\S.*)$/) : null;
     if (m) facts.push({ label: m[1].trim(), value: m[2].trim() });
     else {
@@ -87,5 +113,5 @@ export function parseNotes(notes: string | null): { facts: { label: string; valu
       rest.push(line);
     }
   }
-  return { facts, text: rest.join("\n").trim() };
+  return { facts, text: rest.join("\n").trim(), brief };
 }

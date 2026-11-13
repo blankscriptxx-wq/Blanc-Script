@@ -7,7 +7,7 @@ import { setScriptFilmedAction, setShotDoneAction } from "@/app/(os)/(app)/shoot
 import { parseScript } from "@/lib/scripts/breakdown";
 import { approveScriptAction } from "@/app/(os)/(app)/shoots/script-actions";
 import { AddScript } from "@/components/shoots/add-script";
-import { ScriptBreakdown, type SheetView } from "@/components/shoots/script-breakdown";
+import { ScriptBreakdown, type SheetOrder, type SheetView } from "@/components/shoots/script-breakdown";
 import type { RunSheetScript } from "@/lib/data/shoots";
 
 const STATUS_NOTE: Partial<Record<RunSheetScript["status"], string>> = {
@@ -62,6 +62,9 @@ export function RunSheet({
   );
   const [open, setOpen] = React.useState<string | null>(canTick ? null : (scripts[0]?.id ?? null));
   const [view, setView] = React.useState<SheetView>("all");
+  const [order, setOrder] = React.useState<SheetOrder>("film");
+  // Only scripts written in filming order (a client's own) can be re-sorted.
+  const reorderable = React.useMemo(() => scripts.some((s) => parseScript(s.body).some((b) => b.order)), [scripts]);
   const [error, setError] = React.useState("");
   const [shared, setShared] = React.useState("");
   const [shots, setShots] = React.useState<Record<string, number[]>>(() => Object.fromEntries(scripts.map((s) => [s.id, s.shotsDone ?? []])));
@@ -168,6 +171,30 @@ export function RunSheet({
           </div>
         </div>
       ) : null}
+      {reorderable ? (
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-bs-muted">Client&apos;s own scripts:</span>
+          {(
+            [
+              ["film", "Filming order"],
+              ["edit", "Finished video order"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={order === id}
+              onClick={() => setOrder(id)}
+              className={
+                "h-8 rounded-pill border px-3 text-xs font-medium transition-colors " +
+                (order === id ? "border-bs-text bg-bs-text text-bs-surface" : "border-bs-border-strong text-bs-text hover:bg-bs-surface-2")
+              }
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      ) : null}
       {error ? <p className="mt-3 text-sm text-bs-danger">{error}</p> : null}
 
       {scripts.length === 0 ? (
@@ -238,7 +265,7 @@ export function RunSheet({
                 </div>
                 {isOpen ? (
                   <div className="border-t border-bs-border px-4 py-4">
-                    <ScriptBreakdown script={s} view={view} done={shotsOf(s)} onTick={canTick ? (i, on) => void tickShot(s, i, on) : undefined} />
+                    <ScriptBreakdown script={s} view={view} order={order} done={shotsOf(s)} onTick={canTick ? (i, on) => void tickShot(s, i, on) : undefined} />
                     <div className="mt-5 flex flex-wrap gap-2 border-t border-bs-border pt-4">
                       {canTick && pending ? (
                         <button

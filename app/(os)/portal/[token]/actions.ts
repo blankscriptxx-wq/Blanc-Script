@@ -171,7 +171,7 @@ export type PortalUploadTarget = { ok: true; assetId: string; uploadUrl: string 
 
 export async function portalPresignUploadAction(
   token: string,
-  file: { fileName: string; mimeType: string | null; sizeBytes: number; note: string | null },
+  file: { fileName: string; mimeType: string | null; sizeBytes: number; note: string | null; scriptId?: string | null },
 ): Promise<PortalUploadTarget> {
   try {
     const ctx = await resolvePortal(token);
@@ -187,6 +187,9 @@ export async function portalConfirmUploadAction(token: string, assetId: string):
   const ctx = await resolvePortal(token);
   if (!ctx) return;
   await confirmPortalUpload(ctx, assetId);
+  revalidatePath("/shoots", "layout");
+  revalidatePath("/projects", "layout");
+  revalidatePath("/edits");
   revalidatePath(`/portal/${token}`);
   revalidatePath(`/clients/${ctx.clientId}`);
 }

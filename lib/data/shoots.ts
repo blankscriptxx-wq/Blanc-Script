@@ -383,3 +383,25 @@ export async function setShotDone(scriptId: string, index: number, done: boolean
   const user = await requireUser();
   return tickShot(user.orgId, scriptId, index, done);
 }
+
+/** The script an edit was made from, for the editor to cut to. */
+export async function getScriptForDeliverable(deliverableId: string): Promise<RunSheetScript | null> {
+  const user = await requireUser();
+  const [row] = await getDb()
+    .select({
+      id: scripts.id,
+      title: scripts.title,
+      format: scripts.format,
+      status: scripts.status,
+      hookVisual: scripts.hookVisual,
+      hookScript: scripts.hookScript,
+      body: scripts.body,
+      notes: scripts.notes,
+      style: scripts.style,
+      shotsDone: scripts.shotsDone,
+    })
+    .from(scripts)
+    .where(and(eq(scripts.orgId, user.orgId), eq(scripts.deliverableId, deliverableId), isNull(scripts.archivedAt)))
+    .limit(1);
+  return row ? { ...row, style: row.style === "self" ? "self" : "crew" } : null;
+}

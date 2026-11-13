@@ -9,7 +9,19 @@ import { createScript } from "@/lib/data/scripts";
 
 const CREW_FORMAT = `Write the body as timed beats so it reads cleanly on a call sheet. Each beat starts with a heading line like "0–5s · HOOK", followed by one line per instruction, each starting with one of these labels exactly: "Camera:", "Visual:", "Sound:", "SAY:", "Cut:". Put every spoken line on its own "SAY:" line, in quotation marks. Separate beats with a blank line. No markdown.`;
 
-const SELF_FORMAT = `The CLIENT films this themselves on a phone, usually alone, and is also the person on camera. They are not film-makers. Write the body as a simple numbered shot list they can follow one shot at a time and tick off. Each shot starts with a heading line exactly like "Shot 1 · Face the camera" (a plain three-to-six word name), followed by: "Set-up:" one sentence on where to put the phone and where to stand (e.g. "Prop your phone at eye level, straight in front of you."); "Do:" one sentence on what to do in the shot (e.g. "Walk towards the phone as you talk."); and "SAY:" the exact words in quotation marks. Leave out "SAY:" for a silent cutaway shot and say so in "Do:" (e.g. "No talking — film five seconds of the leg press."). Separate shots with a blank line. Use 4 to 8 shots. Everyday words only: no jargon such as gimbal, B-roll, push-in, orbit or locked-off — describe it instead. Every shot must be possible with one phone and no crew. Short sentences. No markdown. In notes, give lines "Length: …", "You need: …" (props or location) and one or two short tips.`;
+const SELF_FORMAT = `The CLIENT films this themselves on a phone, usually alone, and is also the person on camera. They are not film-makers. Write the body as a simple numbered shot list they can follow one shot at a time and tick off.
+
+ORDER THE SHOTS FOR EASY FILMING, NOT IN STORY ORDER. Group every shot that happens in the same place together, so they film everything in one spot in one go before moving on, even when those shots are far apart in the finished video (for example the opening line and the closing line, both to camera in the same spot, are filmed back to back). Within a place, put shots with the same phone position next to each other. Number the shots in this filming order.
+
+Each shot is written exactly like this:
+Shot 1 · Face the camera        (a plain three-to-six word name)
+Where: Reception desk            (the place; identical wording for every shot filmed there)
+Order: 1                         (this shot's position in the FINISHED video: 1 = first thing viewers see; every shot gets a different number)
+Set-up: one sentence on where to put the phone and where to stand
+Do: one sentence on what to do in the shot
+SAY: "the exact words"           (leave this line out for a silent cutaway, and say "No talking" in Do)
+
+Separate shots with a blank line. Use 4 to 8 shots. Everyday words only: no jargon such as gimbal, B-roll, push-in, orbit or locked-off — describe it instead. Every shot must be possible with one phone and no crew. Short sentences. No markdown. In notes, give lines "Length: …", "You need: …" (props or places) and one or two short "Tip: …" lines.`;
 
 const FORMATS = ["reel", "tiktok", "youtube_short", "youtube_long", "ad", "other"] as const;
 const BATCH = 3;
@@ -28,10 +40,11 @@ const SCHEMA = {
           hookVisual: text("What we see in the first 1–2 seconds"),
           hookScript: text("The opening spoken line"),
           body: text("The full script, laid out exactly as the format instructions say"),
+          brief: text("Two or three plain sentences: the idea of the video and how the finished video runs from start to end, so whoever films or edits it understands it at a glance"),
           notes: text('Short lines such as "Setting: …", "Mood: …", "Length: …"'),
           memory: text("2–3 sentences: core idea, hook, visual device, call to action"),
         },
-        required: ["title", "format", "hookVisual", "hookScript", "body", "notes", "memory"],
+        required: ["title", "format", "brief", "hookVisual", "hookScript", "body", "notes", "memory"],
         additionalProperties: false,
       },
     },
@@ -53,7 +66,7 @@ export async function clientScriptStyle(clientId: string): Promise<ScriptStyle> 
   return c?.selfShoot ? "self" : "crew";
 }
 
-type Drafted = { title: string; format?: string; hookVisual?: string; hookScript?: string; body?: string; notes?: string; memory?: string };
+type Drafted = { brief?: string; title: string; format?: string; hookVisual?: string; hookScript?: string; body?: string; notes?: string; memory?: string };
 
 /** The project new scripts for a client belong to: this month's, else the latest live one. */
 export async function currentProjectFor(clientId: string): Promise<{ id: string; name: string } | null> {
@@ -116,7 +129,7 @@ export async function writeScripts(input: {
         hookVisual: s.hookVisual?.slice(0, 1000) ?? null,
         hookScript: s.hookScript?.slice(0, 1000) ?? null,
         body: s.body?.slice(0, 8000) ?? null,
-        notes: s.notes?.slice(0, 2000) ?? null,
+        notes: [s.brief?.trim() ? `Brief: ${s.brief.trim().replace(/\s*\n\s*/g, " ")}` : null, s.notes?.trim()].filter(Boolean).join("\n").slice(0, 2000) || null,
         memory: s.memory?.slice(0, 1200) ?? null,
         style,
       });

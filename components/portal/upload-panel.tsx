@@ -32,7 +32,7 @@ function put(url: string, file: File, onProgress: (pct: number) => void): Promis
 }
 
 /** Clients send footage and files here; each goes straight to Blanc Script. */
-export function UploadPanel({ token }: { token: string }) {
+export function UploadPanel({ token, scriptId, intro }: { token: string; scriptId?: string; intro?: string }) {
   const router = useRouter();
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [note, setNote] = React.useState("");
@@ -58,6 +58,7 @@ export function UploadPanel({ token }: { token: string }) {
           mimeType: file.type || null,
           sizeBytes: file.size,
           note: note.trim() || null,
+          scriptId: scriptId ?? null,
         });
         if (!target.ok) throw new Error(target.error);
         await put(target.uploadUrl, file, (pct) => patch(i, { progress: pct }));
@@ -76,7 +77,8 @@ export function UploadPanel({ token }: { token: string }) {
   return (
     <div className="rounded-md border border-bs-border bg-bs-surface p-5">
       <p className="text-sm text-bs-muted">
-        Send us footage, photos, logos or documents. Files go straight to the Blanc Script team.
+        {intro ??
+          "Send us footage, photos, logos or documents. Files go straight to the Blanc Script team."}{" "}
         Keep this page open until each upload finishes. Up to 5 GB per file.
       </p>
       <input

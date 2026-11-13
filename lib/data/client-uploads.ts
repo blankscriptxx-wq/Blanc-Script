@@ -1,4 +1,5 @@
 import "server-only";
+import { footageReceived } from "@/lib/data/scripts";
 import { randomUUID } from "node:crypto";
 import { and, desc, eq, isNotNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -25,6 +26,8 @@ const uploadInput = z.object({
   mimeType: z.string().trim().max(255).nullable(),
   sizeBytes: z.number().int().nonnegative().max(MAX_UPLOAD_BYTES, "That file is over 5 GB. Please send it another way."),
   note: z.string().trim().max(1000).nullable(),
+  /** Set when these are the clips for one script the client filmed. */
+  scriptId: z.string().uuid().nullable().optional(),
 });
 
 // ── Portal side ───────────────────────────────────────────────────────────
@@ -32,6 +35,14 @@ const uploadInput = z.object({
 export async function createPortalUpload(ctx: PortalContext, raw: z.input<typeof uploadInput>) {
   if (!storageConfigured()) throw new Error("Uploads aren't available right now. Please try again later.");
   const data = uploadInput.parse(raw);
+  if (data.scriptId) {
+    const [own] = await getDb()
+      .select({ id: scripts.id })
+      .from(scripts)
+      .where(and(eq(scripts.id, data.scriptId), eq(scripts.orgId, ctx.orgId), eq(scripts.clientId, ctx.clientId)))
+      .limit(1);
+    if (!own) throw new Error("That script was not found.");
+  }
   const storageKey = `org/${ctx.orgId}/client-uploads/${ctx.clientId}/${new Date().getUTCFullYear()}/${randomUUID()}__${safeName(data.fileName)}`;
   const [row] = await getDb()
     .insert(mediaAssets)
@@ -47,6 +58,7 @@ export async function createPortalUpload(ctx: PortalContext, raw: z.input<typeof
       clientId: ctx.clientId,
       portalLinkId: ctx.linkId,
       note: data.note,
+      scriptId: data.scriptId ?? null,
     })
     .returning({ id: mediaAssets.id });
   const uploadUrl = await presignPutUrl(storageKey, data.mimeType ?? "application/octet-stream");
@@ -65,8 +77,9 @@ export async function confirmPortalUpload(ctx: PortalContext, assetId: string) {
         eq(mediaAssets.portalLinkId, ctx.linkId),
       ),
     )
-    .returning({ id: mediaAssets.id, fileName: mediaAssets.fileName });
+    .returning({ id: mediaAssets.id, fileName: mediaAssets.fileName, scriptId: mediaAssets.scriptId });
   if (!row) return;
+  if (row.scriptId) await footageReceived(ctx.orgId, row.scriptId).catch(() => null);
   await getDb().insert(activityLog).values({
     orgId: ctx.orgId,
     actorUserId: null,
@@ -198,4 +211,5 @@ export async function assignClientUpload(assetId: string, target: { shootId?: st
     .update(mediaAssets)
     .set({ shootId: target.shootId ?? null, scriptId: target.scriptId ?? null, updatedAt: new Date() })
     .where(eq(mediaAssets.id, asset.id));
+  if (target.scriptId) await footageReceived(user.orgId, target.scriptId).catch(() => null);
 }

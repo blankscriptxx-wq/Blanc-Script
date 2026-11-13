@@ -323,7 +323,7 @@ export async function tickShot(
 ): Promise<{ shotsDone: number[]; filmed: boolean }> {
   const db = getDb();
   const [s] = await db
-    .select({ id: scripts.id, clientId: scripts.clientId, body: scripts.body, status: scripts.status, shotsDone: scripts.shotsDone })
+    .select({ id: scripts.id, clientId: scripts.clientId, body: scripts.body, status: scripts.status, shotsDone: scripts.shotsDone, style: scripts.style })
     .from(scripts)
     .where(and(eq(scripts.id, scriptId), eq(scripts.orgId, orgId), isNull(scripts.archivedAt)))
     .limit(1);
@@ -336,8 +336,29 @@ export async function tickShot(
   const shotsDone = [...set].sort((a, b) => a - b);
   const all = total > 0 && shotsDone.length === total;
   const wasFilmed = s.status === "produced";
-  const status = all ? "produced" : wasFilmed ? "approved" : s.status;
+  // A client filming themselves has not finished until we have the footage:
+  // their last tick leaves the script "to film" and the upload moves it on.
+  const status = all && s.style !== "self" ? "produced" : wasFilmed && !all ? "approved" : s.status;
   await db.update(scripts).set({ shotsDone, status, updatedAt: new Date() }).where(eq(scripts.id, s.id));
   if (status !== s.status) await syncScriptPipeline(orgId, s.id);
   return { shotsDone, filmed: status === "produced" };
+}
+
+/**
+ * Footage has arrived for a script the client filmed themselves: it is now
+ * filmed, and its edit moves to Editing.
+ */
+export async function footageReceived(orgId: string, scriptId: string) {
+  const db = getDb();
+  const [s] = await db
+    .select({ id: scripts.id, body: scripts.body, status: scripts.status, style: scripts.style })
+    .from(scripts)
+    .where(and(eq(scripts.id, scriptId), eq(scripts.orgId, orgId), isNull(scripts.archivedAt)))
+    .limit(1);
+  if (!s || s.style !== "self" || s.status !== "approved") return;
+  await db
+    .update(scripts)
+    .set({ status: "produced", shotsDone: parseScript(s.body).map((_, i) => i), updatedAt: new Date() })
+    .where(eq(scripts.id, s.id));
+  await syncScriptPipeline(orgId, s.id);
 }
