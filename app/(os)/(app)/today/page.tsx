@@ -44,6 +44,7 @@ export default async function TodayPage() {
   ]);
 
   const kindLabel: Record<NeedsYouKind, string> = {
+    client: "Client",
     invoice: "Invoice",
     shoot: "Shoot",
     task: "Task",
@@ -78,49 +79,6 @@ export default async function TodayPage() {
           </Reveal>
         ))}
       </div>
-
-      <section className="mt-8">
-        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-          <h2 className="whitespace-nowrap font-display text-h2">Your packages</h2>
-          <span className="inline-flex items-center gap-1.5 text-xs text-bs-subtle">
-            <PulseDot tone="success" /> Live from the database · customisable per client
-          </span>
-        </div>
-        {plans.length === 0 ? (
-          <EmptyState title="No packages yet." />
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            {plans.map((p, i) => (
-              <Reveal key={p.id} delay={0.1 + i * 0.05}>
-                <Spotlight
-                  className={
-                    "h-full rounded-md border border-bs-border bg-bs-surface p-4" +
-                    (p.bespoke ? " border-t-2 border-t-bs-gold" : "")
-                  }
-                >
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <h3 className="font-display text-h3 leading-tight">{p.name}</h3>
-                    {p.mostPopular ? (
-                      <StatusPill tone="gold">★ Popular</StatusPill>
-                    ) : null}
-                    {p.bespoke ? <StatusPill tone="gold">Premium</StatusPill> : null}
-                  </div>
-                  <div className="mt-2 font-display text-h1 text-bs-text">
-                    {p.bespoke || p.pricePence == null ? (
-                      "Bespoke"
-                    ) : (
-                      <CountUp value={p.pricePence / 100} prefix="£" />
-                    )}
-                  </div>
-                  {!p.bespoke ? (
-                    <div className="text-xs text-bs-subtle">per month · ex VAT</div>
-                  ) : null}
-                </Spotlight>
-              </Reveal>
-            ))}
-          </div>
-        )}
-      </section>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[1.6fr_1fr]">
         <section>

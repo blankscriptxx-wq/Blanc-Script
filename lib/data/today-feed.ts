@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, inArray, isNotNull, isNull, lte, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import {
   activityLog,
@@ -16,7 +16,7 @@ import { invoiceGrossPence } from "@/lib/data/finance";
  * and read-only. British English + GBP pence formatting throughout.
  */
 
-export type NeedsYouKind = "invoice" | "shoot" | "task" | "deliverable";
+export type NeedsYouKind = "client" | "invoice" | "shoot" | "task" | "deliverable";
 export type NeedsYouTone = "danger" | "warning" | "accent" | "success";
 
 export type NeedsYouItem = {
@@ -232,7 +232,39 @@ export async function getNeedsYou(): Promise<NeedsYouResult> {
     });
   }
 
+  // Clients who are part-way through the path: not set up yet, a welcome not
+  // sent, or waiting on them to sign and pay.
+  const { rows: clientRows } = await db.execute(sql`
+    select c.id, c.name, c.created_at as "createdAt",
+      (select o.status from client_onboardings o
+        where o.client_id = c.id and o.status <> 'cancelled' order by o.created_at desc limit 1) as onboarding,
+      (select o.sent_at from client_onboardings o
+        where o.client_id = c.id and o.status = 'sent' order by o.created_at desc limit 1) as "sentAt"
+    from clients c
+    where c.org_id = ${org} and c.archived_at is null
+  `);
+  let clientCount = 0;
+  for (const c of clientRows as { id: string; name: string; createdAt: string; onboarding: string | null; sentAt: string | null }[]) {
+    if (c.onboarding === "completed") continue;
+    clientCount += 1;
+    const waiting = c.onboarding === "sent";
+    items.push({
+      id: c.id,
+      kind: "client",
+      title: waiting ? `Waiting on ${c.name} to sign and pay` : c.onboarding === "draft" ? `Send ${c.name} their welcome` : `Set up ${c.name}`,
+      meta: waiting
+        ? `Welcome sent ${describeWhen(c.sentAt ? new Date(c.sentAt) : null, now).toLowerCase()} · reminders are automatic`
+        : c.onboarding === "draft"
+          ? "Set-up saved as a draft"
+          : "Choose their package or project and send the welcome",
+      href: `/clients/${c.id}`,
+      tone: waiting ? "accent" : "warning",
+      urgency: new Date(c.sentAt ?? c.createdAt).getTime(),
+    });
+  }
+
   const counts: Record<NeedsYouKind, number> = {
+    client: clientCount,
     invoice: invoiceRows.length,
     shoot: shootRows.length,
     task: taskRows.length,

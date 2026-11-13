@@ -198,14 +198,26 @@ function Sidebar({
         ) : null}
       </div>
       <nav className="flex-1 space-y-0.5 px-2 py-2">
-        {items.map((item) => {
+        {items.map((item, i) => {
           const active = pathname === item.href || pathname.startsWith(item.href + "/");
           const Icon = item.icon;
+          const newGroup = item.group && item.group !== items[i - 1]?.group;
           return (
-            <NavLink key={item.href} item={item} active={active} collapsed={collapsed}>
-              <Icon className="h-[18px] w-[18px] shrink-0" />
-              {!collapsed ? <span>{item.label}</span> : null}
-            </NavLink>
+            <React.Fragment key={item.href}>
+              {newGroup ? (
+                collapsed ? (
+                  <div className="mx-2 my-2 border-t border-bs-border" />
+                ) : (
+                  <div className="px-2.5 pb-1 pt-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-bs-subtle">
+                    {item.group}
+                  </div>
+                )
+              ) : null}
+              <NavLink item={item} active={active} collapsed={collapsed}>
+                <Icon className="h-[18px] w-[18px] shrink-0" />
+                {!collapsed ? <span>{item.label}</span> : null}
+              </NavLink>
+            </React.Fragment>
           );
         })}
       </nav>

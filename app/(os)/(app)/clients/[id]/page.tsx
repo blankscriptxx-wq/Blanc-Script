@@ -13,6 +13,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { OnboardingCard } from "@/components/clients/onboarding-card";
 import { getOnboarding, listUnpaidInvoices } from "@/lib/data/onboarding";
 import { ClientInvoicing } from "@/components/clients/client-invoicing";
+import { ClientJourney } from "@/components/clients/client-journey";
 import { listPlanOptions } from "@/lib/data/clients";
 import { listAddOns } from "@/lib/data/addons";
 import { emailConfigured } from "@/lib/email/send";
@@ -60,14 +61,35 @@ export default async function ClientProfilePage({
     canMoney ? listUnpaidInvoices(id).catch(() => []) : [],
   ]);
 
+  const latestProposal = proposalRows[0] ?? null;
+  const journey = {
+    clientId: id,
+    proposal: latestProposal
+      ? { id: latestProposal.id, status: latestProposal.status, opened: Boolean(latestProposal.viewedAt) }
+      : null,
+    onboarding:
+      onboarding && onboarding.status !== "cancelled"
+        ? {
+            status: onboarding.status,
+            accountReady: onboarding.progress?.accountReady ?? false,
+            docsLeft: onboarding.progress ? onboarding.progress.docsTotal - onboarding.progress.docsAccepted : 0,
+            paid: onboarding.progress?.paid ?? false,
+            cash: onboarding.paymentMethod === "cash",
+            oneOff: onboarding.billingType === "one_off",
+          }
+        : null,
+    projects: profile.projects.length,
+    unpaid: unpaid.length,
+  };
+
   return (
     <ClientProfileView
       profile={profile}
       portalLinks={portalLinks}
-      sections={
-        <>
-          {canMoney ? <ClientProposals clientId={id} proposals={proposalRows} /> : null}
-          {canMoney ? (
+      steps={
+        canMoney ? (
+          <>
+            <ClientJourney data={journey} />
             <OnboardingCard
               clientId={id}
               onboarding={onboarding}
@@ -78,18 +100,32 @@ export default async function ClientProfilePage({
               emailReady={emailConfigured()}
               stripeReady={stripeConfigured()}
             />
-          ) : null}
-          {billing ? (
-            <SubscriptionCard clientId={id} billing={billing} stripeReady={stripeConfigured()} cashDefaultPence={cashDefaults?.totalPence ?? 0} />
-          ) : null}
-          {canMoney ? (
+            <ClientProposals clientId={id} proposals={proposalRows} />
+          </>
+        ) : (
+          <p className="mt-6 rounded-md border border-dashed border-bs-border bg-bs-surface px-4 py-6 text-sm text-bs-subtle">
+            Set-up, proposals and billing for this client are handled by an owner or operations. Use the other tabs for
+            their people, documents and work.
+          </p>
+        )
+      }
+      billing={
+        canMoney ? (
+          <>
+            {billing ? (
+              <SubscriptionCard clientId={id} billing={billing} stripeReady={stripeConfigured()} cashDefaultPence={cashDefaults?.totalPence ?? 0} />
+            ) : null}
             <ClientInvoicing
               clientId={id}
               addOns={addOns.map((a) => ({ id: a.id, name: a.name, pricePence: a.pricePence }))}
               unpaid={unpaid}
               stripeReady={stripeConfigured()}
             />
-          ) : null}
+          </>
+        ) : undefined
+      }
+      documents={
+        <>
           {canDocs ? (
             <ClientDocuments
               clientId={id}

@@ -102,16 +102,37 @@ function humanAction(action: string): string {
 export function ClientProfileView({
   profile,
   portalLinks = [],
-  sections,
+  steps,
+  billing,
+  documents,
 }: {
   profile: ClientProfile;
   portalLinks?: PortalLinkView[];
-  /** Extra sections (subscription, documents, client uploads) rendered below the portal. */
-  sections?: React.ReactNode;
+  /** "Next steps" tab: the guided path, onboarding and proposals. */
+  steps?: React.ReactNode;
+  /** "Billing" tab: subscription and invoicing (the invoice list follows it). */
+  billing?: React.ReactNode;
+  /** "Documents" tab: agreements and files the client sent. */
+  documents?: React.ReactNode;
 }) {
   const { client: c, summary, contacts, projects, shoots, invoices, activity, canSeeMoney } =
     profile;
   const [addOpen, setAddOpen] = React.useState(false);
+  const TABS = [
+    { key: "steps", label: "Next steps" },
+    ...(billing ? [{ key: "billing", label: "Billing" }] : []),
+    ...(documents ? [{ key: "docs", label: "Documents" }] : []),
+    { key: "people", label: "People & portal" },
+    { key: "work", label: "Work" },
+    { key: "activity", label: "Activity" },
+  ];
+  const [tab, setTab] = React.useState("steps");
+  // Other parts of the page (the guided path) can ask for a tab to be opened.
+  React.useEffect(() => {
+    const onTab = (e: Event) => setTab((e as CustomEvent<string>).detail);
+    window.addEventListener("client-tab", onTab);
+    return () => window.removeEventListener("client-tab", onTab);
+  }, []);
 
   const tiles = [
     { label: "Projects", value: String(summary.projectsCount) },
@@ -167,6 +188,29 @@ export function ClientProfileView({
         ))}
       </div>
 
+      <div className="mt-6 flex gap-1 overflow-x-auto border-b border-bs-border" role="tablist" aria-label="Client sections">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.key}
+            onClick={() => setTab(t.key)}
+            className={
+              "-mb-px shrink-0 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors " +
+              (tab === t.key ? "border-bs-primary text-bs-text" : "border-transparent text-bs-muted hover:text-bs-text")
+            }
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Panels stay mounted (just hidden) so a half-filled form survives switching tabs. */}
+      <div hidden={tab !== "steps"}>{steps}</div>
+      <div hidden={tab !== "docs"}>{documents}</div>
+
+      <div hidden={tab !== "people"}>
       {/* Contacts */}
       <section className="mt-8">
         <div className="mb-3 flex items-center justify-between">
@@ -231,8 +275,9 @@ export function ClientProfileView({
         contacts={profile.contacts.map((c) => ({ name: c.name, email: c.email }))}
       />
 
-      {sections}
+      </div>
 
+      <div hidden={tab !== "work"}>
       {/* Projects */}
       <section className="mt-8">
         <div className="mb-2 flex items-center gap-2">
@@ -294,6 +339,10 @@ export function ClientProfileView({
         )}
       </section>
 
+      </div>
+
+      <div hidden={tab !== "billing"}>
+      {billing}
       {/* Invoices */}
       {canSeeMoney ? (
       <section className="mt-8">
@@ -340,6 +389,9 @@ export function ClientProfileView({
       </section>
       ) : null}
 
+      </div>
+
+      <div hidden={tab !== "activity"}>
       {/* Recent activity */}
       <section className="mt-8">
         <div className="mb-2 flex items-center gap-2">
@@ -369,6 +421,7 @@ export function ClientProfileView({
           </ul>
         )}
       </section>
+      </div>
 
       <AddContactDialog
         open={addOpen}

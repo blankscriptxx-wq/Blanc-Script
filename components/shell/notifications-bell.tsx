@@ -17,6 +17,7 @@ const DOT: Record<NotificationItem["tone"], string> = {
   success: "bg-bs-success",
 };
 const KIND: Record<NotificationItem["kind"], string> = {
+  client: "Client",
   invoice: "Invoice",
   shoot: "Shoot",
   task: "Task",

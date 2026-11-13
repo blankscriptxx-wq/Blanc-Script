@@ -228,7 +228,7 @@ export function OnboardingCard({
         ]
       : [];
     return (
-      <section className="mt-8">
+      <section id="onboarding" className="mt-8 scroll-mt-20">
         {heading}
         <div className="rounded-md border border-bs-border bg-bs-surface p-4">
           <p className="text-sm text-bs-text">
@@ -348,7 +348,7 @@ export function OnboardingCard({
 
   // ── Draft / new: the set-up form ─────────────────────────────────────────
   return (
-    <section className="mt-8">
+    <section id="onboarding" className="mt-8 scroll-mt-20">
       {heading}
       <div className="rounded-md border border-bs-border bg-bs-surface p-4">
         <p className="mb-4 text-sm text-bs-muted">
