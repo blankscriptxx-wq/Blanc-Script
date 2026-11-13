@@ -137,3 +137,30 @@ export async function runJson<T = unknown>(args: AssistArgs): Promise<T> {
     throw new Error("The assistant returned a response that couldn't be parsed.");
   }
 }
+
+/**
+ * Generation that must come back in a fixed shape. The model is made to answer
+ * by filling in `schema` (a JSON Schema object), so quotes and line breaks in
+ * long text can never break the reply the way hand-written JSON can.
+ */
+export async function runStructured<T = unknown>({
+  system,
+  prompt,
+  maxTokens = 3000,
+  name,
+  schema,
+}: AssistArgs & { name: string; schema: Record<string, unknown> }): Promise<T> {
+  const msg = await client().messages.create({
+    model: MODEL,
+    max_tokens: maxTokens,
+    system,
+    messages: [{ role: "user", content: prompt }],
+    tools: [{ name, description: "Save the result.", input_schema: schema as Anthropic.Tool.InputSchema }],
+    tool_choice: { type: "tool", name },
+  });
+  if (msg.stop_reason === "refusal") throw new Error("The assistant declined this request.");
+  if (msg.stop_reason === "max_tokens") throw new Error("That was too much to write in one go. Ask for fewer at a time.");
+  const block = msg.content.find((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
+  if (!block) throw new Error("The assistant didn't return a result. Try again.");
+  return block.input as T;
+}
