@@ -1,7 +1,18 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
-    { "path": "/api/cron/research", "schedule": "17 3 * * *" },
-    { "path": "/api/cron/followups", "schedule": "40 9 * * *" }
-  ]
+    {
+      "path": "/api/cron/research",
+      "schedule": "17 3 * * *"
+    },
+    {
+      "path": "/api/cron/followups",
+      "schedule": "40 9 * * *"
+    }
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "blanc-script-os": false
+    }
+  }
 }
