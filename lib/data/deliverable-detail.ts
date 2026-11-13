@@ -335,6 +335,7 @@ export async function unresolveComment(id: string) {
 const setStatusInput = z.object({
   deliverableId: z.string().uuid(),
   status: z.enum([
+    "to_film",
     "editing",
     "in_review",
     "changes_requested",

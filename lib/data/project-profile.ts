@@ -20,6 +20,7 @@ export type ProjectStatus =
   | "cancelled";
 export type ShootStatus = "booked" | "on_site" | "wrapped" | "cancelled";
 export type DeliverableStatus =
+  | "to_film"
   | "editing"
   | "in_review"
   | "changes_requested"

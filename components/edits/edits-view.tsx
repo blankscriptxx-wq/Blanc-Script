@@ -19,6 +19,7 @@ const STATUS_TONE: Record<
   DeliverableStatus,
   React.ComponentProps<typeof StatusPill>["tone"]
 > = {
+  to_film: "gold",
   editing: "neutral",
   in_review: "info",
   changes_requested: "warning",
@@ -27,6 +28,7 @@ const STATUS_TONE: Record<
 };
 
 const STATUS_LABEL: Record<DeliverableStatus, string> = {
+  to_film: "To film",
   editing: "Editing",
   in_review: "In review",
   changes_requested: "Changes requested",
@@ -35,6 +37,7 @@ const STATUS_LABEL: Record<DeliverableStatus, string> = {
 };
 
 const COLUMNS: DeliverableStatus[] = [
+  "to_film",
   "editing",
   "in_review",
   "changes_requested",
@@ -60,6 +63,7 @@ export function EditsView({
 
   const grouped = React.useMemo(() => {
     const map: Record<DeliverableStatus, DeliverableRow[]> = {
+      to_film: [],
       editing: [],
       in_review: [],
       changes_requested: [],
@@ -274,6 +278,7 @@ function AddDeliverableDialog({
           </Field>
           <Field label="Status">
             <select name="status" defaultValue="editing" className={cn(inputCls, "pr-8")}>
+              <option value="to_film">To film</option>
               <option value="editing">Editing</option>
               <option value="in_review">In review</option>
               <option value="changes_requested">Changes requested</option>

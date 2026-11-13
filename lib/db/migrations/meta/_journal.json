@@ -134,6 +134,13 @@
       "when": 1794509560264,
       "tag": "0018_safe_the_spike",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794533193956,
+      "tag": "0019_lovely_gauntlet",
+      "breakpoints": true
     }
   ]
 }

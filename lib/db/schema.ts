@@ -82,6 +82,7 @@ export const invoiceStatusEnum = pgEnum("invoice_status", [
   "overdue",
 ]);
 export const deliverableStatusEnum = pgEnum("deliverable_status", [
+  "to_film", // planned from an approved script; not shot yet
   "editing",
   "in_review",
   "changes_requested",
@@ -913,6 +914,9 @@ export const scripts = pgTable("scripts", {
   status: scriptStatusEnum("status").notNull().default("idea"),
   /** Set when this script is a new version refined from another. */
   parentScriptId: uuid("parent_script_id"),
+  /** The project this script belongs to, and the shoot it is filmed on. */
+  projectId: uuid("project_id").references(() => projects.id),
+  shootId: uuid("shoot_id").references(() => shoots.id),
   hookVisual: text("hook_visual"),
   hookScript: text("hook_script"),
   body: text("body"),

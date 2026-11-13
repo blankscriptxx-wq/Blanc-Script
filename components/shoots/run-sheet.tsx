@@ -1,9 +1,11 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { Check, ChevronDown, Share2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { setScriptFilmedAction } from "@/app/(os)/(app)/shoots/actions";
+import { approveScriptAction } from "@/app/(os)/(app)/shoots/script-actions";
+import { AddScript } from "@/components/shoots/add-script";
 import { ScriptBreakdown, type SheetView } from "@/components/shoots/script-breakdown";
 import type { RunSheetScript } from "@/lib/data/shoots";
 
@@ -24,20 +26,33 @@ const VIEWS: { id: SheetView; label: string; hint: string }[] = [
  */
 export function RunSheet({
   shootId,
-  clientId,
+  projectId,
   scripts,
   title,
   sharePath,
   canTick = true,
+  heading = "Scripts to film",
 }: {
-  shootId: string;
-  clientId: string | null;
+  /** Where new scripts are added: this shoot, or (on a project page) the project. */
+  shootId?: string;
+  projectId?: string;
   scripts: RunSheetScript[];
   title: string;
   /** Path of the no-login call sheet; shows the Share button when set. */
   sharePath?: string;
   canTick?: boolean;
+  heading?: string;
 }) {
+  const router = useRouter();
+  const [status, setStatus] = React.useState<Record<string, RunSheetScript["status"]>>({});
+  const statusOf = (s: RunSheetScript) => status[s.id] ?? s.status;
+  const approve = async (id: string) => {
+    setError("");
+    const res = await approveScriptAction(id);
+    if (!res.ok) return setError(res.error);
+    setStatus((m) => ({ ...m, [id]: "approved" }));
+    router.refresh();
+  };
   const [filmed, setFilmed] = React.useState<Record<string, boolean>>(() =>
     Object.fromEntries(scripts.map((s) => [s.id, s.status === "produced"])),
   );
@@ -51,7 +66,7 @@ export function RunSheet({
     const next = !filmed[id];
     setError("");
     setFilmed((f) => ({ ...f, [id]: next }));
-    const res = await setScriptFilmedAction(shootId, id, next);
+    const res = await setScriptFilmedAction(id, next);
     if (!res.ok) {
       setFilmed((f) => ({ ...f, [id]: !next }));
       setError(res.error);
@@ -82,7 +97,7 @@ export function RunSheet({
   return (
     <section className="mt-8">
       <div className="flex items-end justify-between gap-3">
-        <h2 className="font-display text-h2 text-bs-text">Scripts to film</h2>
+        <h2 className="font-display text-h2 text-bs-text">{heading}</h2>
         {scripts.length ? (
           <span className="shrink-0 text-sm tabular-nums text-bs-muted">
             {done} of {scripts.length} filmed
@@ -136,19 +151,7 @@ export function RunSheet({
 
       {scripts.length === 0 ? (
         <p className="mt-4 rounded-md border border-bs-border bg-bs-surface p-4 text-sm text-bs-muted">
-          {!canTick ? (
-            "The scripts for this shoot haven't been added yet."
-          ) : clientId ? (
-            <>
-              No scripts for this client yet.{" "}
-              <Link href={`/clients/${clientId}/strategy`} className="font-medium text-bs-text underline">
-                Write them in the script studio
-              </Link>
-              .
-            </>
-          ) : (
-            "Link this shoot to a client to see their scripts here."
-          )}
+          {canTick ? "No scripts here yet. Add the first one below." : "The scripts for this shoot haven't been added yet."}
         </p>
       ) : (
         <ol className="mt-2 space-y-2">
@@ -156,6 +159,8 @@ export function RunSheet({
             const isOpen = open === s.id;
             const isDone = filmed[s.id];
             const next = scripts[i + 1];
+            const st = statusOf(s);
+            const pending = !isDone && (st === "draft" || st === "review" || st === "idea");
             return (
               <li key={s.id} id={`script-${s.id}`} className="scroll-mt-16 overflow-hidden rounded-md border border-bs-border bg-bs-surface">
                 <div className="flex items-stretch">
@@ -200,7 +205,7 @@ export function RunSheet({
                         {s.title}
                       </span>
                       <span className="block text-xs text-bs-subtle">
-                        {isDone ? "Filmed" : STATUS_NOTE[s.status] ?? "Ready to film"}
+                        {isDone ? "Filmed" : STATUS_NOTE[st] ?? "Ready to film"}
                       </span>
                     </span>
                     <ChevronDown className={"h-4 w-4 shrink-0 text-bs-subtle transition-transform " + (isOpen ? "rotate-180" : "")} />
@@ -210,7 +215,15 @@ export function RunSheet({
                   <div className="border-t border-bs-border px-4 py-4">
                     <ScriptBreakdown script={s} view={view} />
                     <div className="mt-5 flex flex-wrap gap-2 border-t border-bs-border pt-4">
-                      {canTick ? (
+                      {canTick && pending ? (
+                        <button
+                          type="button"
+                          onClick={() => approve(s.id)}
+                          className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-sm bg-bs-primary px-4 text-sm font-medium text-bs-on-accent transition-colors hover:bg-bs-primary-hover"
+                        >
+                          <Check className="h-4 w-4" /> Approve script
+                        </button>
+                      ) : canTick ? (
                         <button
                           type="button"
                           onClick={() => toggle(s.id)}
@@ -241,6 +254,7 @@ export function RunSheet({
           })}
         </ol>
       )}
+      {canTick && (shootId || projectId) ? <AddScript shootId={shootId} projectId={projectId} /> : null}
     </section>
   );
 }

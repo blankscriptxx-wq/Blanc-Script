@@ -62,7 +62,6 @@ export default async function ShootPage({ params }: { params: Promise<{ id: stri
 
       <RunSheet
         shootId={shoot.id}
-        clientId={shoot.clientId}
         scripts={scripts}
         title={shoot.title}
         sharePath={token ? `/callsheet/${token}` : undefined}

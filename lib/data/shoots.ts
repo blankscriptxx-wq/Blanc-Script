@@ -5,6 +5,7 @@ import { z } from "zod";
 import { getDb } from "@/lib/db/client";
 import { shoots, clients, projects, activityLog, shootTalent, talent, scripts, organisations } from "@/lib/db/schema";
 import { requireUser } from "@/lib/data/clients";
+import { setScriptStatus } from "@/lib/data/scripts";
 
 /**
  * Shoots data access (production bookings). EVERY query is scoped to the
@@ -256,12 +257,18 @@ async function loadRunSheet(shoot: RunSheet["shoot"], orgId: string): Promise<Ru
         body: scripts.body,
         notes: scripts.notes,
         updatedAt: scripts.updatedAt,
+        shootId: scripts.shootId,
+        projectId: scripts.projectId,
       })
       .from(scripts)
       .where(and(eq(scripts.orgId, orgId), eq(scripts.clientId, shoot.clientId), isNull(scripts.archivedAt)));
-    list = rows
+    // Scripts written for this shoot, or for its project, or (when nothing
+    // has been assigned anywhere) the client's scripts.
+    const mine = rows.filter((s) => s.shootId === shoot.id || (!s.shootId && shoot.projectId && s.projectId === shoot.projectId));
+    const pool = mine.length ? mine : rows.filter((s) => !s.shootId && !s.projectId);
+    list = pool
       .filter((s) => (s.status === "produced" ? s.updatedAt >= since : s.status !== "idea"))
-      .map(({ updatedAt: _u, ...s }) => s)
+      .map(({ updatedAt: _u, shootId: _s, projectId: _p, ...s }) => s)
       // "Script 2 — …" before "Script 10 — …".
       .sort((a, b) => a.title.localeCompare(b.title, "en-GB", { numeric: true }));
   }
@@ -321,23 +328,40 @@ export async function getSharedRunSheet(token: string): Promise<(RunSheet & { st
   return { ...(await loadRunSheet(shoot, orgId)), studio };
 }
 
-/** Tick a script as filmed on the day (or untick it). */
-export async function setScriptFilmed(shootId: string, scriptId: string, filmed: boolean) {
+/** Tick a script as filmed (or untick it). Its edit and content item follow. */
+export async function setScriptFilmed(scriptId: string, filmed: boolean) {
   const user = await requireUser();
-  const shoot = await getShoot(shootId);
-  if (!shoot?.clientId) throw new Error("That shoot was not found.");
-  const db = getDb();
-  const [row] = await db
-    .update(scripts)
-    .set({ status: filmed ? "produced" : "approved", updatedAt: new Date() })
-    .where(and(eq(scripts.id, scriptId), eq(scripts.orgId, user.orgId), eq(scripts.clientId, shoot.clientId)))
-    .returning({ id: scripts.id });
+  const [row] = await getDb()
+    .select({ id: scripts.id })
+    .from(scripts)
+    .where(and(eq(scripts.id, scriptId), eq(scripts.orgId, user.orgId)))
+    .limit(1);
   if (!row) throw new Error("That script was not found.");
-  await db.insert(activityLog).values({
+  await setScriptStatus(scriptId, filmed ? "produced" : "approved");
+  await getDb().insert(activityLog).values({
     orgId: user.orgId,
     actorUserId: user.id,
     action: filmed ? "script.filmed" : "script.unfilmed",
     entityType: "script",
     entityId: scriptId,
   });
+}
+
+/** Every live script on a project, in running order. */
+export async function listProjectScripts(projectId: string): Promise<RunSheetScript[]> {
+  const user = await requireUser();
+  const rows = await getDb()
+    .select({
+      id: scripts.id,
+      title: scripts.title,
+      format: scripts.format,
+      status: scripts.status,
+      hookVisual: scripts.hookVisual,
+      hookScript: scripts.hookScript,
+      body: scripts.body,
+      notes: scripts.notes,
+    })
+    .from(scripts)
+    .where(and(eq(scripts.orgId, user.orgId), eq(scripts.projectId, projectId), isNull(scripts.archivedAt)));
+  return rows.sort((a, b) => a.title.localeCompare(b.title, "en-GB", { numeric: true }));
 }

@@ -304,6 +304,7 @@ export default async function TodayPage() {
           <CardHead title="Edits" href="/edits" link="Open edits" />
           <Bars
             rows={[
+              { label: "To film", value: dash.edits.toFilm, tone: "bg-bs-gold" },
               { label: "Editing", value: dash.edits.editing },
               { label: "In review", value: dash.edits.inReview, tone: "bg-bs-primary" },
               { label: "Changes", value: dash.edits.changes, tone: "bg-bs-warning" },

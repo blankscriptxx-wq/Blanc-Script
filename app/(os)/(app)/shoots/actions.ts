@@ -44,10 +44,13 @@ export async function setShootProjectAction(formData: FormData): Promise<void> {
 }
 
 /** Tick or untick a script as filmed from the shoot's run sheet. */
-export async function setScriptFilmedAction(shootId: string, scriptId: string, filmed: boolean) {
+export async function setScriptFilmedAction(scriptId: string, filmed: boolean) {
   try {
-    await setScriptFilmed(shootId, scriptId, filmed);
-    revalidatePath(`/shoots/${shootId}`);
+    await setScriptFilmed(scriptId, filmed);
+    revalidatePath("/shoots", "layout");
+    revalidatePath("/projects", "layout");
+    revalidatePath("/edits");
+    revalidatePath("/content");
     revalidatePath("/today");
     return { ok: true, error: "" };
   } catch (e) {

@@ -836,7 +836,7 @@ export async function balanceOnApproval(orgId: string, clientId: string): Promis
   const { rows } = await getDb().execute(sql`
     select count(*)::int as n from deliverables
     where org_id = ${orgId} and client_id = ${clientId} and archived_at is null
-      and status in ('editing', 'in_review', 'changes_requested')
+      and status in ('to_film', 'editing', 'in_review', 'changes_requested')
   `);
   if (Number((rows[0] as { n: number }).n) > 0) return;
   await sendBalanceInvoice(orgId, clientId, null);

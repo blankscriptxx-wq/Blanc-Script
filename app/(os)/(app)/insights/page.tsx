@@ -37,6 +37,7 @@ const CONTENT_TONES: Record<string, BarTone> = {
   posted: "success",
 };
 const DELIVERABLE_TONES: Record<string, BarTone> = {
+  to_film: "warning",
   editing: "primary",
   in_review: "info",
   changes_requested: "warning",

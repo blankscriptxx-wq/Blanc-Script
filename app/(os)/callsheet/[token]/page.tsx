@@ -43,7 +43,7 @@ export default async function CallSheetPage({ params }: { params: Promise<{ toke
               </div>
             ))}
         </dl>
-        <RunSheet shootId={shoot.id} clientId={null} scripts={scripts} title={shoot.title} canTick={false} />
+        <RunSheet scripts={scripts} title={shoot.title} canTick={false} />
         <p className="mt-8 text-center text-xs text-bs-subtle">Shared privately by {studio}. Please don&apos;t forward it.</p>
       </div>
     </div>

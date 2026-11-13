@@ -12,6 +12,7 @@ import { requireUser } from "@/lib/data/clients";
  */
 
 export type DeliverableStatus =
+  | "to_film"
   | "editing"
   | "in_review"
   | "changes_requested"
@@ -136,7 +137,7 @@ export async function listReviewerOptions(): Promise<
 export const deliverableInput = z.object({
   title: z.string().trim().min(1, "Title is required").max(200),
   status: z
-    .enum(["editing", "in_review", "changes_requested", "approved", "published"])
+    .enum(["to_film", "editing", "in_review", "changes_requested", "approved", "published"])
     .default("editing"),
   projectId: z.string().uuid().nullable().optional(),
   clientId: z.string().uuid().nullable().optional(),

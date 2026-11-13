@@ -61,7 +61,7 @@ export type Dashboard = {
   money: { outstandingPence: number; overdueCount: number; paidThisMonthPence: number } | null;
   shoots: { id: string; title: string; clientName: string | null; scheduledAt: Date | null; locationName: string | null; talent: string | null; scripts: number }[];
   pipeline: { toSetUp: number; waiting: number; active: number };
-  edits: { editing: number; inReview: number; changes: number; approved: number };
+  edits: { toFilm: number; editing: number; inReview: number; changes: number; approved: number };
   content: { idea: number; scripting: number; filming: number; editing: number; scheduled: number; posted: number };
   tasks: { overdue: number; dueThisWeek: number };
 };
@@ -95,7 +95,7 @@ export async function getDashboard(): Promise<Dashboard> {
       from (select (select o.status from client_onboardings o where o.client_id = c.id and o.status <> 'cancelled' order by o.created_at desc limit 1) as ob
             from clients c where c.org_id = ${org} and c.archived_at is null) x`),
     db.execute(sql`
-      select count(*) filter (where status = 'editing')::int as editing, count(*) filter (where status = 'in_review')::int as "inReview",
+      select count(*) filter (where status = 'to_film')::int as "toFilm", count(*) filter (where status = 'editing')::int as editing, count(*) filter (where status = 'in_review')::int as "inReview",
         count(*) filter (where status = 'changes_requested')::int as changes, count(*) filter (where status = 'approved')::int as approved
       from deliverables where org_id = ${org} and archived_at is null`),
     db.execute(sql`

@@ -7,6 +7,8 @@ import { BriefEditor } from "@/components/projects/brief-editor";
 import { Uploader } from "@/components/uploads/uploader";
 import { FileList } from "@/components/uploads/file-list";
 import type { MediaAssetRow } from "@/lib/data/media";
+import { RunSheet } from "@/components/shoots/run-sheet";
+import type { RunSheetScript } from "@/lib/data/shoots";
 import type {
   ProjectProfile,
   ProjectStatus,
@@ -40,6 +42,7 @@ const DELIVERABLE_STATUS: Record<
   DeliverableStatus,
   { label: string; tone: Tone }
 > = {
+  to_film: { label: "To film", tone: "gold" },
   editing: { label: "Editing", tone: "info" },
   in_review: { label: "In review", tone: "gold" },
   changes_requested: { label: "Changes requested", tone: "warning" },
@@ -51,12 +54,23 @@ export function ProjectProfileView({
   profile,
   media = [],
   storageReady = false,
+  scripts,
 }: {
   profile: ProjectProfile;
+  scripts: RunSheetScript[];
   media?: MediaAssetRow[];
   storageReady?: boolean;
 }) {
   const { project: p, summary, tasks, shoots, talent, deliverables } = profile;
+
+  const count = (...st: DeliverableStatus[]) => deliverables.filter((d) => st.includes(d.status)).length;
+  const flow = [
+    { label: "Script", value: scripts.filter((x) => x.status === "draft" || x.status === "review" || x.status === "idea").length, hint: "Drafts to approve" },
+    { label: "Shoot", value: count("to_film"), hint: "Approved, to film" },
+    { label: "Edit", value: count("editing", "changes_requested"), hint: "Being edited" },
+    { label: "Review", value: count("in_review"), hint: "With the client" },
+    { label: "Done", value: count("approved", "published"), hint: "Approved or posted" },
+  ];
 
   const tiles = [
     { label: "Tasks open", value: String(summary.tasksOpen) },
@@ -107,6 +121,25 @@ export function ProjectProfileView({
         ))}
       </div>
 
+      {/* How the work flows */}
+      <section className="mt-6 rounded-md border border-bs-border bg-bs-surface p-4">
+        <p className="text-eyebrow uppercase text-bs-subtle">Each video goes through</p>
+        <ol className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">
+          {flow.map((f, i) => (
+            <li key={f.label} className="min-w-0 rounded-sm bg-bs-surface-2 px-3 py-2">
+              <div className="text-xs text-bs-subtle">
+                {i + 1}. {f.label}
+              </div>
+              <div className="font-display text-h2 tabular-nums text-bs-text">{f.value}</div>
+              <div className="truncate text-xs text-bs-muted">{f.hint}</div>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      {/* Scripts */}
+      <RunSheet projectId={p.id} scripts={scripts} title={p.name} heading="Scripts" />
+
       {/* Tasks board */}
       <section className="mt-8">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -130,7 +163,8 @@ export function ProjectProfileView({
               <Line
                 key={s.id}
                 title={s.title}
-                sub={[s.scheduledAt ? dateFmt.format(new Date(s.scheduledAt)) : null]}
+                href={`/shoots/${s.id}`}
+                sub={[s.scheduledAt ? dateFmt.format(new Date(s.scheduledAt)) : null, "Open run sheet"]}
                 pill={SHOOT_STATUS[s.status]}
               />
             ))}
@@ -169,6 +203,7 @@ export function ProjectProfileView({
               <Line
                 key={d.id}
                 title={d.title}
+                href={`/edits/${d.id}`}
                 sub={[]}
                 pill={DELIVERABLE_STATUS[d.status]}
               />
@@ -213,12 +248,35 @@ function Line({
   title,
   sub,
   pill,
+  href,
 }: {
+  href?: string;
   title: string;
   sub: (string | null)[];
   pill?: { label: string; tone: Tone };
 }) {
   const bits = sub.filter(Boolean) as string[];
+  if (href) {
+    return (
+      <li>
+        <Link
+          href={href}
+          className="flex items-center justify-between gap-3 rounded-sm border border-bs-border bg-bs-surface px-3 py-2 transition-colors hover:border-bs-border-strong hover:bg-bs-surface-2"
+        >
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="break-words text-sm font-medium text-bs-text">{title}</span>
+              {pill ? <StatusPill tone={pill.tone}>{pill.label}</StatusPill> : null}
+            </div>
+            {bits.length ? <div className="mt-0.5 text-xs text-bs-subtle">{bits.join(" · ")}</div> : null}
+          </div>
+          <span aria-hidden className="shrink-0 text-bs-subtle">
+            →
+          </span>
+        </Link>
+      </li>
+    );
+  }
   return (
     <li className="flex items-start justify-between gap-3 rounded-sm border border-bs-border bg-bs-surface px-3 py-2">
       <div className="min-w-0">

@@ -13,6 +13,7 @@ import type { DeliverableStatus } from "@/lib/data/edits";
 export type AiActionResult = { ok: true; text: string } | { ok: false; error: string };
 
 const STATUS_LABEL: Record<DeliverableStatus, string> = {
+  to_film: "To film",
   editing: "Editing",
   in_review: "In review",
   changes_requested: "Changes requested",

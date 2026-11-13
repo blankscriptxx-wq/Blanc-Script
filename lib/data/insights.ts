@@ -32,6 +32,7 @@ export type ContentStatus =
   | "scheduled"
   | "posted";
 export type DeliverableStatus =
+  | "to_film"
   | "editing"
   | "in_review"
   | "changes_requested"
@@ -84,6 +85,7 @@ const CONTENT_STATUSES: ContentStatus[] = [
   "posted",
 ];
 const DELIVERABLE_STATUSES: DeliverableStatus[] = [
+  "to_film",
   "editing",
   "in_review",
   "changes_requested",

@@ -1,8 +1,8 @@
 import "server-only";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db/client";
-import { activityLog, clients, contentItems, scripts } from "@/lib/db/schema";
+import { activityLog, clients, contentItems, deliverables, projects, scripts, shoots } from "@/lib/db/schema";
 import { requireUser } from "@/lib/data/clients";
 
 export type ScriptFormat = "reel" | "tiktok" | "youtube_short" | "youtube_long" | "ad" | "other";
@@ -97,6 +97,8 @@ export const scriptInput = z.object({
   body: z.string().trim().max(8000).nullable().optional(),
   notes: z.string().trim().max(2000).nullable().optional(),
   parentScriptId: z.string().uuid().nullable().optional(),
+  projectId: z.string().uuid().nullable().optional(),
+  shootId: z.string().uuid().nullable().optional(),
 });
 
 export async function createScript(raw: z.input<typeof scriptInput>) {
@@ -116,6 +118,8 @@ export async function createScript(raw: z.input<typeof scriptInput>) {
       body: data.body ?? null,
       notes: data.notes ?? null,
       parentScriptId: data.parentScriptId ?? null,
+      projectId: data.projectId ?? null,
+      shootId: data.shootId ?? null,
     })
     .returning({ id: scripts.id });
   await getDb().insert(activityLog).values({
@@ -135,6 +139,108 @@ export async function setScriptStatus(id: string, status: ScriptStatus) {
     .update(scripts)
     .set({ status, updatedAt: new Date() })
     .where(and(eq(scripts.id, id), eq(scripts.orgId, user.orgId)));
+  await syncScriptPipeline(user.orgId, id);
+}
+
+/**
+ * One video, one path: script → shoot → edit → content. Whenever a script's
+ * status changes, its edit and its content-calendar item are created or moved
+ * to match, so nothing says "editing" before it has been filmed.
+ *
+ *   approved  → edit "To film",  content "Filming"
+ *   produced  → edit "Editing",  content "Editing"   (i.e. filmed)
+ */
+export async function syncScriptPipeline(orgId: string, scriptId: string) {
+  const db = getDb();
+  const [s] = await db
+    .select()
+    .from(scripts)
+    .where(and(eq(scripts.id, scriptId), eq(scripts.orgId, orgId)))
+    .limit(1);
+  if (!s || s.archivedAt || (s.status !== "approved" && s.status !== "produced")) return;
+  const filmed = s.status === "produced";
+
+  let contentItemId = s.contentItemId;
+  if (!contentItemId) {
+    const channel = s.format === "tiktok" ? "tiktok" : s.format === "youtube_short" || s.format === "youtube_long" ? "youtube" : "instagram";
+    const [ci] = await db
+      .insert(contentItems)
+      .values({
+        orgId,
+        clientId: s.clientId,
+        title: s.title,
+        channel,
+        status: filmed ? "editing" : "filming",
+        body: [s.hookScript ? `Hook: ${s.hookScript}` : null, s.body].filter(Boolean).join("\n\n") || null,
+      })
+      .returning({ id: contentItems.id });
+    contentItemId = ci.id;
+  } else {
+    await db
+      .update(contentItems)
+      .set({ status: filmed ? "editing" : "filming", updatedAt: new Date() })
+      .where(
+        and(
+          eq(contentItems.id, contentItemId),
+          eq(contentItems.orgId, orgId),
+          inArray(contentItems.status, filmed ? ["idea", "scripting", "filming"] : ["idea", "scripting", "editing"]),
+        ),
+      );
+  }
+
+  let deliverableId = s.deliverableId;
+  if (!deliverableId) {
+    const [d] = await db
+      .insert(deliverables)
+      .values({
+        orgId,
+        clientId: s.clientId,
+        projectId: s.projectId,
+        shootId: s.shootId,
+        title: s.title,
+        status: filmed ? "editing" : "to_film",
+      })
+      .returning({ id: deliverables.id });
+    deliverableId = d.id;
+  } else {
+    await db
+      .update(deliverables)
+      .set({ status: filmed ? "editing" : "to_film", updatedAt: new Date() })
+      .where(
+        and(eq(deliverables.id, deliverableId), eq(deliverables.orgId, orgId), eq(deliverables.status, filmed ? "to_film" : "editing")),
+      );
+  }
+
+  if (contentItemId !== s.contentItemId || deliverableId !== s.deliverableId) {
+    await db.update(scripts).set({ contentItemId, deliverableId }).where(eq(scripts.id, s.id));
+  }
+}
+
+/** Resolve where a new script belongs: a shoot implies its project and client. */
+export async function scriptHome(input: { shootId?: string | null; projectId?: string | null }) {
+  const user = await requireUser();
+  const db = getDb();
+  if (input.shootId) {
+    const [sh] = await db
+      .select({ id: shoots.id, clientId: shoots.clientId, projectId: shoots.projectId })
+      .from(shoots)
+      .where(and(eq(shoots.id, input.shootId), eq(shoots.orgId, user.orgId)))
+      .limit(1);
+    if (!sh) throw new Error("That shoot was not found.");
+    if (!sh.clientId) throw new Error("Link this shoot to a client first, then add its scripts.");
+    return { clientId: sh.clientId, projectId: sh.projectId, shootId: sh.id };
+  }
+  if (input.projectId) {
+    const [p] = await db
+      .select({ id: projects.id, clientId: projects.clientId })
+      .from(projects)
+      .where(and(eq(projects.id, input.projectId), eq(projects.orgId, user.orgId)))
+      .limit(1);
+    if (!p) throw new Error("That project was not found.");
+    if (!p.clientId) throw new Error("Link this project to a client first, then add its scripts.");
+    return { clientId: p.clientId, projectId: p.id, shootId: null };
+  }
+  throw new Error("Choose a project or a shoot for this script.");
 }
 
 export async function archiveScript(id: string) {

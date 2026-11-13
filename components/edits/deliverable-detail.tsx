@@ -51,6 +51,7 @@ type ShootOption = { id: string; title: string };
 type ReviewerOption = { id: string; name: string | null };
 
 const STATUS_TONE: Record<DeliverableStatus, Tone> = {
+  to_film: "gold",
   editing: "neutral",
   in_review: "info",
   changes_requested: "warning",
@@ -59,6 +60,7 @@ const STATUS_TONE: Record<DeliverableStatus, Tone> = {
 };
 
 const STATUS_LABEL: Record<DeliverableStatus, string> = {
+  to_film: "To film",
   editing: "Editing",
   in_review: "In review",
   changes_requested: "Changes requested",
@@ -67,6 +69,7 @@ const STATUS_LABEL: Record<DeliverableStatus, string> = {
 };
 
 const WORKFLOW: DeliverableStatus[] = [
+  "to_film",
   "editing",
   "in_review",
   "changes_requested",
