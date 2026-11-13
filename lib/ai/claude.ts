@@ -139,28 +139,33 @@ export async function runJson<T = unknown>(args: AssistArgs): Promise<T> {
 }
 
 /**
- * Generation that must come back in a fixed shape. The model is made to answer
- * by filling in `schema` (a JSON Schema object), so quotes and line breaks in
- * long text can never break the reply the way hand-written JSON can.
+ * Generation that must come back in a fixed shape. The reply is constrained to
+ * `schema` (a JSON Schema object: every object needs `additionalProperties:
+ * false` and all its properties listed in `required`), so quotes and line
+ * breaks in long text can never break it the way hand-written JSON can.
  */
 export async function runStructured<T = unknown>({
   system,
   prompt,
-  maxTokens = 3000,
-  name,
+  maxTokens = 16000,
   schema,
-}: AssistArgs & { name: string; schema: Record<string, unknown> }): Promise<T> {
+}: AssistArgs & { schema: Record<string, unknown> }): Promise<T> {
   const msg = await client().messages.create({
     model: MODEL,
     max_tokens: maxTokens,
     system,
     messages: [{ role: "user", content: prompt }],
-    tools: [{ name, description: "Save the result.", input_schema: schema as Anthropic.Tool.InputSchema }],
-    tool_choice: { type: "tool", name },
+    output_config: { format: { type: "json_schema", schema } },
   });
   if (msg.stop_reason === "refusal") throw new Error("The assistant declined this request.");
   if (msg.stop_reason === "max_tokens") throw new Error("That was too much to write in one go. Ask for fewer at a time.");
-  const block = msg.content.find((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
-  if (!block) throw new Error("The assistant didn't return a result. Try again.");
-  return block.input as T;
+  const text = msg.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("");
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error("The assistant didn't return a usable result. Try again.");
+  }
 }

@@ -29,11 +29,13 @@ const SCHEMA = {
           notes: text('Short lines such as "Setting: …", "Mood: …", "Length: …"'),
           memory: text("2–3 sentences: core idea, hook, visual device, call to action"),
         },
-        required: ["title", "hookVisual", "hookScript", "body", "memory"],
+        required: ["title", "format", "hookVisual", "hookScript", "body", "notes", "memory"],
+        additionalProperties: false,
       },
     },
   },
   required: ["scripts"],
+  additionalProperties: false,
 };
 
 type Drafted = { title: string; format?: string; hookVisual?: string; hookScript?: string; body?: string; notes?: string; memory?: string };
@@ -78,11 +80,10 @@ export async function writeScripts(input: {
       ? `Write scripts ${done + 1}${n > 1 ? `–${done + n}` : ""} of the ${total} agreed in the conversation, exactly as agreed (ideas, angles, order, length, settings). Do not swap in different ideas.`
       : `Write ${n} distinct script${n === 1 ? "" : "s"}${done ? ` (numbers ${done + 1}–${done + n} of ${total}; the earlier ones are already in the script memory)` : ""}.`;
     const out = await runStructured<{ scripts: Drafted[] }>({
-      name: "save_scripts",
       schema: SCHEMA,
-      system: `You are a short-form video scriptwriter for this client. ${which} About 30 seconds each unless told otherwise. Each needs a strong VISUAL hook (what we see in the first 1–2 seconds) and a SCRIPT hook (the opening spoken line). ${FORMAT}\n\nSave them with save_scripts. format is one of reel|tiktok|youtube_short|youtube_long|ad. notes holds short lines such as "Setting: …", "Mood: …", "Length: …". memory is 2–3 sentences recording this script's core idea, hook, visual device and call to action, so it is never written again. British English.\n\nCLIENT BRAIN:\n${context}`,
+      system: `You are a short-form video scriptwriter for this client. ${which} About 30 seconds each unless told otherwise. Each needs a strong VISUAL hook (what we see in the first 1–2 seconds) and a SCRIPT hook (the opening spoken line). ${FORMAT}\n\nformat is one of reel|tiktok|youtube_short|youtube_long|ad. notes holds short lines such as "Setting: …", "Mood: …", "Length: …". memory is 2–3 sentences recording this script's core idea, hook, visual device and call to action, so it is never written again. British English.\n\nCLIENT BRAIN:\n${context}`,
       prompt: input.instruction.trim() || "Pitch strong new ideas for this client.",
-      maxTokens: 2600 * n + 600,
+      maxTokens: 16000,
     });
     for (const s of (out.scripts ?? []).slice(0, n)) {
       const title = (s.title || "Untitled script").slice(0, 200);
