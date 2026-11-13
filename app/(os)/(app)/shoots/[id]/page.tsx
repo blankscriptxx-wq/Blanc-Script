@@ -6,6 +6,8 @@ import { getShootRunSheet, shootShareToken } from "@/lib/data/shoots";
 
 export const metadata = { title: "Shoot" };
 export const dynamic = "force-dynamic";
+// AI script drafting from this page can take a couple of minutes.
+export const maxDuration = 300;
 
 export default async function ShootPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

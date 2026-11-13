@@ -26,6 +26,7 @@ import {
   setScriptStatus,
 } from "@/lib/data/scripts";
 import { runClientResearch, setAutoResearch } from "@/lib/data/research-job";
+import { currentProjectFor, writeScripts } from "@/lib/data/script-writer";
 
 export type AiResult = { ok: true; text: string } | { ok: false; error: string };
 
@@ -146,11 +147,43 @@ export async function chatAction(threadId: string, message: string): Promise<AiR
       getThreadMessages(threadId),
     ]);
     await addMessage(threadId, "user", q);
-    const reply = await runChat({
-      system: `You are the dedicated content strategist for this client inside a creative agency's OS. You know the client's brain (below) and help plan, ideate and write scripts with strong visual and script hooks. British English. Be concrete and practical. You cannot take actions in the app; suggest what to do.\n\nCLIENT BRAIN:\n${context}`,
+    const raw = await runChat({
+      system: `You are the dedicated content strategist for this client inside a creative agency's OS. You know the client's brain and every script already written for them (below), and you help plan, ideate and shape scripts with strong visual and script hooks. British English. Be concrete and practical.
+
+WRITING SCRIPTS: You can add scripts to the studio. Plan first: agree the ideas, angles, number and length with the team in conversation, and when a plan is ready, summarise it as a numbered list and ask for the go-ahead. ONLY when the team clearly tells you to go ahead and write or create the scripts (for example "go ahead", "write them", "yes, make these"), reply with one short confirming sentence and then, on its own final line, exactly: [[WRITE_SCRIPTS:n]] where n is how many scripts were agreed (1 to 10). Do not write the full scripts in the chat yourself — the studio writes them from this conversation and saves them as drafts. Never output that line while still planning, when asked a question, or if the number or ideas are not yet agreed; ask instead.
+
+CLIENT BRAIN:\n${context}`,
       messages: [...history, { role: "user", content: q }],
       maxTokens: 1500,
     });
+
+    // The go-ahead: turn the agreed plan into draft scripts.
+    const go = raw.match(/\[\[WRITE_SCRIPTS:\s*(\d+)\s*\]\]/i);
+    let reply = raw.replace(/\[\[WRITE_SCRIPTS:[^\]]*\]\]/gi, "").trim();
+    if (go) {
+      const count = Math.min(Math.max(Number(go[1]) || 1, 1), 10);
+      const project = await currentProjectFor(clientId);
+      const transcript = [...history, { role: "user" as const, content: q }]
+        .slice(-30)
+        .map((m) => `${m.role === "user" ? "TEAM" : "STRATEGIST"}: ${m.content}`)
+        .join("\n\n");
+      try {
+        const titles = await writeScripts({
+          clientId,
+          projectId: project?.id ?? null,
+          instruction: `PLANNING CONVERSATION (the scripts to write were agreed here):\n\n${transcript}`,
+          count,
+          fromPlan: true,
+        });
+        reply = titles.length
+          ? `${reply}\n\nDone — I've added ${titles.length} draft script${titles.length === 1 ? "" : "s"}${project ? ` to ${project.name}` : ""}:\n${titles.map((t) => `• ${t}`).join("\n")}\n\nOpen the Scripts tab${project ? " or the project" : ""} to read and approve them.`
+          : `${reply}\n\nI couldn't write the scripts just then. Tell me to go ahead again and I'll retry.`;
+      } catch (err) {
+        reply = `${reply}\n\nI couldn't finish writing the scripts (${err instanceof Error ? err.message : "something went wrong"}). Anything already written is saved as a draft; tell me to go ahead again for the rest.`;
+      }
+      revalidatePath("/projects", "layout");
+      revalidatePath("/shoots", "layout");
+    }
     await addMessage(threadId, "assistant", reply);
     revalidatePath(path(clientId));
     return { ok: true, text: reply };

@@ -5,6 +5,8 @@ import { listMediaFor, storageConfigured } from "@/lib/data/media";
 import { listProjectScripts } from "@/lib/data/shoots";
 
 export const dynamic = "force-dynamic";
+// AI script drafting from this page can take a couple of minutes.
+export const maxDuration = 300;
 
 export async function generateMetadata({
   params,

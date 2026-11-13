@@ -99,6 +99,7 @@ export const scriptInput = z.object({
   parentScriptId: z.string().uuid().nullable().optional(),
   projectId: z.string().uuid().nullable().optional(),
   shootId: z.string().uuid().nullable().optional(),
+  memory: z.string().trim().max(1200).nullable().optional(),
 });
 
 export async function createScript(raw: z.input<typeof scriptInput>) {
@@ -120,6 +121,7 @@ export async function createScript(raw: z.input<typeof scriptInput>) {
       parentScriptId: data.parentScriptId ?? null,
       projectId: data.projectId ?? null,
       shootId: data.shootId ?? null,
+      memory: data.memory ?? null,
     })
     .returning({ id: scripts.id });
   await getDb().insert(activityLog).values({

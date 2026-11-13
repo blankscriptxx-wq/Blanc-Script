@@ -1,4 +1,5 @@
 import "server-only";
+import { scriptMemoryContext } from "@/lib/data/script-memory";
 import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db/client";
@@ -193,16 +194,10 @@ export async function setKnowledgeStatus(id: string, status: KnowledgeStatus) {
 export async function buildBrainContext(clientId: string): Promise<string> {
   const user = await requireUser();
   const c = await assertClient(user.orgId, clientId);
-  const [profile, knowledge, recentScripts] = await Promise.all([
+  const [profile, knowledge, scriptMemory] = await Promise.all([
     getClientProfile(clientId),
     listKnowledge(clientId, "approved"),
-    getDb()
-      .select({ title: scripts.title, hookScript: scripts.hookScript, status: scripts.status, body: scripts.body, notes: scripts.notes })
-      .from(scripts)
-      // Removed scripts teach nothing; ideas are not yet "ours".
-      .where(and(eq(scripts.orgId, user.orgId), eq(scripts.clientId, clientId), isNull(scripts.archivedAt)))
-      .orderBy(desc(scripts.createdAt))
-      .limit(30),
+    scriptMemoryContext(user.orgId, clientId),
   ]);
   const lines: string[] = [`CLIENT: ${c.name}`];
   if (profile?.brandSummary) lines.push(`Brand: ${profile.brandSummary}`);
@@ -214,19 +209,6 @@ export async function buildBrainContext(clientId: string): Promise<string> {
     lines.push("Knowledge base (approved):");
     for (const k of knowledge.slice(0, 40)) lines.push(`- [${k.kind}] ${k.title}: ${k.content}`);
   }
-  if (recentScripts.length) {
-    lines.push("Scripts already written for this client (do not repeat these ideas or hooks):");
-    for (const s of recentScripts) lines.push(`- (${s.status}) ${s.title}${s.hookScript ? ` — hook: ${s.hookScript}` : ""}`);
-    // The scripts the studio signed off are the house style: structure, pace, voice.
-    const signedOff = recentScripts.filter((s) => (s.status === "approved" || s.status === "produced") && s.body).slice(0, 3);
-    if (signedOff.length) {
-      lines.push("Approved scripts — match their structure, pacing, level of camera direction and voice:");
-      for (const s of signedOff) {
-        lines.push(`=== ${s.title} ===`);
-        lines.push((s.body ?? "").slice(0, 2200));
-        if (s.notes) lines.push(`Notes: ${s.notes.slice(0, 500)}`);
-      }
-    }
-  }
+  if (scriptMemory) lines.push(scriptMemory);
   return lines.join("\n");
 }

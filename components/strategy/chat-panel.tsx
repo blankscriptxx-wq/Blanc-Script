@@ -236,6 +236,16 @@ export function ChatPanel({
               Connect AI in Settings &rarr; Integrations to start chatting.
             </p>
           ) : null}
+          {aiReady && activeThreadId && hasTranscript ? (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => activeThreadId && void send("Go ahead and write the scripts we've agreed.", activeThreadId)}
+              className="mb-2 inline-flex h-8 items-center gap-1.5 rounded-pill border border-bs-border-strong px-3 text-xs font-medium text-bs-text transition-colors hover:bg-bs-surface-2 disabled:opacity-50"
+            >
+              {pending ? "Working…" : "Go ahead — write these scripts"}
+            </button>
+          ) : null}
           <form
             onSubmit={onSubmit}
             className={cn(

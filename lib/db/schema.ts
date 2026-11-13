@@ -923,6 +923,8 @@ export const scripts = pgTable("scripts", {
   hookScript: text("hook_script"),
   body: text("body"),
   notes: text("notes"),
+  /** The AI's lasting memory of this script (idea, hook, angle), so it is never repeated. */
+  memory: text("memory"),
   // Workflow links once pushed out.
   contentItemId: uuid("content_item_id").references(() => contentItems.id),
   deliverableId: uuid("deliverable_id").references(() => deliverables.id),
