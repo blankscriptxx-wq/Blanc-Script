@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { RunSheet } from "@/components/shoots/run-sheet";
-import { getShootRunSheet } from "@/lib/data/shoots";
+import { getShootRunSheet, shootShareToken } from "@/lib/data/shoots";
 
 export const metadata = { title: "Shoot" };
 export const dynamic = "force-dynamic";
@@ -13,6 +13,7 @@ export default async function ShootPage({ params }: { params: Promise<{ id: stri
   const sheet = await getShootRunSheet(id);
   if (!sheet) notFound();
   const { shoot, talent, scripts } = sheet;
+  const token = await shootShareToken(shoot.id).catch(() => null);
 
   const when = shoot.scheduledAt
     ? new Intl.DateTimeFormat("en-GB", {
@@ -59,7 +60,13 @@ export default async function ShootPage({ params }: { params: Promise<{ id: stri
           ))}
       </dl>
 
-      <RunSheet shootId={shoot.id} clientId={shoot.clientId} scripts={scripts} />
+      <RunSheet
+        shootId={shoot.id}
+        clientId={shoot.clientId}
+        scripts={scripts}
+        title={shoot.title}
+        sharePath={token ? `/callsheet/${token}` : undefined}
+      />
     </div>
   );
 }

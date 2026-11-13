@@ -1,8 +1,9 @@
 import "server-only";
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { getDb } from "@/lib/db/client";
-import { shoots, clients, projects, activityLog, shootTalent, talent, scripts } from "@/lib/db/schema";
+import { shoots, clients, projects, activityLog, shootTalent, talent, scripts, organisations } from "@/lib/db/schema";
 import { requireUser } from "@/lib/data/clients";
 
 /**
@@ -231,21 +232,19 @@ export type RunSheet = {
 
 /**
  * A shoot with its cast and the client's scripts to film: everything still to
- * shoot, plus anything already marked filmed around this shoot.
+ * shoot, plus anything ticked as filmed in the fortnight around this shoot.
  */
-export async function getShootRunSheet(id: string): Promise<RunSheet | null> {
-  const user = await requireUser();
-  const shoot = await getShoot(id);
-  if (!shoot) return null;
+async function loadRunSheet(shoot: RunSheet["shoot"], orgId: string): Promise<RunSheet> {
   const db = getDb();
   const cast = await db
     .select({ name: talent.name, roleName: shootTalent.roleName, callTime: shootTalent.callTime })
     .from(shootTalent)
     .innerJoin(talent, eq(shootTalent.talentId, talent.id))
-    .where(and(eq(shootTalent.shootId, id), eq(shootTalent.orgId, user.orgId)));
+    .where(and(eq(shootTalent.shootId, shoot.id), eq(shootTalent.orgId, orgId)));
   let list: RunSheetScript[] = [];
   if (shoot.clientId) {
-    const since = shoot.scheduledAt ? new Date(shoot.scheduledAt.getTime() - 86_400_000) : null;
+    const anchor = Math.min((shoot.scheduledAt ?? new Date()).getTime(), Date.now());
+    const since = new Date(anchor - 14 * 86_400_000);
     const rows = await db
       .select({
         id: scripts.id,
@@ -259,15 +258,67 @@ export async function getShootRunSheet(id: string): Promise<RunSheet | null> {
         updatedAt: scripts.updatedAt,
       })
       .from(scripts)
-      .where(and(eq(scripts.orgId, user.orgId), eq(scripts.clientId, shoot.clientId), isNull(scripts.archivedAt)))
-      .orderBy(asc(scripts.createdAt), asc(scripts.title));
+      .where(and(eq(scripts.orgId, orgId), eq(scripts.clientId, shoot.clientId), isNull(scripts.archivedAt)));
     list = rows
-      .filter((s) => (s.status === "produced" ? !since || s.updatedAt >= since : s.status !== "idea"))
+      .filter((s) => (s.status === "produced" ? s.updatedAt >= since : s.status !== "idea"))
       .map(({ updatedAt: _u, ...s }) => s)
       // "Script 2 — …" before "Script 10 — …".
       .sort((a, b) => a.title.localeCompare(b.title, "en-GB", { numeric: true }));
   }
   return { shoot, talent: cast, scripts: list };
+}
+
+export async function getShootRunSheet(id: string): Promise<RunSheet | null> {
+  const user = await requireUser();
+  const shoot = await getShoot(id);
+  return shoot ? loadRunSheet(shoot, user.orgId) : null;
+}
+
+// A share link is the shoot id plus a signature, so it needs no login and
+// cannot be guessed. It shows the plan for the day only — never money.
+const shareSig = (id: string) => {
+  const secret = process.env.NEON_AUTH_COOKIE_SECRET;
+  if (!secret) throw new Error("Sharing is not configured.");
+  return createHmac("sha256", `callsheet:${secret}`).update(id).digest("base64url").slice(0, 24);
+};
+
+/** The private link to a shoot's call sheet (staff only). */
+export async function shootShareToken(id: string): Promise<string> {
+  await requireUser();
+  return `${id}.${shareSig(id)}`;
+}
+
+/** The call sheet behind a share link: no account needed. */
+export async function getSharedRunSheet(token: string): Promise<(RunSheet & { studio: string }) | null> {
+  const [id, sig] = token.split(".");
+  if (!id || !sig || !/^[0-9a-f-]{36}$/i.test(id)) return null;
+  const want = Buffer.from(shareSig(id));
+  const got = Buffer.from(sig);
+  if (want.length !== got.length || !timingSafeEqual(want, got)) return null;
+  const [row] = await getDb()
+    .select({
+      id: shoots.id,
+      orgId: shoots.orgId,
+      title: shoots.title,
+      status: shoots.status,
+      clientId: shoots.clientId,
+      clientName: clients.name,
+      projectId: shoots.projectId,
+      projectName: projects.name,
+      scheduledAt: shoots.scheduledAt,
+      locationName: shoots.locationName,
+      createdAt: shoots.createdAt,
+      studio: organisations.name,
+    })
+    .from(shoots)
+    .innerJoin(organisations, eq(shoots.orgId, organisations.id))
+    .leftJoin(clients, eq(shoots.clientId, clients.id))
+    .leftJoin(projects, eq(shoots.projectId, projects.id))
+    .where(and(eq(shoots.id, id), isNull(shoots.archivedAt)))
+    .limit(1);
+  if (!row) return null;
+  const { orgId, studio, ...shoot } = row;
+  return { ...(await loadRunSheet(shoot, orgId)), studio };
 }
 
 /** Tick a script as filmed on the day (or untick it). */

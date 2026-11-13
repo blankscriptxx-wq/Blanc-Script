@@ -47,6 +47,7 @@ const PUBLIC_OS_PREFIXES = [
   "/portal", // client portal (private link, no account)
   "/pay", // payment confirmation page
   "/proposal", // client proposal (private link, no account)
+  "/callsheet", // shoot call sheet shared with talent and crew (signed link)
   "/api/stripe", // Stripe webhook (signature-checked)
   "/api/aniro", // Aniro WhatsApp webhook (signature-checked)
   "/api/cron", // scheduled jobs (secret-checked)
