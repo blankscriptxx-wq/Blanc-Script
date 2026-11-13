@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db/client";
 import { clients, clientKnowledge, clientProfiles, scripts } from "@/lib/db/schema";
@@ -197,11 +197,12 @@ export async function buildBrainContext(clientId: string): Promise<string> {
     getClientProfile(clientId),
     listKnowledge(clientId, "approved"),
     getDb()
-      .select({ title: scripts.title, hookScript: scripts.hookScript, status: scripts.status })
+      .select({ title: scripts.title, hookScript: scripts.hookScript, status: scripts.status, body: scripts.body, notes: scripts.notes })
       .from(scripts)
-      .where(and(eq(scripts.orgId, user.orgId), eq(scripts.clientId, clientId)))
+      // Removed scripts teach nothing; ideas are not yet "ours".
+      .where(and(eq(scripts.orgId, user.orgId), eq(scripts.clientId, clientId), isNull(scripts.archivedAt)))
       .orderBy(desc(scripts.createdAt))
-      .limit(8),
+      .limit(30),
   ]);
   const lines: string[] = [`CLIENT: ${c.name}`];
   if (profile?.brandSummary) lines.push(`Brand: ${profile.brandSummary}`);
@@ -214,8 +215,18 @@ export async function buildBrainContext(clientId: string): Promise<string> {
     for (const k of knowledge.slice(0, 40)) lines.push(`- [${k.kind}] ${k.title}: ${k.content}`);
   }
   if (recentScripts.length) {
-    lines.push("Recent scripts:");
+    lines.push("Scripts already written for this client (do not repeat these ideas or hooks):");
     for (const s of recentScripts) lines.push(`- (${s.status}) ${s.title}${s.hookScript ? ` — hook: ${s.hookScript}` : ""}`);
+    // The scripts the studio signed off are the house style: structure, pace, voice.
+    const signedOff = recentScripts.filter((s) => (s.status === "approved" || s.status === "produced") && s.body).slice(0, 3);
+    if (signedOff.length) {
+      lines.push("Approved scripts — match their structure, pacing, level of camera direction and voice:");
+      for (const s of signedOff) {
+        lines.push(`=== ${s.title} ===`);
+        lines.push((s.body ?? "").slice(0, 2200));
+        if (s.notes) lines.push(`Notes: ${s.notes.slice(0, 500)}`);
+      }
+    }
   }
   return lines.join("\n");
 }

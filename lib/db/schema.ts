@@ -229,6 +229,8 @@ export const projects = pgTable("projects", {
   name: text("name").notNull(),
   status: projectStatusEnum("status").notNull().default("planning"),
   brief: text("brief"),
+  /** "YYYY-MM" when this is a package client's project for that month. */
+  period: text("period"),
   archivedAt: timestamp("archived_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

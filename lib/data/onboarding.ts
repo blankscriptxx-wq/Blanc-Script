@@ -1,4 +1,5 @@
 import "server-only";
+import { ensureMonthlyProject } from "@/lib/data/monthly-projects";
 import { randomBytes } from "node:crypto";
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -210,6 +211,8 @@ export async function onboardingProgress(
         entityId: clientId,
         meta: {},
       });
+      // A package client gets this month's project straight away.
+      await ensureMonthlyProject(orgId, clientId, new Date()).catch(() => null);
       if (ob.contactEmail) {
         const token = await linkToken(ob.portalLinkId);
         await sendEmail({
