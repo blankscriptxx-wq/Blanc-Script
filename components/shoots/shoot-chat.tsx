@@ -8,6 +8,12 @@ import type { ChatMessage } from "@/lib/ai/claude";
 
 type Bubble = { role: "user" | "assistant" | "error"; text: string };
 
+/** Show **bold** as bold instead of leaving the asterisks in. */
+const rich = (text: string) =>
+  text.split(/(\*\*[^*\n]+\*\*)/g).map((part, i) =>
+    part.startsWith("**") && part.endsWith("**") && part.length > 4 ? <strong key={i}>{part.slice(2, -2)}</strong> : part,
+  );
+
 const STARTERS = [
   "Suggest 3 more scripts that would suit this shoot's location and talent.",
   "What should we film first to make the best use of the time?",
@@ -75,7 +81,7 @@ export function ShootChat({ shootId, messages, aiReady }: { shootId: string; mes
                         : "bg-bs-surface-2 text-bs-text")
                   }
                 >
-                  {m.text}
+                  {rich(m.text)}
                 </div>
               </div>
             ))}
