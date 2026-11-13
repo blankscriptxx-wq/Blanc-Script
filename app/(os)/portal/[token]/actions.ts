@@ -6,6 +6,7 @@ import {
   portalInvoiceId,
   resolvePortal,
   setPortalDecision,
+  tickPortalShot,
 } from "@/lib/data/portal";
 import { syncInvoicePayment } from "@/lib/data/payments";
 import { headers } from "next/headers";
@@ -188,4 +189,20 @@ export async function portalConfirmUploadAction(token: string, assetId: string):
   await confirmPortalUpload(ctx, assetId);
   revalidatePath(`/portal/${token}`);
   revalidatePath(`/clients/${ctx.clientId}`);
+}
+
+/** The client ticks off a shot of a script they are filming themselves. */
+export async function portalTickShotAction(token: string, scriptId: string, index: number, done: boolean) {
+  try {
+    const ctx = await resolvePortal(token);
+    if (!ctx) return { ok: false as const, error: GONE, shotsDone: [] as number[], filmed: false };
+    const res = await tickPortalShot(ctx, scriptId, index, done);
+    revalidatePath(`/portal/${token}`);
+    revalidatePath("/shoots", "layout");
+    revalidatePath("/projects", "layout");
+    revalidatePath("/edits");
+    return { ok: true as const, error: "", ...res };
+  } catch (e) {
+    return { ok: false as const, error: e instanceof Error ? e.message : "Could not save that.", shotsDone: [] as number[], filmed: false };
+  }
 }

@@ -3,7 +3,8 @@
 import * as React from "react";
 import { Check, ChevronDown, Share2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { setScriptFilmedAction } from "@/app/(os)/(app)/shoots/actions";
+import { setScriptFilmedAction, setShotDoneAction } from "@/app/(os)/(app)/shoots/actions";
+import { parseScript } from "@/lib/scripts/breakdown";
 import { approveScriptAction } from "@/app/(os)/(app)/shoots/script-actions";
 import { AddScript } from "@/components/shoots/add-script";
 import { ScriptBreakdown, type SheetView } from "@/components/shoots/script-breakdown";
@@ -32,6 +33,7 @@ export function RunSheet({
   sharePath,
   canTick = true,
   heading = "Scripts to film",
+  selfShoot = false,
 }: {
   /** Where new scripts are added: this shoot, or (on a project page) the project. */
   shootId?: string;
@@ -42,6 +44,8 @@ export function RunSheet({
   sharePath?: string;
   canTick?: boolean;
   heading?: string;
+  /** This client films their own content, so new scripts default to the simple style. */
+  selfShoot?: boolean;
 }) {
   const router = useRouter();
   const [status, setStatus] = React.useState<Record<string, RunSheetScript["status"]>>({});
@@ -60,12 +64,29 @@ export function RunSheet({
   const [view, setView] = React.useState<SheetView>("all");
   const [error, setError] = React.useState("");
   const [shared, setShared] = React.useState("");
+  const [shots, setShots] = React.useState<Record<string, number[]>>(() => Object.fromEntries(scripts.map((s) => [s.id, s.shotsDone ?? []])));
+  const shotsOf = (s: RunSheetScript) => shots[s.id] ?? s.shotsDone ?? [];
   const done = scripts.filter((s) => filmed[s.id]).length;
+
+  const tickShot = async (s: RunSheetScript, index: number, on: boolean) => {
+    const before = shotsOf(s);
+    setError("");
+    setShots((m) => ({ ...m, [s.id]: on ? [...new Set([...before, index])] : before.filter((n) => n !== index) }));
+    const res = await setShotDoneAction(s.id, index, on);
+    if (!res.ok) {
+      setShots((m) => ({ ...m, [s.id]: before }));
+      return setError(res.error);
+    }
+    setShots((m) => ({ ...m, [s.id]: res.shotsDone }));
+    setFilmed((f) => ({ ...f, [s.id]: res.filmed }));
+  };
 
   const toggle = async (id: string) => {
     const next = !filmed[id];
     setError("");
     setFilmed((f) => ({ ...f, [id]: next }));
+    const target = scripts.find((x) => x.id === id);
+    if (target) setShots((m) => ({ ...m, [id]: next ? parseScript(target.body).map((_, i) => i) : [] }));
     const res = await setScriptFilmedAction(id, next);
     if (!res.ok) {
       setFilmed((f) => ({ ...f, [id]: !next }));
@@ -205,7 +226,11 @@ export function RunSheet({
                         {s.title}
                       </span>
                       <span className="block text-xs text-bs-subtle">
-                        {isDone ? "Filmed" : STATUS_NOTE[st] ?? "Ready to film"}
+                        {s.style === "self" ? "Client films this · " : ""}
+                        {isDone
+                          ? "Filmed"
+                          : STATUS_NOTE[st] ??
+                            (shotsOf(s).length ? `${shotsOf(s).length} of ${parseScript(s.body).length} shots filmed` : "Ready to film")}
                       </span>
                     </span>
                     <ChevronDown className={"h-4 w-4 shrink-0 text-bs-subtle transition-transform " + (isOpen ? "rotate-180" : "")} />
@@ -213,7 +238,7 @@ export function RunSheet({
                 </div>
                 {isOpen ? (
                   <div className="border-t border-bs-border px-4 py-4">
-                    <ScriptBreakdown script={s} view={view} />
+                    <ScriptBreakdown script={s} view={view} done={shotsOf(s)} onTick={canTick ? (i, on) => void tickShot(s, i, on) : undefined} />
                     <div className="mt-5 flex flex-wrap gap-2 border-t border-bs-border pt-4">
                       {canTick && pending ? (
                         <button
@@ -254,7 +279,7 @@ export function RunSheet({
           })}
         </ol>
       )}
-      {canTick && (shootId || projectId) ? <AddScript shootId={shootId} projectId={projectId} /> : null}
+      {canTick && (shootId || projectId) ? <AddScript shootId={shootId} projectId={projectId} selfShoot={selfShoot} /> : null}
     </section>
   );
 }

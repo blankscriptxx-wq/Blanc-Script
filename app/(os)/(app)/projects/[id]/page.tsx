@@ -3,6 +3,7 @@ import { ProjectProfileView } from "@/components/projects/project-profile";
 import { getProjectProfile } from "@/lib/data/project-profile";
 import { listMediaFor, storageConfigured } from "@/lib/data/media";
 import { listProjectScripts } from "@/lib/data/shoots";
+import { clientScriptStyle } from "@/lib/data/script-writer";
 
 export const dynamic = "force-dynamic";
 // AI script drafting from this page can take a couple of minutes.
@@ -30,11 +31,15 @@ export default async function ProjectProfilePage({
     listMediaFor({ projectId: id }).catch(() => []),
     listProjectScripts(id).catch(() => []),
   ]);
+  const selfShoot = profile.project.clientId
+    ? (await clientScriptStyle(profile.project.clientId).catch(() => "crew")) === "self"
+    : false;
   return (
     <ProjectProfileView
       profile={profile}
       media={media}
       scripts={scripts}
+      selfShoot={selfShoot}
       storageReady={storageConfigured()}
     />
   );

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { PortalScripts } from "@/components/portal/portal-scripts";
+import { listPortalScripts } from "@/lib/data/portal";
 import { notFound, redirect } from "next/navigation";
 import { ArrowRight, CalendarRange, Camera, Clapperboard, FileText, Handshake, Package, Receipt, Rocket, Upload } from "lucide-react";
 import { StatusPill } from "@/components/ds/status-pill";
@@ -91,11 +93,12 @@ export default async function PortalHomePage({
   if (!ctx) redirect(`/portal/enter?t=${encodeURIComponent(token)}`);
   // First, so a payment just made (or a finished onboarding) shows in what follows.
   const onboarding = await getPortalOnboarding(ctx).catch(() => null);
-  const [home, billingRaw, documents, uploads] = await Promise.all([
+  const [home, billingRaw, documents, uploads, selfScripts] = await Promise.all([
     getPortalHome(ctx),
     getBillingSummary(ctx.orgId, ctx.clientId).catch(() => null),
     listPortalDocuments(ctx).catch(() => []),
     listPortalUploads(ctx).catch(() => []),
+    listPortalScripts(ctx).catch(() => []),
   ]);
   const billing = billingRaw
     ? { ...billingRaw, canStart: billingRaw.canStart && stripeConfigured() && onboarding?.status !== "sent" && onboarding?.paymentMethod !== "cash", upgrades: stripeConfigured() ? billingRaw.upgrades : [] }
@@ -132,6 +135,12 @@ export default async function PortalHomePage({
               canPayByCard: stripeConfigured(),
             }}
           />
+        </Section>
+      ) : null}
+
+      {selfScripts.length ? (
+        <Section icon={<Clapperboard className="h-5 w-5 text-bs-primary" />} title="Your scripts to film">
+          <PortalScripts token={token} scripts={selfScripts} />
         </Section>
       ) : null}
 

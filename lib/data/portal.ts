@@ -1,4 +1,5 @@
 import "server-only";
+import { tickShot } from "@/lib/data/scripts";
 import { randomBytes } from "node:crypto";
 import { and, asc, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -16,6 +17,7 @@ import {
   portalLinks,
   reviewComments,
   shoots,
+  scripts,
 } from "@/lib/db/schema";
 import { requireUser } from "@/lib/data/clients";
 import { getAuth } from "@/lib/auth/server";
@@ -713,4 +715,60 @@ export async function getPortalInvoice(ctx: PortalContext, id: string): Promise<
   ]);
   if (!inv) return null;
   return { ...(inv as Omit<PortalInvoiceDetail, "lines">), totalPence: Number(inv.totalPence), lines };
+}
+
+// ── Scripts the client films themselves ───────────────────────────────────
+
+export type PortalScript = {
+  id: string;
+  title: string;
+  status: "approved" | "produced";
+  hookVisual: string | null;
+  hookScript: string | null;
+  body: string | null;
+  notes: string | null;
+  style: "self";
+  shotsDone: number[];
+};
+
+/** Approved self-shoot scripts for this client: still to film first, then recently filmed. */
+export async function listPortalScripts(ctx: PortalContext): Promise<PortalScript[]> {
+  const rows = await getDb()
+    .select({
+      id: scripts.id,
+      title: scripts.title,
+      status: scripts.status,
+      hookVisual: scripts.hookVisual,
+      hookScript: scripts.hookScript,
+      body: scripts.body,
+      notes: scripts.notes,
+      shotsDone: scripts.shotsDone,
+      updatedAt: scripts.updatedAt,
+    })
+    .from(scripts)
+    .where(
+      and(
+        eq(scripts.orgId, ctx.orgId),
+        eq(scripts.clientId, ctx.clientId),
+        eq(scripts.style, "self"),
+        isNull(scripts.archivedAt),
+        inArray(scripts.status, ["approved", "produced"]),
+      ),
+    );
+  const recent = Date.now() - 30 * 86_400_000;
+  return rows
+    .filter((s) => s.status === "approved" || s.updatedAt.getTime() >= recent)
+    .sort((a, b) => Number(a.status === "produced") - Number(b.status === "produced") || a.title.localeCompare(b.title, "en-GB", { numeric: true }))
+    .map(({ updatedAt: _u, ...s }) => ({ ...s, status: s.status as "approved" | "produced", style: "self" as const, shotsDone: s.shotsDone ?? [] }));
+}
+
+/** The client ticks a shot off as they film it. */
+export async function tickPortalShot(ctx: PortalContext, scriptId: string, index: number, done: boolean) {
+  const [own] = await getDb()
+    .select({ id: scripts.id })
+    .from(scripts)
+    .where(and(eq(scripts.id, scriptId), eq(scripts.orgId, ctx.orgId), eq(scripts.clientId, ctx.clientId), eq(scripts.style, "self")))
+    .limit(1);
+  if (!own) throw new Error("That script was not found.");
+  return tickShot(ctx.orgId, scriptId, index, done, ctx.clientId);
 }

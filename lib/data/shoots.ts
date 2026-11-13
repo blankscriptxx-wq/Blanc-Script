@@ -5,7 +5,8 @@ import { z } from "zod";
 import { getDb } from "@/lib/db/client";
 import { shoots, clients, projects, activityLog, shootTalent, talent, scripts, organisations } from "@/lib/db/schema";
 import { requireUser } from "@/lib/data/clients";
-import { setScriptStatus } from "@/lib/data/scripts";
+import { setScriptStatus, tickShot } from "@/lib/data/scripts";
+import { parseScript } from "@/lib/scripts/breakdown";
 
 /**
  * Shoots data access (production bookings). EVERY query is scoped to the
@@ -223,6 +224,8 @@ export type RunSheetScript = {
   hookScript: string | null;
   body: string | null;
   notes: string | null;
+  style: "crew" | "self";
+  shotsDone: number[];
 };
 
 export type RunSheet = {
@@ -256,6 +259,8 @@ async function loadRunSheet(shoot: RunSheet["shoot"], orgId: string): Promise<Ru
         hookScript: scripts.hookScript,
         body: scripts.body,
         notes: scripts.notes,
+        style: scripts.style,
+        shotsDone: scripts.shotsDone,
         updatedAt: scripts.updatedAt,
         shootId: scripts.shootId,
         projectId: scripts.projectId,
@@ -268,7 +273,7 @@ async function loadRunSheet(shoot: RunSheet["shoot"], orgId: string): Promise<Ru
     const pool = mine.length ? mine : rows.filter((s) => !s.shootId && !s.projectId);
     list = pool
       .filter((s) => (s.status === "produced" ? s.updatedAt >= since : s.status !== "idea"))
-      .map(({ updatedAt: _u, shootId: _s, projectId: _p, ...s }) => s)
+      .map(({ updatedAt: _u, shootId: _s, projectId: _p, ...s }) => ({ ...s, style: s.style === "self" ? ("self" as const) : ("crew" as const) }))
       // "Script 2 — …" before "Script 10 — …".
       .sort((a, b) => a.title.localeCompare(b.title, "en-GB", { numeric: true }));
   }
@@ -332,11 +337,14 @@ export async function getSharedRunSheet(token: string): Promise<(RunSheet & { st
 export async function setScriptFilmed(scriptId: string, filmed: boolean) {
   const user = await requireUser();
   const [row] = await getDb()
-    .select({ id: scripts.id })
+    .select({ id: scripts.id, body: scripts.body })
     .from(scripts)
     .where(and(eq(scripts.id, scriptId), eq(scripts.orgId, user.orgId)))
     .limit(1);
   if (!row) throw new Error("That script was not found.");
+  // Ticking the whole script ticks every shot; unticking clears them.
+  const shotsDone = filmed ? parseScript(row.body).map((_, i) => i) : [];
+  await getDb().update(scripts).set({ shotsDone }).where(eq(scripts.id, scriptId));
   await setScriptStatus(scriptId, filmed ? "produced" : "approved");
   await getDb().insert(activityLog).values({
     orgId: user.orgId,
@@ -360,8 +368,18 @@ export async function listProjectScripts(projectId: string): Promise<RunSheetScr
       hookScript: scripts.hookScript,
       body: scripts.body,
       notes: scripts.notes,
+      style: scripts.style,
+      shotsDone: scripts.shotsDone,
     })
     .from(scripts)
     .where(and(eq(scripts.orgId, user.orgId), eq(scripts.projectId, projectId), isNull(scripts.archivedAt)));
-  return rows.sort((a, b) => a.title.localeCompare(b.title, "en-GB", { numeric: true }));
+  return rows
+    .map((s) => ({ ...s, style: s.style === "self" ? ("self" as const) : ("crew" as const) }))
+    .sort((a, b) => a.title.localeCompare(b.title, "en-GB", { numeric: true }));
+}
+
+/** Tick one shot of a script from the run sheet. */
+export async function setShotDone(scriptId: string, index: number, done: boolean) {
+  const user = await requireUser();
+  return tickShot(user.orgId, scriptId, index, done);
 }

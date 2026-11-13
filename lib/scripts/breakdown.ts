@@ -21,13 +21,22 @@ const KINDS: Record<string, LineKind> = {
   audio: "sound",
   music: "sound",
   sfx: "sound",
+  "set-up": "camera",
+  setup: "camera",
+  "set up": "camera",
+  phone: "camera",
+  do: "visual",
+  "b-roll": "visual",
+  cutaway: "visual",
+  tip: "note",
   cut: "cut",
   edit: "cut",
   transition: "cut",
 };
 
 const BEAT = /^(\d+(?:[.:]\d+)?\s*(?:s|sec)?\s*[–—-]\s*\d+(?:[.:]\d+)?\s*(?:s|secs?|seconds)?)\s*(?:[·•|:–—-]\s*(.+))?$/i;
-const LABELLED = /^([A-Za-z][A-Za-z ]{1,13}):\s*(.+)$/;
+const SHOT = /^shot\s*(\d+)\s*(?:[·•|:.–—-]\s*(.+))?$/i;
+const LABELLED = /^([A-Za-z][A-Za-z -]{1,13}):\s*(.+)$/;
 
 export function parseScript(body: string | null): ScriptBeat[] {
   const beats: ScriptBeat[] = [];
@@ -38,6 +47,12 @@ export function parseScript(body: string | null): ScriptBeat[] {
     const b = line.match(BEAT);
     if (b) {
       cur = { time: b[1].replace(/\s+/g, ""), heading: b[2]?.trim() || null, lines: [] };
+      beats.push(cur);
+      continue;
+    }
+    const sh = line.match(SHOT);
+    if (sh) {
+      cur = { time: null, heading: sh[2]?.trim() || `Shot ${sh[1]}`, lines: [] };
       beats.push(cur);
       continue;
     }

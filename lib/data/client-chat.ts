@@ -93,3 +93,33 @@ export async function ensureShootThread(shootId: string, clientId: string, title
     .returning({ id: clientThreads.id });
   return row.id;
 }
+
+/**
+ * What has been discussed with the AI about this client elsewhere: the tail of
+ * their other recent conversations (client chat and each shoot's chat), so
+ * every chat about a client carries on from the others.
+ */
+export async function otherConversations(clientId: string, exceptThreadId: string): Promise<string> {
+  const user = await requireUser();
+  const db = getDb();
+  const threads = await db
+    .select({ id: clientThreads.id, title: clientThreads.title })
+    .from(clientThreads)
+    .where(and(eq(clientThreads.orgId, user.orgId), eq(clientThreads.clientId, clientId)))
+    .orderBy(desc(clientThreads.updatedAt))
+    .limit(7);
+  const out: string[] = [];
+  for (const t of threads.filter((x) => x.id !== exceptThreadId).slice(0, 6)) {
+    const rows = await db
+      .select({ role: clientMessages.role, content: clientMessages.content })
+      .from(clientMessages)
+      .where(and(eq(clientMessages.orgId, user.orgId), eq(clientMessages.threadId, t.id)))
+      .orderBy(desc(clientMessages.createdAt))
+      .limit(8);
+    const turns = rows.filter((r) => r.content.trim()).reverse();
+    if (!turns.length) continue;
+    out.push(`--- ${t.title} ---`);
+    for (const m of turns) out.push(`${m.role === "user" ? "TEAM" : "STRATEGIST"}: ${m.content.trim().slice(0, 700)}`);
+  }
+  return out.join("\n");
+}

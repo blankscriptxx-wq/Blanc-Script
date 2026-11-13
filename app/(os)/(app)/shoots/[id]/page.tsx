@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { RunSheet } from "@/components/shoots/run-sheet";
 import { ShootChat } from "@/components/shoots/shoot-chat";
 import { aiConfigured } from "@/lib/ai/claude";
+import { clientScriptStyle } from "@/lib/data/script-writer";
 import { getShootThreadId, getThreadMessages } from "@/lib/data/client-chat";
 import { getShootRunSheet, shootShareToken } from "@/lib/data/shoots";
 
@@ -19,6 +20,7 @@ export default async function ShootPage({ params }: { params: Promise<{ id: stri
   if (!sheet) notFound();
   const { shoot, talent, scripts } = sheet;
   const token = await shootShareToken(shoot.id).catch(() => null);
+  const selfShoot = shoot.clientId ? (await clientScriptStyle(shoot.clientId).catch(() => "crew")) === "self" : false;
   const threadId = await getShootThreadId(shoot.id).catch(() => null);
   const chat = threadId ? await getThreadMessages(threadId).catch(() => []) : [];
 
@@ -71,6 +73,7 @@ export default async function ShootPage({ params }: { params: Promise<{ id: stri
         shootId={shoot.id}
         scripts={scripts}
         title={shoot.title}
+        selfShoot={selfShoot}
         sharePath={token ? `/callsheet/${token}` : undefined}
       />
 

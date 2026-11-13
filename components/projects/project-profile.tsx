@@ -55,9 +55,11 @@ export function ProjectProfileView({
   media = [],
   storageReady = false,
   scripts,
+  selfShoot = false,
 }: {
   profile: ProjectProfile;
   scripts: RunSheetScript[];
+  selfShoot?: boolean;
   media?: MediaAssetRow[];
   storageReady?: boolean;
 }) {
@@ -138,7 +140,7 @@ export function ProjectProfileView({
       </section>
 
       {/* Scripts */}
-      <RunSheet projectId={p.id} scripts={scripts} title={p.name} heading="Scripts" />
+      <RunSheet projectId={p.id} scripts={scripts} title={p.name} heading="Scripts" selfShoot={selfShoot} />
 
       {/* Tasks board */}
       <section className="mt-8">

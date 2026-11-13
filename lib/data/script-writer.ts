@@ -2,12 +2,14 @@ import "server-only";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { runStructured } from "@/lib/ai/claude";
 import { getDb } from "@/lib/db/client";
-import { projects } from "@/lib/db/schema";
+import { clients, projects } from "@/lib/db/schema";
 import { requireUser } from "@/lib/data/clients";
 import { buildBrainContext } from "@/lib/data/client-brain";
 import { createScript } from "@/lib/data/scripts";
 
-const FORMAT = `Write the body as timed beats so it reads cleanly on a call sheet. Each beat starts with a heading line like "0–5s · HOOK", followed by one line per instruction, each starting with one of these labels exactly: "Camera:", "Visual:", "Sound:", "SAY:", "Cut:". Put every spoken line on its own "SAY:" line, in quotation marks. Separate beats with a blank line. No markdown.`;
+const CREW_FORMAT = `Write the body as timed beats so it reads cleanly on a call sheet. Each beat starts with a heading line like "0–5s · HOOK", followed by one line per instruction, each starting with one of these labels exactly: "Camera:", "Visual:", "Sound:", "SAY:", "Cut:". Put every spoken line on its own "SAY:" line, in quotation marks. Separate beats with a blank line. No markdown.`;
+
+const SELF_FORMAT = `The CLIENT films this themselves on a phone, usually alone, and is also the person on camera. They are not film-makers. Write the body as a simple numbered shot list they can follow one shot at a time and tick off. Each shot starts with a heading line exactly like "Shot 1 · Face the camera" (a plain three-to-six word name), followed by: "Set-up:" one sentence on where to put the phone and where to stand (e.g. "Prop your phone at eye level, straight in front of you."); "Do:" one sentence on what to do in the shot (e.g. "Walk towards the phone as you talk."); and "SAY:" the exact words in quotation marks. Leave out "SAY:" for a silent cutaway shot and say so in "Do:" (e.g. "No talking — film five seconds of the leg press."). Separate shots with a blank line. Use 4 to 8 shots. Everyday words only: no jargon such as gimbal, B-roll, push-in, orbit or locked-off — describe it instead. Every shot must be possible with one phone and no crew. Short sentences. No markdown. In notes, give lines "Length: …", "You need: …" (props or location) and one or two short tips.`;
 
 const FORMATS = ["reel", "tiktok", "youtube_short", "youtube_long", "ad", "other"] as const;
 const BATCH = 3;
@@ -25,7 +27,7 @@ const SCHEMA = {
           format: { type: "string", enum: ["reel", "tiktok", "youtube_short", "youtube_long", "ad"] },
           hookVisual: text("What we see in the first 1–2 seconds"),
           hookScript: text("The opening spoken line"),
-          body: text("The full script as timed beats with labelled lines"),
+          body: text("The full script, laid out exactly as the format instructions say"),
           notes: text('Short lines such as "Setting: …", "Mood: …", "Length: …"'),
           memory: text("2–3 sentences: core idea, hook, visual device, call to action"),
         },
@@ -37,6 +39,19 @@ const SCHEMA = {
   required: ["scripts"],
   additionalProperties: false,
 };
+
+export type ScriptStyle = "crew" | "self";
+
+/** How this client's scripts are written by default: for our crew, or for them to film. */
+export async function clientScriptStyle(clientId: string): Promise<ScriptStyle> {
+  const user = await requireUser();
+  const [c] = await getDb()
+    .select({ selfShoot: clients.selfShoot })
+    .from(clients)
+    .where(and(eq(clients.id, clientId), eq(clients.orgId, user.orgId)))
+    .limit(1);
+  return c?.selfShoot ? "self" : "crew";
+}
 
 type Drafted = { title: string; format?: string; hookVisual?: string; hookScript?: string; body?: string; notes?: string; memory?: string };
 
@@ -69,7 +84,11 @@ export async function writeScripts(input: {
   instruction: string;
   count: number;
   fromPlan?: boolean;
+  /** "self" writes a simple shot list for a client filming themselves. Defaults to the client's setting. */
+  style?: ScriptStyle | null;
 }): Promise<string[]> {
+  const style: ScriptStyle = input.style ?? (await clientScriptStyle(input.clientId));
+  const FORMAT = style === "self" ? SELF_FORMAT : CREW_FORMAT;
   const total = Math.min(Math.max(Math.round(input.count) || 1, 1), 10);
   const titles: string[] = [];
   for (let done = 0; done < total; done += BATCH) {
@@ -99,6 +118,7 @@ export async function writeScripts(input: {
         body: s.body?.slice(0, 8000) ?? null,
         notes: s.notes?.slice(0, 2000) ?? null,
         memory: s.memory?.slice(0, 1200) ?? null,
+        style,
       });
       titles.push(title);
     }

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createShoot, setShootProject, setScriptFilmed } from "@/lib/data/shoots";
+import { createShoot, setShootProject, setScriptFilmed, setShotDone } from "@/lib/data/shoots";
 
 export async function createShootAction(
   _prev: { ok: boolean; error: string } | null,
@@ -55,5 +55,19 @@ export async function setScriptFilmedAction(scriptId: string, filmed: boolean) {
     return { ok: true, error: "" };
   } catch (e) {
     return { ok: false, error: (e as Error).message || "Could not update the script." };
+  }
+}
+
+/** Tick or untick one shot inside a script. */
+export async function setShotDoneAction(scriptId: string, index: number, done: boolean) {
+  try {
+    const res = await setShotDone(scriptId, index, done);
+    revalidatePath("/shoots", "layout");
+    revalidatePath("/projects", "layout");
+    revalidatePath("/edits");
+    revalidatePath("/content");
+    return { ok: true as const, error: "", ...res };
+  } catch (e) {
+    return { ok: false as const, error: (e as Error).message || "Could not update that shot.", shotsDone: [] as number[], filmed: false };
   }
 }

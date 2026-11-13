@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getDb } from "@/lib/db/client";
 import { activityLog, clients, contentItems, deliverables, projects, scripts, shoots } from "@/lib/db/schema";
 import { requireUser } from "@/lib/data/clients";
+import { parseScript } from "@/lib/scripts/breakdown";
 
 export type ScriptFormat = "reel" | "tiktok" | "youtube_short" | "youtube_long" | "ad" | "other";
 export type ScriptStatus = "idea" | "draft" | "review" | "approved" | "produced";
@@ -100,6 +101,7 @@ export const scriptInput = z.object({
   projectId: z.string().uuid().nullable().optional(),
   shootId: z.string().uuid().nullable().optional(),
   memory: z.string().trim().max(1200).nullable().optional(),
+  style: z.enum(["crew", "self"]).default("crew"),
 });
 
 export async function createScript(raw: z.input<typeof scriptInput>) {
@@ -122,6 +124,7 @@ export async function createScript(raw: z.input<typeof scriptInput>) {
       projectId: data.projectId ?? null,
       shootId: data.shootId ?? null,
       memory: data.memory ?? null,
+      style: data.style,
     })
     .returning({ id: scripts.id });
   await getDb().insert(activityLog).values({
@@ -303,4 +306,38 @@ export async function pushScriptToContent(id: string): Promise<{ contentItemId: 
     meta: { contentItemId: ci.id },
   });
   return { contentItemId: ci.id };
+}
+
+/**
+ * Tick one shot of a script as filmed (or untick it). When the last shot is
+ * ticked the script itself becomes filmed, and its edit and content item move
+ * on; unticking a shot of a filmed script takes it back. Org-scoped, so both
+ * the team and the client portal can call it.
+ */
+export async function tickShot(
+  orgId: string,
+  scriptId: string,
+  index: number,
+  done: boolean,
+  clientId?: string,
+): Promise<{ shotsDone: number[]; filmed: boolean }> {
+  const db = getDb();
+  const [s] = await db
+    .select({ id: scripts.id, clientId: scripts.clientId, body: scripts.body, status: scripts.status, shotsDone: scripts.shotsDone })
+    .from(scripts)
+    .where(and(eq(scripts.id, scriptId), eq(scripts.orgId, orgId), isNull(scripts.archivedAt)))
+    .limit(1);
+  if (!s || (clientId && s.clientId !== clientId)) throw new Error("That script was not found.");
+  const total = parseScript(s.body).length;
+  if (!Number.isInteger(index) || index < 0 || index >= total) throw new Error("That shot was not found.");
+  const set = new Set((s.shotsDone ?? []).filter((n) => n >= 0 && n < total));
+  if (done) set.add(index);
+  else set.delete(index);
+  const shotsDone = [...set].sort((a, b) => a - b);
+  const all = total > 0 && shotsDone.length === total;
+  const wasFilmed = s.status === "produced";
+  const status = all ? "produced" : wasFilmed ? "approved" : s.status;
+  await db.update(scripts).set({ shotsDone, status, updatedAt: new Date() }).where(eq(scripts.id, s.id));
+  if (status !== s.status) await syncScriptPipeline(orgId, s.id);
+  return { shotsDone, filmed: status === "produced" };
 }

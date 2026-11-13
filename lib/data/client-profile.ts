@@ -72,6 +72,7 @@ export type ClientProfile = {
     retainerOverridePence: number | null;
     currency: string;
     createdAt: Date;
+    selfShoot: boolean;
   };
   summary: {
     projectsCount: number;
@@ -102,6 +103,7 @@ export async function getClientProfile(id: string): Promise<ClientProfile | null
       retainerOverridePence: clients.retainerOverridePence,
       currency: clients.currency,
       createdAt: clients.createdAt,
+      selfShoot: clients.selfShoot,
     })
     .from(clients)
     .leftJoin(servicePlans, eq(clients.servicePlanId, servicePlans.id))
@@ -293,4 +295,13 @@ export async function addClientContact(input: ClientContactInput) {
   });
 
   return row;
+}
+
+/** Who films this client's content: our team, or the client themselves. */
+export async function setClientSelfShoot(clientId: string, selfShoot: boolean) {
+  const user = await requireUser();
+  await getDb()
+    .update(clients)
+    .set({ selfShoot, updatedAt: new Date() })
+    .where(and(eq(clients.id, clientId), eq(clients.orgId, user.orgId)));
 }

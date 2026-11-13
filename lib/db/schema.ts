@@ -208,6 +208,8 @@ export const clients = pgTable("clients", {
   servicePlanId: uuid("service_plan_id").references(() => servicePlans.id),
   /** Per-client monthly override in pence (null = use the plan's price). */
   retainerOverridePence: integer("retainer_override_pence"),
+  /** True when this client films their own content: their scripts are simple shot lists. */
+  selfShoot: boolean("self_shoot").notNull().default(false),
   currency: text("currency").notNull().default("GBP"),
   /** Stripe billing: the customer, their package subscription and its state. */
   stripeCustomerId: text("stripe_customer_id"),
@@ -925,6 +927,10 @@ export const scripts = pgTable("scripts", {
   hookScript: text("hook_script"),
   body: text("body"),
   notes: text("notes"),
+  /** Who films it: "crew" (our team, full direction) or "self" (the client, simple shot list). */
+  style: text("style").notNull().default("crew"),
+  /** Which shots (beats, by position) have been ticked off as filmed. */
+  shotsDone: jsonb("shots_done").$type<number[]>().notNull().default([]),
   /** The AI's lasting memory of this script (idea, hook, angle), so it is never repeated. */
   memory: text("memory"),
   // Workflow links once pushed out.

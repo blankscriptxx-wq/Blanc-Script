@@ -15,6 +15,7 @@ import {
   addMessage,
   createThread,
   ensureShootThread,
+  otherConversations,
   getThreadClientId,
   getThreadMessages,
 } from "@/lib/data/client-chat";
@@ -27,7 +28,7 @@ import {
   setScriptStatus,
 } from "@/lib/data/scripts";
 import { runClientResearch, setAutoResearch } from "@/lib/data/research-job";
-import { currentProjectFor, writeScripts } from "@/lib/data/script-writer";
+import { clientScriptStyle, currentProjectFor, writeScripts } from "@/lib/data/script-writer";
 import { getShootRunSheet } from "@/lib/data/shoots";
 
 export type AiResult = { ok: true; text: string } | { ok: false; error: string };
@@ -139,23 +140,25 @@ type ShootContext = { id: string; title: string; projectId: string | null; brief
 
 /** One turn of the strategist: reply, and write the scripts if this was the go-ahead. */
 async function strategistTurn(threadId: string, clientId: string, q: string, shoot: ShootContext | null): Promise<AiResult> {
-    const [context, history] = await Promise.all([
+    const [context, history, elsewhere, defaultStyle] = await Promise.all([
       buildBrainContext(clientId),
       getThreadMessages(threadId),
+      otherConversations(clientId, threadId).catch(() => ""),
+      clientScriptStyle(clientId).catch(() => "crew" as const),
     ]);
     await addMessage(threadId, "user", q);
     const raw = await runChat({
       system: `${shoot ? `You are planning this shoot with the team. Scripts you write from this conversation go straight onto its run sheet.\n\nTHE SHOOT:\n${shoot.brief}\n\n` : ""}You are the dedicated content strategist for this client inside a creative agency's OS. You know the client's brain and every script already written for them (below), and you help plan, ideate and shape scripts with strong visual and script hooks. British English. Be concrete and practical.
 
-WRITING SCRIPTS: You can add scripts to the studio. Plan first: agree the ideas, angles, number and length with the team in conversation, and when a plan is ready, summarise it as a numbered list and ask for the go-ahead. ONLY when the team clearly tells you to go ahead and write or create the scripts (for example "go ahead", "write them", "yes, make these"), reply with one short confirming sentence and then, on its own final line, exactly: [[WRITE_SCRIPTS:n]] where n is how many scripts were agreed (1 to 10). Do not write the full scripts in the chat yourself — the studio writes them from this conversation and saves them as drafts. Never output that line while still planning, when asked a question, or if the number or ideas are not yet agreed; ask instead.
+WRITING SCRIPTS: You can add scripts to the studio. Plan first: agree the ideas, angles, number and length with the team in conversation, and when a plan is ready, summarise it as a numbered list and ask for the go-ahead. ONLY when the team clearly tells you to go ahead and write or create the scripts (for example "go ahead", "write them", "yes, make these"), reply with one short confirming sentence and then, on its own final line, exactly: [[WRITE_SCRIPTS:n]] where n is how many scripts were agreed (1 to 10). There are two kinds of script: "crew" (filmed by our team, full camera direction) and "self" (the client films themselves on a phone: a simple shot-by-shot list in everyday words). ${defaultStyle === "self" ? "This client films their own content, so scripts are the \"self\" kind unless the team says our crew is filming." : "This client is filmed by our team, so scripts are the \"crew\" kind unless the team says the client will film it themselves."} To choose the other kind for this batch, add it to the line: [[WRITE_SCRIPTS:n:self]] or [[WRITE_SCRIPTS:n:crew]]. Do not write the full scripts in the chat yourself — the studio writes them from this conversation and saves them as drafts. Never output that line while still planning, when asked a question, or if the number or ideas are not yet agreed; ask instead.
 
-CLIENT BRAIN:\n${context}`,
+CLIENT BRAIN:\n${context}${elsewhere ? `\n\nOTHER CONVERSATIONS ABOUT THIS CLIENT (their client chat and each shoot's chat — carry on from what was already discussed or agreed there):\n${elsewhere}` : ""}`,
       messages: [...history, { role: "user", content: q }],
       maxTokens: 1500,
     });
 
     // The go-ahead: turn the agreed plan into draft scripts.
-    const go = raw.match(/\[\[WRITE_SCRIPTS:\s*(\d+)\s*\]\]/i);
+    const go = raw.match(/\[\[WRITE_SCRIPTS:\s*(\d+)\s*(?::\s*(self|crew)\s*)?\]\]/i);
     let reply = raw.replace(/\[\[WRITE_SCRIPTS:[^\]]*\]\]/gi, "").trim();
     if (go) {
       const count = Math.min(Math.max(Number(go[1]) || 1, 1), 10);
@@ -172,6 +175,7 @@ CLIENT BRAIN:\n${context}`,
           instruction: `PLANNING CONVERSATION (the scripts to write were agreed here):\n\n${transcript}`,
           count,
           fromPlan: true,
+          style: go[2] ? (go[2].toLowerCase() === "self" ? "self" : "crew") : null,
         });
         reply = titles.length
           ? `${reply}\n\nDone — I've added ${titles.length} draft script${titles.length === 1 ? "" : "s"}${shoot ? ` to this shoot's run sheet` : project ? ` to ${project.name}` : ""}:\n${titles.map((t) => `• ${t}`).join("\n")}\n\n${shoot ? "They are in the list above — open each one to read and approve it." : `Open the Scripts tab${project ? " or the project" : ""} to read and approve them.`}`

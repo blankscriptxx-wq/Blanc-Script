@@ -1,5 +1,6 @@
 "use client";
 
+import { WhoFilms } from "@/components/clients/who-films";
 import * as React from "react";
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
@@ -172,6 +173,7 @@ export function ClientProfileView({
           <Detail label="Currency" value={c.currency} />
           <Detail label="Client since" value={dateFmt.format(new Date(c.createdAt))} />
         </div>
+        <WhoFilms clientId={c.id} selfShoot={c.selfShoot} />
         <div className="mt-4 border-t border-bs-border pt-4">
           <DraftSummaryButton clientId={c.id} />
         </div>

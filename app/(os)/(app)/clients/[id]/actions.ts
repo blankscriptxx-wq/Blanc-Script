@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { addClientContact } from "@/lib/data/client-profile";
+import { addClientContact, setClientSelfShoot } from "@/lib/data/client-profile";
 
 export async function addContactAction(
   _prev: { ok: boolean; error: string } | null,
@@ -26,5 +26,18 @@ export async function addContactAction(
     return { ok: true, error: "" };
   } catch (e) {
     return { ok: false, error: (e as Error).message || "Could not add contact." };
+  }
+}
+
+/** Switch a client between "our team films" and "they film themselves". */
+export async function setSelfShootAction(clientId: string, selfShoot: boolean) {
+  try {
+    await setClientSelfShoot(clientId, selfShoot);
+    revalidatePath(`/clients/${clientId}`);
+    revalidatePath("/shoots", "layout");
+    revalidatePath("/projects", "layout");
+    return { ok: true, error: "" };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message || "Could not save that." };
   }
 }

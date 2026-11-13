@@ -162,6 +162,13 @@
       "when": 1794535310356,
       "tag": "0022_silent_morbius",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1794536249732,
+      "tag": "0023_flowery_green_goblin",
+      "breakpoints": true
     }
   ]
 }
