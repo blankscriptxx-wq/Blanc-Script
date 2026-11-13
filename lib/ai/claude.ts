@@ -14,6 +14,14 @@ export function aiConfigured(): boolean {
 
 const MODEL = process.env.ANTHROPIC_MODEL || "claude-opus-5-5";
 
+/**
+ * The model thinks before it answers, and that thinking is spent from the same
+ * allowance as the reply. A small limit can be used up entirely by thinking,
+ * leaving an empty answer, so every request gets generous headroom. Callers'
+ * `maxTokens` say how long an answer they expect, not a hard cap.
+ */
+const room = (maxTokens: number) => Math.max(maxTokens, 16000);
+
 let _client: Anthropic | null = null;
 function client(): Anthropic {
   if (!aiConfigured()) {
@@ -35,7 +43,7 @@ export type AssistArgs = {
 export async function runAssist({ system, prompt, maxTokens = 1500 }: AssistArgs): Promise<string> {
   const msg = await client().messages.create({
     model: MODEL,
-    max_tokens: maxTokens,
+    max_tokens: room(maxTokens),
     system,
     messages: [{ role: "user", content: prompt }],
   });
@@ -64,16 +72,18 @@ export async function runChat({
 }): Promise<string> {
   const msg = await client().messages.create({
     model: MODEL,
-    max_tokens: maxTokens,
+    max_tokens: room(maxTokens),
     system,
     messages: messages.map((m) => ({ role: m.role, content: m.content })),
   });
   if (msg.stop_reason === "refusal") throw new Error("The assistant declined this request.");
-  return msg.content
+  const text = msg.content
     .filter((b): b is Anthropic.TextBlock => b.type === "text")
     .map((b) => b.text)
     .join("\n")
     .trim();
+  if (!text) throw new Error("The assistant came back with nothing. Send that again.");
+  return text;
 }
 
 /**
@@ -93,7 +103,7 @@ export async function runResearch({
   for (let round = 0; round < 5; round++) {
     const res = await c.messages.create({
       model: MODEL,
-      max_tokens: maxTokens,
+      max_tokens: room(maxTokens),
       system,
       // The installed SDK may not type the latest server tool; pass through.
       tools: tools as unknown as Anthropic.Tool[],
@@ -152,7 +162,7 @@ export async function runStructured<T = unknown>({
 }: AssistArgs & { schema: Record<string, unknown> }): Promise<T> {
   const msg = await client().messages.create({
     model: MODEL,
-    max_tokens: maxTokens,
+    max_tokens: room(maxTokens),
     system,
     messages: [{ role: "user", content: prompt }],
     output_config: { format: { type: "json_schema", schema } },

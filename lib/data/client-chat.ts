@@ -54,7 +54,8 @@ export async function getThreadMessages(threadId: string): Promise<ChatMessage[]
     .from(clientMessages)
     .where(and(eq(clientMessages.orgId, user.orgId), eq(clientMessages.threadId, threadId)))
     .orderBy(asc(clientMessages.createdAt));
-  return rows.map((r) => ({ role: r.role as "user" | "assistant", content: r.content }));
+  // Blank turns (a reply that failed) are neither shown nor sent back to the AI.
+  return rows.filter((r) => r.content.trim()).map((r) => ({ role: r.role as "user" | "assistant", content: r.content }));
 }
 
 export async function addMessage(threadId: string, role: "user" | "assistant", content: string) {
