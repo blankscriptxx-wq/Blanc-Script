@@ -199,7 +199,7 @@ export async function getNeedsYou(): Promise<NeedsYouResult> {
       kind: "shoot",
       title: shoot.title,
       meta: shoot.status === "on_site" ? `On site · ${when}` : when,
-      href: "/shoots",
+      href: `/shoots/${shoot.id}`,
       tone: soon ? "warning" : "accent",
       urgency: shoot.scheduledAt ? shoot.scheduledAt.getTime() : now.getTime(),
     });
@@ -300,6 +300,8 @@ export type ActivityItem = {
 const ACTION_LABELS: Record<string, string> = {
   "script.pushed_to_content": "Pushed a script to Content",
   "script.created": "Created a script",
+  "script.filmed": "Filmed a script",
+  "script.unfilmed": "Unticked a filmed script",
   "invoice.paid_online": "An invoice was paid online",
   "invoice.payment_link.created": "Created a payment link",
   "invoice.autodrafted": "Drafted a talent payment",

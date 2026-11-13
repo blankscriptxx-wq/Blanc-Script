@@ -2,7 +2,7 @@ import "server-only";
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db/client";
-import { shoots, clients, projects, activityLog, shootTalent, talent } from "@/lib/db/schema";
+import { shoots, clients, projects, activityLog, shootTalent, talent, scripts } from "@/lib/db/schema";
 import { requireUser } from "@/lib/data/clients";
 
 /**
@@ -208,4 +208,85 @@ export async function createShoot(input: ShootInput) {
     meta: { title: data.title, talentCount: data.talentIds?.length ?? 0 },
   });
   return row;
+}
+
+// ── Run sheet: the scripts to film on a shoot ──────────────────────────────
+
+export type RunSheetScript = {
+  id: string;
+  title: string;
+  format: string;
+  status: "idea" | "draft" | "review" | "approved" | "produced";
+  hookVisual: string | null;
+  hookScript: string | null;
+  body: string | null;
+  notes: string | null;
+};
+
+export type RunSheet = {
+  shoot: NonNullable<Awaited<ReturnType<typeof getShoot>>>;
+  talent: { name: string; roleName: string | null; callTime: Date | null }[];
+  scripts: RunSheetScript[];
+};
+
+/**
+ * A shoot with its cast and the client's scripts to film: everything still to
+ * shoot, plus anything already marked filmed around this shoot.
+ */
+export async function getShootRunSheet(id: string): Promise<RunSheet | null> {
+  const user = await requireUser();
+  const shoot = await getShoot(id);
+  if (!shoot) return null;
+  const db = getDb();
+  const cast = await db
+    .select({ name: talent.name, roleName: shootTalent.roleName, callTime: shootTalent.callTime })
+    .from(shootTalent)
+    .innerJoin(talent, eq(shootTalent.talentId, talent.id))
+    .where(and(eq(shootTalent.shootId, id), eq(shootTalent.orgId, user.orgId)));
+  let list: RunSheetScript[] = [];
+  if (shoot.clientId) {
+    const since = shoot.scheduledAt ? new Date(shoot.scheduledAt.getTime() - 86_400_000) : null;
+    const rows = await db
+      .select({
+        id: scripts.id,
+        title: scripts.title,
+        format: scripts.format,
+        status: scripts.status,
+        hookVisual: scripts.hookVisual,
+        hookScript: scripts.hookScript,
+        body: scripts.body,
+        notes: scripts.notes,
+        updatedAt: scripts.updatedAt,
+      })
+      .from(scripts)
+      .where(and(eq(scripts.orgId, user.orgId), eq(scripts.clientId, shoot.clientId), isNull(scripts.archivedAt)))
+      .orderBy(asc(scripts.createdAt), asc(scripts.title));
+    list = rows
+      .filter((s) => (s.status === "produced" ? !since || s.updatedAt >= since : s.status !== "idea"))
+      .map(({ updatedAt: _u, ...s }) => s)
+      // "Script 2 — …" before "Script 10 — …".
+      .sort((a, b) => a.title.localeCompare(b.title, "en-GB", { numeric: true }));
+  }
+  return { shoot, talent: cast, scripts: list };
+}
+
+/** Tick a script as filmed on the day (or untick it). */
+export async function setScriptFilmed(shootId: string, scriptId: string, filmed: boolean) {
+  const user = await requireUser();
+  const shoot = await getShoot(shootId);
+  if (!shoot?.clientId) throw new Error("That shoot was not found.");
+  const db = getDb();
+  const [row] = await db
+    .update(scripts)
+    .set({ status: filmed ? "produced" : "approved", updatedAt: new Date() })
+    .where(and(eq(scripts.id, scriptId), eq(scripts.orgId, user.orgId), eq(scripts.clientId, shoot.clientId)))
+    .returning({ id: scripts.id });
+  if (!row) throw new Error("That script was not found.");
+  await db.insert(activityLog).values({
+    orgId: user.orgId,
+    actorUserId: user.id,
+    action: filmed ? "script.filmed" : "script.unfilmed",
+    entityType: "script",
+    entityId: scriptId,
+  });
 }

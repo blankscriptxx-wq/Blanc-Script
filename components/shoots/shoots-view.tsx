@@ -159,6 +159,12 @@ export function ShootsView({
       >
         {selected ? (
           <div className="space-y-4">
+            <a
+              href={`/shoots/${selected.id}`}
+              className="flex h-10 items-center justify-center rounded-sm bg-bs-primary px-4 text-sm font-medium text-bs-on-accent transition-colors hover:bg-bs-primary-hover"
+            >
+              Open run sheet and scripts →
+            </a>
             <Row label="Status">
               <ShootStatus status={selected.status} />
             </Row>

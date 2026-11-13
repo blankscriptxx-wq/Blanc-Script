@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createShoot, setShootProject } from "@/lib/data/shoots";
+import { createShoot, setShootProject, setScriptFilmed } from "@/lib/data/shoots";
 
 export async function createShootAction(
   _prev: { ok: boolean; error: string } | null,
@@ -41,4 +41,16 @@ export async function setShootProjectAction(formData: FormData): Promise<void> {
   revalidatePath("/shoots");
   revalidatePath("/projects");
   if (projectId) revalidatePath(`/projects/${projectId}`);
+}
+
+/** Tick or untick a script as filmed from the shoot's run sheet. */
+export async function setScriptFilmedAction(shootId: string, scriptId: string, filmed: boolean) {
+  try {
+    await setScriptFilmed(shootId, scriptId, filmed);
+    revalidatePath(`/shoots/${shootId}`);
+    revalidatePath("/today");
+    return { ok: true, error: "" };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message || "Could not update the script." };
+  }
 }

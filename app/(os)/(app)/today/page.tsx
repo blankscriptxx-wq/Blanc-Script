@@ -258,6 +258,12 @@ export default async function TodayPage() {
                       </div>
                     ))}
                 </dl>
+                <Link
+                  href={`/shoots/${shoot.id}`}
+                  className="mt-4 flex h-10 items-center justify-center rounded-sm bg-bs-primary px-4 text-sm font-medium text-bs-on-accent transition-colors hover:bg-bs-primary-hover"
+                >
+                  Open run sheet and scripts →
+                </Link>
                 {dash.shoots.length > 1 ? (
                   <ul className="mt-4 space-y-1.5 border-t border-bs-border pt-3 text-sm">
                     {dash.shoots.slice(1).map((s) => (
