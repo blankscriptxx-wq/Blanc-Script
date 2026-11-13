@@ -36,7 +36,7 @@ export type NeedsYouResult = {
   counts: Record<NeedsYouKind, number>;
 };
 
-const FEED_CAP = 12;
+const FEED_CAP = 80;
 
 const gbp = new Intl.NumberFormat("en-GB", {
   style: "currency",
