@@ -101,7 +101,7 @@ export function OnboardingCard({
   const t0 = draft?.terms ?? {};
   const [companyNumber, setCompanyNumber] = React.useState(t0.companyNumber ?? "");
   const [regAddress, setRegAddress] = React.useState(t0.registeredAddress ?? "");
-  const [minTerm, setMinTerm] = React.useState(t0.minimumTermMonths ? String(t0.minimumTermMonths) : "");
+  const [minTerm, setMinTerm] = React.useState(t0.minimumTermMonths ? String(t0.minimumTermMonths) : draft ? "" : "6");
   const [startDate, setStartDate] = React.useState(t0.startDate ?? "");
   const [platforms, setPlatforms] = React.useState<string[]>(t0.platforms ?? []);
   const [services, setServices] = React.useState<string[]>(t0.services ?? []);
@@ -528,7 +528,7 @@ export function OnboardingCard({
           {oneOff ? null : (
             <div>
               <label className={label} htmlFor="ob-term">Minimum term in months (optional)</label>
-              <input id="ob-term" className={input} inputMode="numeric" value={minTerm} onChange={(e) => setMinTerm(e.target.value)} placeholder="Leave blank for rolling monthly" />
+              <input id="ob-term" className={input} inputMode="numeric" value={minTerm} onChange={(e) => setMinTerm(e.target.value)} placeholder="Blank = rolling monthly" />
             </div>
           )}
           <div>

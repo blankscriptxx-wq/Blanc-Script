@@ -28,6 +28,8 @@ export interface RichDocumentStudio {
   /** Who signs for Blanc Script. */
   name: string;
   date?: Date | null;
+  /** Their role, printed on the Position line (full agreement). */
+  position?: string;
 }
 
 export interface RichDocumentProps {
@@ -175,6 +177,7 @@ interface Signatory {
   signature: string;
   name: string;
   date: string;
+  position: string;
   accepted: boolean;
 }
 
@@ -214,6 +217,7 @@ function Signatures({
       signature: acceptance?.name ?? "",
       name: acceptance?.name ?? "",
       date: formatDate(acceptance?.at),
+      position: "",
       accepted: Boolean(acceptance),
     },
     {
@@ -222,6 +226,7 @@ function Signatures({
       signature: studio?.name ?? "",
       name: studio?.name ?? "",
       date: formatDate(studio?.date),
+      position: studio?.position ?? "",
       accepted: false,
     },
   ];
@@ -241,7 +246,7 @@ function Signatures({
             ) : (
               <>
                 <SignRow label="Printed name" value={party.name} />
-                <SignRow label="Position" value="" />
+                <SignRow label="Position" value={party.position} />
                 <SignRow label="Date" value={party.date} />
               </>
             )}

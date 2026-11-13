@@ -28,7 +28,7 @@ export function DocumentView({
 }: {
   body: string;
   acceptance?: { name: string; at: Date } | null;
-  studio?: { name: string; date?: Date | null } | null;
+  studio?: { name: string; date?: Date | null; position?: string } | null;
 }) {
   if (!isRichDocument(body)) return <DocumentPaper body={body} />;
   return (

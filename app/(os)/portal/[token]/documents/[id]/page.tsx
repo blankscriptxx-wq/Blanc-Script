@@ -4,7 +4,7 @@ import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import { AcceptDocument } from "@/components/portal/accept-document";
 import { DocumentView } from "@/components/documents/document-view";
 import { PrintButton } from "@/components/finance/print-button";
-import { getPortalDocument } from "@/lib/data/documents";
+import { documentSigner, getPortalDocument } from "@/lib/data/documents";
 import { resolvePortal } from "@/lib/data/portal";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +25,7 @@ export default async function PortalDocumentPage({
   if (!ctx) redirect(`/portal/enter?t=${encodeURIComponent(token)}`);
   const doc = await getPortalDocument(ctx, id);
   if (!doc) notFound();
+  const signer = await documentSigner(ctx.orgId, doc.id).catch(() => ({ name: ctx.agencyName, position: "" }));
 
   return (
     <div>
@@ -48,7 +49,7 @@ export default async function PortalDocumentPage({
       <DocumentView
         body={doc.body}
         acceptance={doc.status === "accepted" && doc.acceptedAt && doc.acceptedByName ? { name: doc.acceptedByName, at: doc.acceptedAt } : null}
-        studio={doc.sentAt ? { name: ctx.agencyName, date: doc.sentAt } : null}
+        studio={doc.sentAt ? { ...signer, date: doc.sentAt } : null}
       />
       {doc.status === "sent" ? (
         <AcceptDocument token={token} documentId={doc.id} defaultName={ctx.viewerName} />

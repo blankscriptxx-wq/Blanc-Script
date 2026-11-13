@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db/client";
 import {
@@ -554,4 +554,25 @@ export async function acceptPortalDocument(
     entityId: ctx.clientId,
     meta: { title: row.title, by: name, via: "portal" },
   });
+}
+
+/**
+ * Who signs a document for the studio: the owner who issued it, or — when it
+ * was issued automatically or by someone who isn't an owner — the master
+ * owner. Only owners sign.
+ */
+export async function documentSigner(orgId: string, documentId: string): Promise<{ name: string; position: string }> {
+  const { rows } = await getDb().execute(sql`
+    select coalesce(
+      (select u.name from client_documents d
+         join memberships m on m.user_id = d.created_by_user_id and m.org_id = d.org_id and m.role = 'owner' and m.status = 'active'
+         join neon_auth."user" u on u.id = m.user_id
+        where d.id = ${documentId} and d.org_id = ${orgId}),
+      (select u.name from organisations o join neon_auth."user" u on u.id::text = o.settings ->> 'masterUserId' where o.id = ${orgId}),
+      (select u.name from memberships m join neon_auth."user" u on u.id = m.user_id
+        where m.org_id = ${orgId} and m.role = 'owner' and m.status = 'active' order by m.created_at limit 1)
+    ) as name
+  `);
+  const name = (rows[0] as { name: string | null } | undefined)?.name?.trim();
+  return { name: name || "Blanc Script", position: name ? "Owner" : "" };
 }

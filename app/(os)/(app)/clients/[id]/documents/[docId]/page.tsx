@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { DocumentView } from "@/components/documents/document-view";
 import { PrintButton } from "@/components/finance/print-button";
-import { listClientDocuments } from "@/lib/data/documents";
+import { documentSigner, listClientDocuments } from "@/lib/data/documents";
+import { getCurrentUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Document" };
@@ -16,6 +17,8 @@ export default async function ClientDocumentPage({ params }: { params: Promise<{
   const docs = await listClientDocuments(id).catch(() => []);
   const doc = docs.find((d) => d.id === docId);
   if (!doc) notFound();
+  const user = await getCurrentUser();
+  const signer = user?.orgId ? await documentSigner(user.orgId, doc.id).catch(() => null) : null;
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
@@ -37,7 +40,7 @@ export default async function ClientDocumentPage({ params }: { params: Promise<{
       <DocumentView
         body={doc.body}
         acceptance={doc.status === "accepted" && doc.acceptedAt && doc.acceptedByName ? { name: doc.acceptedByName, at: doc.acceptedAt } : null}
-        studio={doc.sentAt ? { name: "Blanc Script", date: doc.sentAt } : null}
+        studio={doc.sentAt && signer ? { ...signer, date: doc.sentAt } : null}
       />
     </div>
   );
