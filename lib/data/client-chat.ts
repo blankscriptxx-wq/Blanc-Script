@@ -67,3 +67,28 @@ export async function addMessage(threadId: string, role: "user" | "assistant", c
     .set({ updatedAt: new Date() })
     .where(and(eq(clientThreads.id, threadId), eq(clientThreads.orgId, user.orgId)));
 }
+
+/** The planning conversation for a shoot, if one has been started. */
+export async function getShootThreadId(shootId: string): Promise<string | null> {
+  const user = await requireUser();
+  const [row] = await getDb()
+    .select({ id: clientThreads.id })
+    .from(clientThreads)
+    .where(and(eq(clientThreads.orgId, user.orgId), eq(clientThreads.shootId, shootId)))
+    .orderBy(desc(clientThreads.updatedAt))
+    .limit(1);
+  return row?.id ?? null;
+}
+
+/** Find the shoot's planning conversation, starting it on first use. */
+export async function ensureShootThread(shootId: string, clientId: string, title: string): Promise<string> {
+  const existing = await getShootThreadId(shootId);
+  if (existing) return existing;
+  const user = await requireUser();
+  await assertClient(user.orgId, clientId);
+  const [row] = await getDb()
+    .insert(clientThreads)
+    .values({ orgId: user.orgId, clientId, shootId, title: `Shoot — ${title}`.slice(0, 120) })
+    .returning({ id: clientThreads.id });
+  return row.id;
+}

@@ -885,6 +885,8 @@ export const clientThreads = pgTable("client_threads", {
     .notNull()
     .references(() => clients.id),
   title: text("title").notNull().default("New conversation"),
+  /** Set when this conversation is the planning chat for one shoot. */
+  shootId: uuid("shoot_id").references(() => shoots.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

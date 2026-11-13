@@ -2,6 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { RunSheet } from "@/components/shoots/run-sheet";
+import { ShootChat } from "@/components/shoots/shoot-chat";
+import { aiConfigured } from "@/lib/ai/claude";
+import { getShootThreadId, getThreadMessages } from "@/lib/data/client-chat";
 import { getShootRunSheet, shootShareToken } from "@/lib/data/shoots";
 
 export const metadata = { title: "Shoot" };
@@ -16,6 +19,8 @@ export default async function ShootPage({ params }: { params: Promise<{ id: stri
   if (!sheet) notFound();
   const { shoot, talent, scripts } = sheet;
   const token = await shootShareToken(shoot.id).catch(() => null);
+  const threadId = await getShootThreadId(shoot.id).catch(() => null);
+  const chat = threadId ? await getThreadMessages(threadId).catch(() => []) : [];
 
   const when = shoot.scheduledAt
     ? new Intl.DateTimeFormat("en-GB", {
@@ -68,6 +73,8 @@ export default async function ShootPage({ params }: { params: Promise<{ id: stri
         title={shoot.title}
         sharePath={token ? `/callsheet/${token}` : undefined}
       />
+
+      {shoot.clientId ? <ShootChat shootId={shoot.id} messages={chat} aiReady={aiConfigured()} /> : null}
     </div>
   );
 }
